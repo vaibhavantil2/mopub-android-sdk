@@ -16,14 +16,14 @@ repositories {
 }
 
 project.group = 'com.mopub'
-project.version = '5.11.0'
+project.version = '5.11.1'
 
 android {
     compileSdkVersion 29
     lintOptions { abortOnError false }
 
     defaultConfig {
-        versionCode 76
+        versionCode 78
         versionName version
         minSdkVersion 19
         targetSdkVersion 29

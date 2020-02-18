@@ -1,3 +1,7 @@
+## Version 5.11.1 (February 18, 2020)
+- **Bug Fixes**
+  - Addresses a crash for Android API versions 19-23
+
 ## Version 5.11.0 (January 28, 2020)
 - **Features**
   - Raise the minimum Android SDK to Android 4.4 (API level 19).
