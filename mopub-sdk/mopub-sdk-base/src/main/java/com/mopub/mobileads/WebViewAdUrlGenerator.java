@@ -13,11 +13,9 @@ import com.mopub.common.Constants;
 import static com.mopub.common.ExternalViewabilitySessionManager.ViewabilityVendor;
 
 public class WebViewAdUrlGenerator extends AdUrlGenerator {
-    private final boolean mIsStorePictureSupported;
 
-    public WebViewAdUrlGenerator(Context context, boolean isStorePictureSupported) {
+    public WebViewAdUrlGenerator(Context context) {
         super(context);
-        mIsStorePictureSupported = isStorePictureSupported;
     }
 
     @Override
@@ -30,8 +28,6 @@ public class WebViewAdUrlGenerator extends AdUrlGenerator {
         addBaseParams(clientMetadata);
 
         setMraidFlag(true);
-
-        setExternalStoragePermission(mIsStorePictureSupported);
 
         enableViewability(ViewabilityVendor.getEnabledVendorKey());
 

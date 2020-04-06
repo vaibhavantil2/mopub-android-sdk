@@ -37,7 +37,7 @@ The MoPub SDK is available via:
     }
 
     dependencies {
-        implementation('com.mopub:mopub-sdk:5.11.1@aar') {
+        implementation('com.mopub:mopub-sdk:5.12.0@aar') {
             transitive = true
         }
     }
@@ -59,27 +59,27 @@ The MoPub SDK is available via:
         // ... other project dependencies
 
         // For banners
-        implementation('com.mopub:mopub-sdk-banner:5.11.1@aar') {
+        implementation('com.mopub:mopub-sdk-banner:5.12.0@aar') {
             transitive = true
         }
         
         // For interstitials
-        implementation('com.mopub:mopub-sdk-interstitial:5.11.1@aar') {
+        implementation('com.mopub:mopub-sdk-interstitial:5.12.0@aar') {
             transitive = true
         }
 
         // For rewarded videos. This will automatically also include interstitials
-        implementation('com.mopub:mopub-sdk-rewardedvideo:5.11.1@aar') {
+        implementation('com.mopub:mopub-sdk-rewardedvideo:5.12.0@aar') {
             transitive = true
         }
 
         // For native static (images).
-        implementation('com.mopub:mopub-sdk-native-static:5.11.1@aar') {
+        implementation('com.mopub:mopub-sdk-native-static:5.12.0@aar') {
             transitive = true
         }
 
         // For native video. This will automatically also include native static
-        implementation('com.mopub:mopub-sdk-native-video:5.11.1@aar') {
+        implementation('com.mopub:mopub-sdk-native-video:5.12.0@aar') {
             transitive = true
         }
     }
@@ -107,8 +107,15 @@ The MoPub SDK is available via:
 ## New in this Version
 Please view the [changelog](https://github.com/mopub/mopub-android-sdk/blob/master/CHANGELOG.md) for a complete list of additions, fixes, and enhancements in the latest release.
 
+- **Features**
+  - Add Mintegral as a supported network.
+  - Geographical location is set automatically by the SDK. Public methods to set location are marked deprecated.
+  - Add a new method `getAppVersion()` to the `ImpressionData` class.
+  - MRAID ads always show native close button.
+
 - **Bug Fixes**
-  - Addresses a crash for Android API versions 19-23
+  - Fix multiple UI layout warnings in the sample application.
+  - Remove parameter android_perms_ext_storage from an ad request.
 
 ## Requirements
 
@@ -153,7 +160,7 @@ Normally, to add the MoPub SDK to your app via JCenter, your `build.gradle` woul
 
 ```	
 dependencies {
-    implementation('com.mopub:mopub-sdk:5.11.1@aar') {
+    implementation('com.mopub:mopub-sdk:5.12.0@aar') {
         transitive = true
     }
 }
@@ -162,7 +169,7 @@ Update to the following to exclude one or both viewability vendors:
 
 ```
 dependencies {
-    implementation('com.mopub:mopub-sdk:5.11.1@aar') {
+    implementation('com.mopub:mopub-sdk:5.12.0@aar') {
         transitive = true
         exclude module: 'libAvid-mopub' // To exclude AVID
         exclude module: 'moat-mobile-app-kit' // To exclude Moat

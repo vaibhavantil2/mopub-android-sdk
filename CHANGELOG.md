@@ -1,3 +1,14 @@
+## Version 5.12.0 (April 6, 2020)
+- **Features**
+  - Add Mintegral as a supported network.
+  - Geographical location is set automatically by the SDK. Public methods to set location are marked deprecated.
+  - Add a new method `getAppVersion()` to the `ImpressionData` class.
+  - MRAID ads always show native close button.
+
+- **Bug Fixes**
+  - Fix multiple UI layout warnings in the sample application.
+  - Remove parameter android_perms_ext_storage from an ad request.
+
 ## Version 5.11.1 (February 18, 2020)
 - **Bug Fixes**
   - Addresses a crash for Android API versions 19-23
