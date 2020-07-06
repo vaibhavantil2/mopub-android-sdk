@@ -2025,9 +2025,9 @@ public class VastVideoViewControllerTest {
     }
 
     @Test
-    public void onPause_withIsClosingFlagSet_shouldNotFirePauseTrackers() throws Exception {
+    public void onPause_withIsCompleteFlagSet_shouldNotFirePauseTrackers() throws Exception {
         initializeSubject();
-        subject.setClosing(true);
+        subject.setComplete(true);
 
         subject.onPause();
         verifyNoMoreInteractions(mockRequestQueue);

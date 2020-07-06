@@ -368,6 +368,7 @@ public class MoPubInterstitial implements MoPubAd {
         if (mInterstitialAdListener != null) {
             mInterstitialAdListener.onInterstitialFailed(MoPubInterstitial.this, errorCode);
         }
+
         attemptStateTransition(IDLE);
     }
 
@@ -382,9 +383,7 @@ public class MoPubInterstitial implements MoPubAd {
             mInterstitialAdListener.onInterstitialFailed(MoPubInterstitial.this, errorCode);
         }
 
-        if (loadFailUrl(errorCode)) {
-            attemptStateTransition(IDLE);
-        }
+        attemptStateTransition(IDLE);
     }
 
     @Override

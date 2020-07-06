@@ -607,7 +607,7 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
         MoPubLog.log(CUSTOM, "Ad failed to load.");
         setNotLoading();
 
-        MoPubAd moPubAd = getMoPubAd();
+        final MoPubAd moPubAd = getMoPubAd();
         if (moPubAd == null) {
             return;
         }
@@ -828,9 +828,8 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
 
     @Override
     public void onAdLoadFailed(@NotNull MoPubErrorCode errorCode) {
-        final MoPubAd moPubAd = getMoPubAd();
-        if (moPubAd != null) {
-            moPubAd.onAdLoadFailed(errorCode);
+        if (!loadFailUrl(errorCode)) {
+            adDidFail(errorCode);
         }
     }
 

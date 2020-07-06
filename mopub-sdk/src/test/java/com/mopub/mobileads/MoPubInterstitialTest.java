@@ -180,13 +180,21 @@ public class MoPubInterstitialTest {
 
         verify(adViewController, never()).onAdImpression();
         verify(interstitialAdListener, never()).onInterstitialLoaded(eq(subject));
+        assertThat(subject.getCurrentInterstitialState()).isEqualTo(IDLE);
     }
 
     @Test
-    public void onFailed_shouldLoadFailUrl() throws Exception {
+    public void onAdLoadFailed_shouldCallLoadFailUrl() throws Exception {
+        subject.onAdLoadFailed(INTERNAL_ERROR);
+
+        verify(interstitialAdListener).onInterstitialFailed(eq(subject), eq(INTERNAL_ERROR));
+    }
+
+    @Test
+    public void onAdFailed_shouldNotCallLoadFailUrl() throws Exception {
         subject.onAdFailed(INTERNAL_ERROR);
 
-        verify(adViewController).loadFailUrl(INTERNAL_ERROR);
+        verify(adViewController, never()).loadFailUrl(INTERNAL_ERROR);
     }
 
     @Test

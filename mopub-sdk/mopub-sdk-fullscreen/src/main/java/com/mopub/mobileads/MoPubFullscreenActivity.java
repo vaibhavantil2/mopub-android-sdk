@@ -120,6 +120,13 @@ public class MoPubFullscreenActivity extends Activity {
     }
 
     @Override
+    protected void onActivityResult(final int requestCode, final int resultCode, final Intent data) {
+        if (mFullscreenAdController != null) {
+            mFullscreenAdController.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         if (mFullscreenAdController != null) {
             mFullscreenAdController.destroy();

@@ -521,7 +521,7 @@ class VastVideoViewController(
         // focus handler here in onPause() as we manage play and pause manually
         mediaPlayer.audioFocusHandler.close()
 
-        if (!isClosing) {
+        if (!isComplete) {
             externalViewabilitySessionManager.recordVideoEvent(
                 VideoEvent.AD_PAUSED,
                 getCurrentPosition()

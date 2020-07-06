@@ -1,3 +1,7 @@
+## Version 5.13.1 (July 6, 2020)
+- **Bug Fixes**
+  - Fix a bug regarding mediated network failovers.
+
 ## Version 5.13.0 (June 15, 2020)
 - **Features**
   - Remove Moat and IAS measurement SDKs.

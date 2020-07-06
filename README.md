@@ -2,8 +2,6 @@
 
 Thanks for taking a look at MoPub! We take pride in having an easy-to-use, flexible monetization solution that works across multiple platforms.
 
-**MoPub has found a bug regarding failover urls such that using 5.13.0 is not recommended. Stay tuned for 5.13.1.**
-
 Sign up for an account at [http://app.mopub.com/](http://app.mopub.com/).
 
 ## Need Help?
@@ -33,7 +31,7 @@ The MoPub SDK is available via:
     }
 
     dependencies {
-        implementation('com.mopub:mopub-sdk:5.13.0@aar') {
+        implementation('com.mopub:mopub-sdk:5.13.1@aar') {
             transitive = true
         }
     }
@@ -55,22 +53,22 @@ The MoPub SDK is available via:
         // ... other project dependencies
 
         // For banners
-        implementation('com.mopub:mopub-sdk-banner:5.13.0@aar') {
+        implementation('com.mopub:mopub-sdk-banner:5.13.1@aar') {
             transitive = true
         }
         
         // For interstitials and rewarded ads
-        implementation('com.mopub:mopub-sdk-fullscreen:5.13.0@aar') {
+        implementation('com.mopub:mopub-sdk-fullscreen:5.13.1@aar') {
             transitive = true
         }
 
         // For native static (images).
-        implementation('com.mopub:mopub-sdk-native-static:5.13.0@aar') {
+        implementation('com.mopub:mopub-sdk-native-static:5.13.1@aar') {
             transitive = true
         }
 
         // For native video. This will automatically also include native static
-        implementation('com.mopub:mopub-sdk-native-video:5.13.0@aar') {
+        implementation('com.mopub:mopub-sdk-native-video:5.13.1@aar') {
             transitive = true
         }
     }
@@ -98,15 +96,8 @@ The MoPub SDK is available via:
 ## New in this Version
 Please view the [changelog](https://github.com/mopub/mopub-android-sdk/blob/master/CHANGELOG.md) for a complete list of additions, fixes, and enhancements in the latest release.
 
-- **Features**
-  - Remove Moat and IAS measurement SDKs.
-  - Consolidate banners, interstitials, and rewarded ads into one container. Third party network adapters for these formats should now extend `BaseAd`.
-  - Consolidate the `mopub-sdk-interstitial` and `mopub-sdk-rewarded-video` modules into `mopub-sdk-fullscreen`.
-  - Upgrade to use the Androidx Media2 video player for VAST videos.
-
 - **Bug Fixes**
-  - Unify the design treatment of fullscreen close buttons. Add a skip button for video when the skip threshold has been met before it has completed.
-  - Fix the version name of the sample app on the Play Store.
+  - Fix a bug regarding mediated network failovers.
 
 ## Requirements
 

@@ -289,6 +289,12 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
         startRunnables();
     }
 
+    public void onActivityResult(final int requestCode, final int resultCode, final Intent data) {
+        if (mVideoViewController != null) {
+            mVideoViewController.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
     public void destroy() {
         if (mExternalViewabilitySessionManager != null) {
             mExternalViewabilitySessionManager.endDisplaySession();
