@@ -6,6 +6,7 @@ package com.mopub.mobileads;
 
 import android.content.Context;
 import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,7 +26,8 @@ import static com.mopub.mobileads.MoPubErrorCode.NETWORK_TIMEOUT;
 
 public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdLifecycleListener.InteractionListener {
 
-    protected final Handler mHandler;
+    @NonNull
+    private final Handler mMainHandler;
     protected final Runnable mTimeout;
 
     @Nullable
@@ -53,13 +55,13 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
         Preconditions.checkNotNull(adData);
 
         mContext = context;
-        mHandler = new Handler();
+        mMainHandler = new Handler(Looper.getMainLooper());
         mAdData = adData;
 
         mTimeout = () -> {
             MoPubLog.log(CUSTOM_WITH_THROWABLE, "AdAdapter() failed", NETWORK_TIMEOUT);
             onAdLoadFailed(NETWORK_TIMEOUT);
-            invalidate();
+            mMainHandler.post(this::invalidate);
         };
     }
 
@@ -74,7 +76,7 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
 
         mLoadListener = loadListener;
 
-        mHandler.postDelayed(mTimeout, getTimeoutDelayMilliseconds());
+        mMainHandler.postDelayed(mTimeout, getTimeoutDelayMilliseconds());
 
         // Base ad classes can be developed by any third party and may not be tested.
         // We catch all exceptions here to prevent crashes from untested code.
@@ -132,7 +134,7 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
     }
 
     private void cancelTimeout() {
-        mHandler.removeCallbacks(mTimeout);
+        mMainHandler.removeCallbacks(mTimeout);
     }
 
     protected String getAdNetworkId() {
@@ -158,9 +160,11 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
         mIsReady = true;
         cancelTimeout();
 
-        if (mLoadListener != null) {
-            mLoadListener.onAdLoaded();
-        }
+        mMainHandler.post(() -> {
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoaded();
+            }
+        });
     }
 
     @Override
@@ -172,9 +176,11 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
 
         cancelTimeout();
 
-        if (mLoadListener != null) {
-            mLoadListener.onAdLoadFailed(errorCode);
-        }
+        mMainHandler.post(() -> {
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoadFailed(errorCode);
+            }
+        });
     }
 
     @Override
@@ -187,9 +193,11 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
 
         cancelTimeout();
 
-        if (mInteractionListener != null) {
-            mInteractionListener.onAdFailed(errorCode);
-        }
+        mMainHandler.post(() -> {
+            if (mInteractionListener != null) {
+                mInteractionListener.onAdFailed(errorCode);
+            }
+        });
     }
 
     @Override
@@ -198,20 +206,23 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
             return;
         }
 
-        if (mInteractionListener != null) {
-            mInteractionListener.onAdShown();
-        }
-
-        final BaseAd baseAd = mBaseAd;
-        if (baseAd == null || baseAd.isAutomaticImpressionAndClickTrackingEnabled()) {
+        mMainHandler.post(() -> {
             if (mInteractionListener != null) {
-                mInteractionListener.onAdImpression();
+                mInteractionListener.onAdShown();
             }
 
-            if (baseAd != null) {
-                baseAd.trackMpxAndThirdPartyImpressions();
+            final BaseAd baseAd = mBaseAd;
+            if (baseAd == null || baseAd.isAutomaticImpressionAndClickTrackingEnabled()) {
+
+                if (mInteractionListener != null) {
+                    mInteractionListener.onAdImpression();
+                }
+
+                if (baseAd != null) {
+                    baseAd.trackMpxAndThirdPartyImpressions();
+                }
             }
-        }
+        });
     }
 
     @Override
@@ -220,9 +231,11 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
             return;
         }
 
-        if (mInteractionListener != null) {
-            mInteractionListener.onAdClicked();
-        }
+        mMainHandler.post(() -> {
+            if (mInteractionListener != null) {
+                mInteractionListener.onAdClicked();
+            }
+        });
     }
 
     @Override
@@ -231,13 +244,15 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
             return;
         }
 
-        final BaseAd baseAd = mBaseAd;
-        if (baseAd != null && !baseAd.isAutomaticImpressionAndClickTrackingEnabled()) {
-            if (mInteractionListener != null) {
-                mInteractionListener.onAdImpression();
+        mMainHandler.post(() -> {
+            final BaseAd baseAd = mBaseAd;
+            if (baseAd != null && !baseAd.isAutomaticImpressionAndClickTrackingEnabled()) {
+                if (mInteractionListener != null) {
+                    mInteractionListener.onAdImpression();
+                }
+                baseAd.trackMpxAndThirdPartyImpressions();
             }
-            baseAd.trackMpxAndThirdPartyImpressions();
-        }
+        });
     }
 
     @Override
@@ -246,9 +261,11 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
             return;
         }
 
-        if (mInteractionListener != null) {
-            mInteractionListener.onAdDismissed();
-        }
+        mMainHandler.post(() -> {
+            if (mInteractionListener != null) {
+                mInteractionListener.onAdDismissed();
+            }
+        });
     }
 
     @Override
@@ -257,23 +274,29 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
             return;
         }
 
-        if (mInteractionListener != null) {
-            mInteractionListener.onAdComplete(moPubReward);
-        }
+        mMainHandler.post(() -> {
+            if (mInteractionListener != null) {
+                mInteractionListener.onAdComplete(moPubReward);
+            }
+        });
     }
 
     @Override
     public void onAdResumeAutoRefresh() {
-        if (mInteractionListener != null) {
-            mInteractionListener.onAdResumeAutoRefresh();
-        }
+        mMainHandler.post(() -> {
+            if (mInteractionListener != null) {
+                mInteractionListener.onAdResumeAutoRefresh();
+            }
+        });
     }
 
     @Override
     public void onAdPauseAutoRefresh() {
-        if (mInteractionListener != null) {
-            mInteractionListener.onAdPauseAutoRefresh();
-        }
+        mMainHandler.post(() -> {
+            if (mInteractionListener != null) {
+                mInteractionListener.onAdPauseAutoRefresh();
+            }
+        });
     }
 
     @Override
@@ -282,9 +305,11 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
             return;
         }
 
-        if (mInteractionListener != null) {
-            mInteractionListener.onAdExpanded();
-        }
+        mMainHandler.post(() -> {
+            if (mInteractionListener != null) {
+                mInteractionListener.onAdExpanded();
+            }
+        });
     }
 
     @Override
@@ -293,9 +318,11 @@ public abstract class AdAdapter implements AdLifecycleListener.LoadListener, AdL
             return;
         }
 
-        if (mInteractionListener != null) {
-            mInteractionListener.onAdCollapsed();
-        }
+        mMainHandler.post(() -> {
+            if (mInteractionListener != null) {
+                mInteractionListener.onAdCollapsed();
+            }
+        });
     }
 
     public static class BaseAdNotFoundException extends Exception {

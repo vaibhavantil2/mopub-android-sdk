@@ -12,7 +12,7 @@ public enum ResponseHeader {
     AD_GROUP_ID("x-adgroupid"),
     ADUNIT_FORMAT("adunit-format"),
     IMPRESSION_DATA("impdata"),
-    CLICK_TRACKING_URL("x-clickthrough"),
+    CLICK_TRACKING_URL("clicktrackers"),
     CUSTOM_EVENT_DATA("x-custom-event-class-data"),
     CUSTOM_EVENT_NAME("x-custom-event-class-name"),
     CREATIVE_ID("x-creativeid"),
@@ -65,8 +65,8 @@ public enum ResponseHeader {
     VIDEO_TRACKERS("x-video-trackers"),
 
     // Viewability fields
-    VIDEO_VIEWABILITY_TRACKERS("x-video-viewability-trackers"),
     DISABLE_VIEWABILITY("x-disable-viewability"),
+    VIEWABILITY_VERIFICATION("viewability-verification-resources"),
 
     // Client-side Waterfall
     AD_RESPONSES("ad-responses"),

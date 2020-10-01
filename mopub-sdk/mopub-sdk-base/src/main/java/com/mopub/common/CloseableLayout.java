@@ -315,6 +315,6 @@ public class CloseableLayout extends FrameLayout {
 
     @VisibleForTesting
     public boolean isCloseVisible() {
-        return mCloseDrawable.isVisible();
+        return mCloseDrawable != null && mCloseDrawable.isVisible();
     }
 }

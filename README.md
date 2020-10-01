@@ -25,13 +25,12 @@ The MoPub SDK is available via:
     
     ```
     repositories {
-        jcenter() // includes the MoPub SDK and AVID library
-        maven { url "https://s3.amazonaws.com/moat-sdk-builds" }
-        maven { url 'https://maven.google.com' } // necessary for Android API 26
+        jcenter() // includes the MoPub SDK
+        google() // necessary for Android API
     }
 
     dependencies {
-        implementation('com.mopub:mopub-sdk:5.13.1@aar') {
+        implementation('com.mopub:mopub-sdk:5.14.0@aar') {
             transitive = true
         }
     }
@@ -44,31 +43,30 @@ The MoPub SDK is available via:
     ```groovy
     repositories {
         // ... other project repositories
-        jcenter() // includes the MoPub SDK and AVID library
-        maven { url "https://s3.amazonaws.com/moat-sdk-builds" }
-        maven { url 'https://maven.google.com' } // necessary for Android API 26
+        jcenter() // includes the MoPub SDK
+        google() // necessary for Android API
     }
 
     dependencies {
         // ... other project dependencies
 
         // For banners
-        implementation('com.mopub:mopub-sdk-banner:5.13.1@aar') {
+        implementation('com.mopub:mopub-sdk-banner:5.14.0@aar') {
             transitive = true
         }
         
         // For interstitials and rewarded ads
-        implementation('com.mopub:mopub-sdk-fullscreen:5.13.1@aar') {
+        implementation('com.mopub:mopub-sdk-fullscreen:5.14.0@aar') {
             transitive = true
         }
 
         // For native static (images).
-        implementation('com.mopub:mopub-sdk-native-static:5.13.1@aar') {
+        implementation('com.mopub:mopub-sdk-native-static:5.14.0@aar') {
             transitive = true
         }
 
         // For native video. This will automatically also include native static
-        implementation('com.mopub:mopub-sdk-native-video:5.13.1@aar') {
+        implementation('com.mopub:mopub-sdk-native-video:5.14.0@aar') {
             transitive = true
         }
     }
@@ -96,8 +94,20 @@ The MoPub SDK is available via:
 ## New in this Version
 Please view the [changelog](https://github.com/mopub/mopub-android-sdk/blob/master/CHANGELOG.md) for a complete list of additions, fixes, and enhancements in the latest release.
 
+- **Features**
+  - Add beta support for OMSDK version 1.3.4.
+  - Certify MoPub Android SDK for Android 11 (API level 30).
+  - Add `MoPubErrorCode.TOO_MANY_REQUESTS` to notify of making too many unsuccessful requests in a short period of time.
+  - Add Pangle as a supported network.
+  - Remove Mintegral as a supported network.
+
 - **Bug Fixes**
-  - Fix a bug regarding mediated network failovers.
+  - Banner pause should not restart refresh timer.
+  - Address a null pointer exception when some ads expire.
+  - Address a destroyed ad causing a null pointer in certain situations.
+  - Address having multiple close buttons.
+  - Put banner and interstitial callbacks on the main thread. This should address some race conditions when showing an ad immediately after the load finishes.
+  - Other minor bugs.
 
 ## Requirements
 
@@ -111,8 +121,9 @@ Please view the [changelog](https://github.com/mopub/mopub-android-sdk/blob/mast
 - androidx.media2:media2-session (**Added in 5.11.0**)
 - androidx.media2:media2-widget (**Added in 5.11.0**)
 - androidx.media2:media2-player (**Added in 5.11.0**)
+- com.mopub:omsdk-android:1.3.4 (**Added in 5.14.0**)
 - MoPub Volley Library (mopub-volley-2.1.0.jar - available on JCenter) (**Updated in 5.6.0**)
-- **Recommended** Google Play Services (com.google.android.gms:play-services-ads-identifier:17.0.0 and com.google.android.gms:play-services-base:17.1.0) (**Updated in 5.10.0**)
+- **Recommended** Google Play Services (com.google.android.gms:play-services-ads-identifier:17.0.0 and com.google.android.gms:play-services-base:17.3.0) (**Updated in 5.14.0**)
 - If you are integrating with v5.6.0 or later of the MoPub SDK, specify the `sourceCompatibility` and `targetCompatibility` as below to prevent compilation errors with ExoPlayer 2.9.5 and later:
 
     ```groovy
@@ -155,3 +166,7 @@ If your app's target SDK is 23 or higher _**and**_ the user's device is running 
 ## License
 
 To view the full license, visit [http://www.mopub.com/legal/sdk-license-agreement/](http://www.mopub.com/legal/sdk-license-agreement/).
+
+## Open Measurement License
+
+We have partnered with the IAB to provide Viewability measurement via the Open Measurement SDK as of version 5.14.0. To view the full license, visit [https://www.mopub.com/en/omlv1](https://www.mopub.com/en/omlv1)

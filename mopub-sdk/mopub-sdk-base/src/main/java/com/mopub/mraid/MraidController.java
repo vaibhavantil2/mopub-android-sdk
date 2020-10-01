@@ -32,7 +32,6 @@ import androidx.annotation.Nullable;
 import com.mopub.common.CloseableLayout;
 import com.mopub.common.CloseableLayout.ClosePosition;
 import com.mopub.common.CloseableLayout.OnCloseListener;
-import com.mopub.common.ExternalViewabilitySessionManager;
 import com.mopub.common.Preconditions;
 import com.mopub.common.UrlAction;
 import com.mopub.common.UrlHandler;
@@ -43,6 +42,7 @@ import com.mopub.common.util.Dips;
 import com.mopub.common.util.Views;
 import com.mopub.mobileads.BaseHtmlWebView;
 import com.mopub.mobileads.BaseWebView;
+import com.mopub.mobileads.BaseWebViewViewability;
 import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.mobileads.MoPubWebViewController;
 import com.mopub.mobileads.MraidVideoPlayerActivity;
@@ -659,11 +659,17 @@ public class MraidController extends MoPubWebViewController {
         layoutParams.leftMargin = resizeRect.left - mScreenMetrics.getRootViewRect().left;
         layoutParams.topMargin = resizeRect.top - mScreenMetrics.getRootViewRect().top;
         if (mViewState == ViewState.DEFAULT) {
+            if (mWebView instanceof BaseWebViewViewability) {
+                ((BaseWebViewViewability) mWebView).disableTracking();
+            }
             mDefaultAdContainer.removeView(mWebView);
             mDefaultAdContainer.setVisibility(View.INVISIBLE);
             mCloseableAdContainer.addView(mWebView,
                     new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
             getAndMemoizeRootView().addView(mCloseableAdContainer, layoutParams);
+            if (mWebView instanceof BaseWebViewViewability) {
+                ((BaseWebViewViewability) mWebView).enableTracking();
+            }
         } else if (mViewState == ViewState.RESIZED) {
             mCloseableAdContainer.setLayoutParams(layoutParams);
         }
@@ -694,6 +700,7 @@ public class MraidController extends MoPubWebViewController {
             // Of note: the two part ad will start off with its view state as LOADING, and will
             // transition to EXPANDED once the page is fully loaded
             mTwoPartWebView = (MraidWebView) createWebView();
+            mTwoPartWebView.disableTracking();
             mTwoPartBridge.attachView(mTwoPartWebView);
 
             // onPageLoaded gets fired once the html is loaded into the two part webView
@@ -707,9 +714,15 @@ public class MraidController extends MoPubWebViewController {
             if (isTwoPart) {
                 mCloseableAdContainer.addView(mTwoPartWebView, layoutParams);
             } else {
+                if (mWebView instanceof BaseWebViewViewability) {
+                    ((BaseWebViewViewability) mWebView).disableTracking();
+                }
                 mDefaultAdContainer.removeView(mWebView);
                 mDefaultAdContainer.setVisibility(View.INVISIBLE);
                 mCloseableAdContainer.addView(mWebView, layoutParams);
+                if (mWebView instanceof BaseWebViewViewability) {
+                    ((BaseWebViewViewability) mWebView).enableTracking();
+                }
             }
             getAndMemoizeRootView().addView(mCloseableAdContainer,
                     new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
@@ -717,8 +730,15 @@ public class MraidController extends MoPubWebViewController {
             if (isTwoPart) {
                 // Move the ad back to the original container so that when we close the
                 // resized ad, it will be in the correct place
+                if (mWebView instanceof BaseWebViewViewability) {
+                    ((BaseWebViewViewability) mWebView).disableTracking();
+                }
                 mCloseableAdContainer.removeView(mWebView);
                 mDefaultAdContainer.addView(mWebView, layoutParams);
+                if (mWebView instanceof BaseWebViewViewability) {
+                    ((BaseWebViewViewability) mWebView).enableTracking();
+                }
+
                 mDefaultAdContainer.setVisibility(View.INVISIBLE);
                 mCloseableAdContainer.addView(mTwoPartWebView, layoutParams);
             }

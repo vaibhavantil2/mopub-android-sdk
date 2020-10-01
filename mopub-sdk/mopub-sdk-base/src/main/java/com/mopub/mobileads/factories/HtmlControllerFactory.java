@@ -21,14 +21,12 @@ public class HtmlControllerFactory {
     }
 
     public static HtmlController create(@NonNull final Context context,
-                                        @Nullable final String dspCreativeId,
-                                        @Nullable final String clickthroughUrl) {
-        return instance.internalCreate(context, dspCreativeId, clickthroughUrl);
+                                        @Nullable final String dspCreativeId) {
+        return instance.internalCreate(context, dspCreativeId);
     }
 
     protected HtmlController internalCreate(@NonNull final Context context,
-                                            @Nullable final String dspCreativeId,
-                                            @Nullable final String clickthroughUrl) {
-        return new HtmlController(context, dspCreativeId, clickthroughUrl);
+                                            @Nullable final String dspCreativeId) {
+        return new HtmlController(context, dspCreativeId);
     }
 }

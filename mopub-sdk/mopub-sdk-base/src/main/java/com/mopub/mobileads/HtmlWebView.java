@@ -5,21 +5,17 @@
 package com.mopub.mobileads;
 
 import android.content.Context;
-import android.view.View;
-
-import androidx.annotation.NonNull;
 
 public class HtmlWebView extends BaseHtmlWebView {
-
-    private HtmlWebViewClient mHtmlWebViewClient;
 
     public HtmlWebView(Context context) {
         super(context);
     }
 
-    public void init(BaseWebViewListener baseWebViewListener, String clickthroughUrl, String dspCreativeId) {
+    public void init(BaseWebViewListener baseWebViewListener, String dspCreativeId) {
         super.init();
-        mHtmlWebViewClient = new HtmlWebViewClient(this, baseWebViewListener, clickthroughUrl, dspCreativeId);
+        final HtmlWebViewClient mHtmlWebViewClient =
+                new HtmlWebViewClient(this, baseWebViewListener, dspCreativeId);
         setWebViewClient(mHtmlWebViewClient);
     }
 }

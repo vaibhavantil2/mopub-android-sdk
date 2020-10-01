@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 
+import com.mopub.common.CloseableLayout;
 import com.mopub.common.test.support.SdkTestRunner;
 
 import org.junit.Before;
@@ -20,7 +21,11 @@ import org.robolectric.Robolectric;
 import static com.mopub.mobileads.AdData.DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS;
 import static com.mopub.mobileads.AdData.MILLIS_IN_SECOND;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @RunWith(SdkTestRunner.class)
 public class FullscreenAdControllerTest {
@@ -179,5 +184,39 @@ public class FullscreenAdControllerTest {
         assertThat(radialCountdownWidget.getVisibility()).isEqualTo(View.GONE);
         assertThat(subject.isShowCloseButtonEventFired()).isTrue();
         assertThat(subject.isRewarded()).isTrue();
+    }
+
+    @Test
+    public void useCustomCloseChangedTrue_withRewardedFalse_shouldHideCloseButton() {
+        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
+        subject.setCloseableLayout(mockCloseableLayout);
+
+        subject.useCustomCloseChanged(true);
+
+        verify(mockCloseableLayout).setCloseVisible(false);
+    }
+
+    @Test
+    public void useCustomCloseChangedTrue_withRewardedTrue_shouldDoNothing() {
+        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
+        subject.setCloseableLayout(mockCloseableLayout);
+        adData.setRewarded(true);
+
+        subject.useCustomCloseChanged(true);
+
+        verify(mockCloseableLayout, never()).setCloseVisible(false);
+    }
+
+    @Test
+    public void useCustomCloseChangedFalse_withShowCloseButtonEventFired_shouldShowCloseButton() {
+        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
+        subject.setCloseableLayout(mockCloseableLayout);
+        subject.showCloseButton();
+        subject.useCustomCloseChanged(true);
+
+        subject.useCustomCloseChanged(false);
+
+        verify(mockCloseableLayout).setCloseVisible(false);
+        verify(mockCloseableLayout, times(2)).setCloseVisible(true);
     }
 }

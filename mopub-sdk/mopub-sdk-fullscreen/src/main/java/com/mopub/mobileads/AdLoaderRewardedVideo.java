@@ -49,12 +49,12 @@ class AdLoaderRewardedVideo extends AdLoader {
         return Collections.emptyList();
     }
 
-    @Nullable
-    String getClickUrl() {
+    @NonNull
+    List<String> getClickUrls() {
         if (mLastDeliveredResponse != null) {
-            return mLastDeliveredResponse.getClickTrackingUrl();
+            return mLastDeliveredResponse.getClickTrackingUrls();
         }
-        return null;
+        return Collections.emptyList();
     }
 
     @Nullable
@@ -87,7 +87,7 @@ class AdLoaderRewardedVideo extends AdLoader {
 
         mClickTrackerFired = true;
         TrackingRequest.makeTrackingHttpRequest(
-                getClickUrl(),
+                getClickUrls(),
                 context);
     }
 }

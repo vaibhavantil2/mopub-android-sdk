@@ -55,6 +55,7 @@ import org.robolectric.Robolectric;
 import org.robolectric.shadows.ShadowApplication;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -137,7 +138,7 @@ public class MoPubVideoNativeAdTest {
         subject = new MoPubVideoNativeAd(
                 activity, jsonObject, mockCustomEventNativeListener, videoResponseHeaders,
                 mockVisibilityTracker, mockNativeVideoControllerFactory,
-                "header click tracker", mockVastManager);
+                Collections.singletonList("header click tracker"), mockVastManager);
         subject.setNativeEventListener(mockNativeEventListener);
         // noinspection unchecked
         when(mockNativeVideoControllerFactory

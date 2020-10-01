@@ -1,3 +1,19 @@
+## Version 5.14.0 (October 1, 2020)
+- **Features**
+  - Add beta support for OMSDK version 1.3.4.
+  - Certify MoPub Android SDK for Android 11 (API level 30).
+  - Add `MoPubErrorCode.TOO_MANY_REQUESTS` to notify of making too many unsuccessful requests in a short period of time.
+  - Add Pangle as a supported network.
+  - Remove Mintegral as a supported network.
+
+- **Bug Fixes**
+  - Banner pause should not restart refresh timer.
+  - Address a null pointer exception when some ads expire.
+  - Address a destroyed ad causing a null pointer in certain situations.
+  - Address having multiple close buttons.
+  - Put banner and interstitial callbacks on the main thread. This should address some race conditions when showing an ad immediately after the load finishes.
+  - Other minor bugs.
+
 ## Version 5.13.1 (July 6, 2020)
 - **Bug Fixes**
   - Fix a bug regarding mediated network failovers.

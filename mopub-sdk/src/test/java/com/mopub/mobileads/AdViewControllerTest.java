@@ -28,7 +28,6 @@ import com.mopub.common.util.test.support.TestMethodBuilderFactory;
 import com.mopub.mobileads.test.support.MoPubShadowConnectivityManager;
 import com.mopub.mobileads.test.support.MoPubShadowTelephonyManager;
 import com.mopub.mobileads.test.support.TestBaseAdFactory;
-import com.mopub.mobileads.test.support.TestFullscreenAdAdapterFactory;
 import com.mopub.mobileads.test.support.ThreadUtils;
 import com.mopub.network.AdLoader;
 import com.mopub.network.AdResponse;
@@ -55,15 +54,15 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
+import org.robolectric.shadows.ShadowSystemClock;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Map;
 
 import static com.mopub.common.VolleyRequestMatcher.isUrl;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -126,7 +125,7 @@ public class AdViewControllerTest {
         response = new AdResponse.Builder()
                 .setAdUnitId(mAdUnitId)
                 .setBaseAdClassName("customEvent")
-                .setClickTrackingUrl("clickUrl")
+                .setClickTrackingUrls(Collections.singletonList("clickUrl"))
                 .setImpressionTrackingUrls(Arrays.asList("impressionUrl1", "impressionUrl2"))
                 .setImpressionData(mockImpressionData)
                 .setDimensions(320, 50)
@@ -371,19 +370,28 @@ public class AdViewControllerTest {
     }
 
     @Test
-    public void pauseRefresh_shouldDisableAutoRefresh() {
+    public void pauseRefresh_shouldDisableAutoRefresh_shouldSetOnPauseViewedTimeMillis() {
+        subject.loadAd();
         assertThat(subject.getCurrentAutoRefreshStatus()).isTrue();
+        assertThat(subject.getOnPauseViewedTimeMillis()).isZero();
 
         subject.pauseRefresh();
+
         assertThat(subject.getCurrentAutoRefreshStatus()).isFalse();
+        assertThat(subject.getOnPauseViewedTimeMillis()).isGreaterThan(0);
     }
 
     @Test
-    public void resumeRefresh_afterPauseRefresh_shouldEnableRefresh() {
+    public void resumeRefresh_afterPauseRefresh_shouldEnableRefresh_shouldResetShowStartedTimestampMillis() {
+        subject.loadAd();
         subject.pauseRefresh();
+        final long oldTimestamp = subject.getShowStartedTimestampMillis();
+        ShadowSystemClock.advanceBy(Duration.ofMillis(100));
 
         subject.resumeRefresh();
+
         assertThat(subject.getCurrentAutoRefreshStatus()).isTrue();
+        assertThat(subject.getShowStartedTimestampMillis()).isGreaterThan(oldTimestamp);
     }
 
     @Test
@@ -472,7 +480,7 @@ public class AdViewControllerTest {
     }
 
     @Test
-    public void registerClick_shouldHttpGetTheClickthroughUrl() {
+    public void registerClick_shouldHttpGetTheClicktrackingUrl() {
         subject.onAdLoadSuccess(response);
 
         subject.registerClick();
@@ -906,6 +914,27 @@ public class AdViewControllerTest {
                 networkError, activity);
 
         assertThat(errorCode).isEqualTo(MoPubErrorCode.UNSPECIFIED);
+    }
+
+    @Test
+    public void getErrorCodeFromVolleyError_withErrorReasonTooManyRequests_shouldReturnErrorCodeTooManyRequests() {
+        final VolleyError networkError = new MoPubNetworkError(
+                MoPubNetworkError.Reason.TOO_MANY_REQUESTS);
+
+        final MoPubErrorCode errorCode = AdViewController.getErrorCodeFromVolleyError(
+                networkError, activity);
+
+        assertThat(errorCode).isEqualTo(MoPubErrorCode.TOO_MANY_REQUESTS);
+    }
+
+    @Test
+    public void show_shouldSetShowStartedTimestampMillis_shouldResetOnPauseViewedTimeMillis() {
+        assertThat(subject.getShowStartedTimestampMillis()).isZero();
+
+        subject.show();
+
+        assertThat(subject.getOnPauseViewedTimeMillis()).isZero();
+        assertThat(subject.getShowStartedTimestampMillis()).isGreaterThan(0);
     }
 
     private String getParameterFromRequestUrl(String requestString, String key) {

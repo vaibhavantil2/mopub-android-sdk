@@ -18,6 +18,7 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 
 import com.mopub.common.CloseableLayout.ClosePosition;
+import com.mopub.common.ViewabilityManager;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.Utils;
 import com.mopub.mobileads.BaseHtmlWebView;
@@ -107,7 +108,7 @@ public class MraidControllerTest {
         subject.setMoPubWebViewListener(mockWebViewListener);
         subject.setOrientationBroadcastReceiver(mockOrientationBroadcastReceiver);
         subject.setRootView(rootView);
-        subject.fillContent("fake_html_data", null);
+        subject.fillContent("fake_html_data", null, null);
 
         verify(mockBridge).setMraidBridgeListener(bridgeListenerCaptor.capture());
         verify(mockTwoPartBridge).setMraidBridgeListener(twoPartBridgeListenerCaptor.capture());
@@ -209,7 +210,7 @@ public class MraidControllerTest {
         subject.setRootView(rootView);
 
         // Move to DEFAULT state
-        subject.fillContent("fake_html_data", null);
+        subject.fillContent("fake_html_data", null, null);
         subject.handlePageLoad();
 
         subject.handleResize(100, 200, 0, 0, ClosePosition.TOP_RIGHT, true);
@@ -341,7 +342,7 @@ public class MraidControllerTest {
         subject.setRootView(rootView);
 
         // Move to DEFAULT state
-        subject.fillContent("fake_html_data", null);
+        subject.fillContent("fake_html_data", null, null);
         subject.handlePageLoad();
 
         subject.handleExpand(null, false);
@@ -568,10 +569,29 @@ public class MraidControllerTest {
         reset(mockWebViewListener, mockBridge);
         subject.setOrientationBroadcastReceiver(mockOrientationBroadcastReceiver);
         subject.setRootView(rootView);
+        ViewabilityManager.setViewabilityEnabled(false);
 
-        subject.fillContent("fake_html_data", null);
+        subject.fillContent("<HTML/>", null, null);
 
-        verify(mockBridge).setContentHtml("fake_html_data");
+        verify(mockBridge).setContentHtml("<HTML/>");
+        verify(mockWebViewListener, never()).onLoaded(any(View.class));
+    }
+
+    @Test
+    public void fillContent_whenViewabilityEnabled_shouldInjectJavaScript_shouldLoadHtmlData() {
+        subject = new MraidController(
+                activity, "", PlacementType.INLINE,
+                mockBridge, mockTwoPartBridge, mockScreenMetricsWaiter);
+        subject.setMoPubWebViewListener(mockWebViewListener);
+        reset(mockWebViewListener, mockBridge);
+        subject.setOrientationBroadcastReceiver(mockOrientationBroadcastReceiver);
+        subject.setRootView(rootView);
+        ViewabilityManager.setViewabilityEnabled(true);
+
+        subject.fillContent("<HTML/>", null, null);
+
+        final String htmlContent = ViewabilityManager.injectScriptContentIntoHtml("<HTML/>");
+        verify(mockBridge).setContentHtml(htmlContent);
         verify(mockWebViewListener, never()).onLoaded(any(View.class));
     }
 
@@ -806,7 +826,7 @@ public class MraidControllerTest {
                 activity, "", PlacementType.INLINE,
                 mockBridge, mockTwoPartBridge, mockScreenMetricsWaiter);
 
-        subject.fillContent("fake_html_data", null);
+        subject.fillContent("fake_html_data", null, null);
 
         View mockView = mock(View.class);
         when(mockView.isHardwareAccelerated()).thenReturn(true);
@@ -828,7 +848,7 @@ public class MraidControllerTest {
                 activity, "", PlacementType.INLINE,
                 mockBridge, mockTwoPartBridge, mockScreenMetricsWaiter);
 
-        subject.fillContent("fake_html_data", null);
+        subject.fillContent("fake_html_data", null, null);
 
         View mockView = mock(View.class);
         when(mockView.isHardwareAccelerated()).thenReturn(false);
@@ -849,7 +869,7 @@ public class MraidControllerTest {
                 activity, "", PlacementType.INTERSTITIAL,
                 mockBridge, mockTwoPartBridge, mockScreenMetricsWaiter);
 
-        subject.fillContent("fake_html_data", null);
+        subject.fillContent("fake_html_data", null, null);
 
         View mockView = mock(View.class);
         when(mockView.isHardwareAccelerated()).thenReturn(true);
@@ -870,7 +890,7 @@ public class MraidControllerTest {
                 activity, "", PlacementType.INTERSTITIAL,
                 mockBridge, mockTwoPartBridge, mockScreenMetricsWaiter);
 
-        subject.fillContent("fake_html_data", null);
+        subject.fillContent("fake_html_data", null, null);
 
         View mockView = mock(View.class);
         when(mockView.isHardwareAccelerated()).thenReturn(false);

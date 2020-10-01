@@ -81,6 +81,7 @@ public class MoPubInterstitialTest {
         when(fullscreenAdapter.isAutomaticImpressionAndClickTrackingEnabled())
                 .thenReturn(true);
         adViewController = TestAdViewControllerFactory.getSingletonMock();
+        when(adViewController.getAdAdapter()).thenReturn(fullscreenAdapter);
         subject.setAdViewController(adViewController);
     }
 
@@ -230,7 +231,6 @@ public class MoPubInterstitialTest {
 
     @Test
     public void onImpression_whenAutomaticImpressionTrackingIsEnabled_shouldDoNothing() {
-        subject.setFullscreenAdAdapter(fullscreenAdapter);
         when(fullscreenAdapter.isAutomaticImpressionAndClickTrackingEnabled())
                 .thenReturn(true);
 
@@ -333,7 +333,6 @@ public class MoPubInterstitialTest {
          * DESTROYED if the interstitial view is destroyed.
          */
 
-        subject.setFullscreenAdAdapter(fullscreenAdapter);
         subject.setCurrentInterstitialState(IDLE);
         boolean stateDidChange = subject.attemptStateTransition(IDLE, false);
         assertThat(stateDidChange).isFalse();
@@ -350,14 +349,14 @@ public class MoPubInterstitialTest {
         stateDidChange = subject.attemptStateTransition(LOADING, false);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(LOADING);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
         verify(adViewController).loadAd();
 
         resetMoPubInterstitial(IDLE);
         stateDidChange = subject.attemptStateTransition(LOADING, true);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(LOADING);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
         verify(adViewController).forceRefresh();
 
         resetMoPubInterstitial(IDLE);
@@ -388,13 +387,13 @@ public class MoPubInterstitialTest {
         stateDidChange = subject.attemptStateTransition(DESTROYED, false);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(DESTROYED);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
 
         resetMoPubInterstitial(IDLE);
         stateDidChange = subject.attemptStateTransition(DESTROYED, true);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(DESTROYED);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
     }
 
     @Test
@@ -405,18 +404,17 @@ public class MoPubInterstitialTest {
          * LOADING can go to DESTROYED if the interstitial view is destroyed.
          */
 
-        subject.setFullscreenAdAdapter(fullscreenAdapter);
         subject.setCurrentInterstitialState(LOADING);
         boolean stateDidChange = subject.attemptStateTransition(IDLE, false);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(IDLE);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
 
         resetMoPubInterstitial(LOADING);
         stateDidChange = subject.attemptStateTransition(IDLE, true);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(IDLE);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
 
         resetMoPubInterstitial(LOADING);
         stateDidChange = subject.attemptStateTransition(LOADING, false);
@@ -460,13 +458,13 @@ public class MoPubInterstitialTest {
         stateDidChange = subject.attemptStateTransition(DESTROYED, false);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(DESTROYED);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
 
         resetMoPubInterstitial(LOADING);
         stateDidChange = subject.attemptStateTransition(DESTROYED, true);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(DESTROYED);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
     }
 
     @Test
@@ -476,7 +474,6 @@ public class MoPubInterstitialTest {
          * here into IDLE. Also, READY can go into DESTROYED.
          */
 
-        subject.setFullscreenAdAdapter(fullscreenAdapter);
         subject.setCurrentInterstitialState(READY);
         boolean stateDidChange = subject.attemptStateTransition(IDLE, false);
         assertThat(stateDidChange).isFalse();
@@ -487,7 +484,7 @@ public class MoPubInterstitialTest {
         stateDidChange = subject.attemptStateTransition(IDLE, true);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(IDLE);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
 
         resetMoPubInterstitial(READY);
         stateDidChange = subject.attemptStateTransition(LOADING, false);
@@ -531,13 +528,13 @@ public class MoPubInterstitialTest {
         stateDidChange = subject.attemptStateTransition(DESTROYED, false);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(DESTROYED);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
 
         resetMoPubInterstitial(READY);
         stateDidChange = subject.attemptStateTransition(DESTROYED, true);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(DESTROYED);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
     }
 
     @Test
@@ -547,12 +544,12 @@ public class MoPubInterstitialTest {
          * other transitions except to DESTROYED. You cannot force refresh while an interstitial
          * is showing.
          */
-        subject.setFullscreenAdAdapter(fullscreenAdapter);
+
         subject.setCurrentInterstitialState(SHOWING);
         boolean stateDidChange = subject.attemptStateTransition(IDLE, false);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(IDLE);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
 
         resetMoPubInterstitial(SHOWING);
         stateDidChange = subject.attemptStateTransition(IDLE, true);
@@ -600,18 +597,17 @@ public class MoPubInterstitialTest {
         stateDidChange = subject.attemptStateTransition(DESTROYED, false);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(DESTROYED);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
 
         resetMoPubInterstitial(SHOWING);
         stateDidChange = subject.attemptStateTransition(DESTROYED, true);
         assertThat(stateDidChange).isTrue();
         assertThat(subject.getCurrentInterstitialState()).isEqualTo(DESTROYED);
-        verify(fullscreenAdapter).invalidate();
+        verify(adViewController).invalidateAdapter();
     }
     @Test
     public void attemptStateTransition_withDestroyedStartState() {
         // All state transitions should fail if starting from a destroyed state
-        subject.setFullscreenAdAdapter(fullscreenAdapter);
         subject.setCurrentInterstitialState(DESTROYED);
         boolean stateDidChange = subject.attemptStateTransition(IDLE, false);
         assertThat(stateDidChange).isFalse();
@@ -674,7 +670,6 @@ public class MoPubInterstitialTest {
 
     @Test
     public void attemptStateTransition_withLoadingStartState_withReadyEndState_withMoPubCustomEvent_shouldExpireAd() {
-        subject.setFullscreenAdAdapter(fullscreenAdapter);
         subject.setCurrentInterstitialState(LOADING);
         when(adViewController.getBaseAdClassName())
                 .thenReturn(AdTypeTranslator.BaseAdType.MOPUB_FULLSCREEN.toString());
@@ -695,7 +690,6 @@ public class MoPubInterstitialTest {
 
     @Test
     public void attemptStateTransition_withLoadingStartState_withReadyEndState_withNonMoPubCustomEvent_shouldNotExpireAd() {
-        subject.setFullscreenAdAdapter(fullscreenAdapter);
         subject.setCurrentInterstitialState(LOADING);
         when(adViewController.getBaseAdClassName()).thenReturn("thirdPartyAd");
         subject.attemptStateTransition(READY, false);
@@ -717,8 +711,7 @@ public class MoPubInterstitialTest {
 
     private void resetMoPubInterstitial(
             @NonNull final MoPubInterstitial.InterstitialState interstitialState) {
-        reset(fullscreenAdapter, interstitialAdListener);
-        subject.setFullscreenAdAdapter(fullscreenAdapter);
+        reset(fullscreenAdapter, interstitialAdListener, adViewController);
         subject.setCurrentInterstitialState(interstitialState);
     }
 }

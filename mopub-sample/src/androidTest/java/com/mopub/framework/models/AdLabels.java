@@ -34,10 +34,14 @@ public class AdLabels {
     public static final String MEDIUM_RECTANGLE_IMAGE = "RT - Medium Rectangle Image";
     public static final String MEDIUM_RECTANGLE_HTML = "RT - Medium Rectangle HTML";
     public static final String MEDIUM_RECTANGLE_HTML_VIDEO = "RT - Medium Rectangle HTML Video";
-    public static final String INTERSTITIAL_IMAGE_LANDSCAPE = "RT - Interstitial Image Landscape Phone";
-    public static final String INTERSTITIAL_IMAGE_PORTRAIT = "RT - Interstitial Image Portrait Phone";
-    public static final String INTERSTITIAL_HTML_PORTRAIT = "RT - Interstitial HTML Basic Portrait Phone";
-    public static final String INTERSTITIAL_HTML_LANDSCAPE = "RT - Interstitial HTML Basic Landscape Phone";
-    public static final String INTERSTITIAL_VIDEO_LANDSCAPE = "RT - Interstitial HTML Video Landscape Phone";
-    public static final String INTERSTITIAL_VIDEO_PORTRAIT = "RT - Interstitial HTML Video Portrait Phone";
+    public static final String INTERSTITIAL_IMAGE_LANDSCAPE = "RT - Interstitial Image Landscape";
+    public static final String INTERSTITIAL_IMAGE_PORTRAIT = "RT - Interstitial Image Portrait";
+    public static final String INTERSTITIAL_HTML_PORTRAIT = "RT - Interstitial HTML Basic Portrait";
+    public static final String INTERSTITIAL_HTML_LANDSCAPE = "RT - Interstitial HTML Basic Landscape";
+    public static final String INTERSTITIAL_VIDEO_LANDSCAPE = "RT - Interstitial HTML Video Landscape";
+    public static final String INTERSTITIAL_VIDEO_PORTRAIT = "RT - Interstitial HTML Video Portrait";
+    public static final String BANNER_MRAID_DEVICE = "RT - Banner Mraid Expanding Device";
+    public static final String BANNER_MRAID_LANDSCAPE = "RT - Banner Mraid Expanding Landscape";
+    public static final String BANNER_MRAID_PORTRAIT = "RT - Banner Mraid Expanding Portrait";
+
 }

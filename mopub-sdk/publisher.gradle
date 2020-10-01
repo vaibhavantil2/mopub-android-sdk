@@ -3,58 +3,53 @@
 // http://www.mopub.com/legal/sdk-license-agreement/
 
 apply plugin: 'com.android.library'
-apply plugin: 'com.novoda.bintray-release'
+apply plugin: 'com.jfrog.bintray'
+apply plugin: 'maven-publish'
 
 def siteUrl = 'https://github.com/mopub/mopub-android-sdk'
 def gitUrl = 'https://github.com/mopub/mopub-android-sdk.git'
+def issuesUrl = 'https://github.com/mopub/mopub-android-sdk/issues'
 def bintrayRepo = 'mopub-android-sdk'
 def bintrayUserOrg = 'mopub'
 // Put your credentials (bintray.user, bintray.apikey) in ~/.gradle/gradle.properties
 
-tasks.withType(Javadoc).all {
-    enabled = false
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    archiveClassifier.set('sources')
 }
 
-android.libraryVariants.all { variant ->
-    def name = variant.buildType.name
-    def task = project.tasks.create "jar${name.capitalize()}", Jar
-
-    task.dependsOn variant.javaCompile
-    task.from variant.javaCompile.destinationDir
-    artifacts.add('archives', task)
+artifacts {
+    archives sourcesJar
 }
 
-android.libraryVariants.all { variant ->
-    task("generate${variant.name.capitalize()}Javadoc", type: Javadoc) {
-        title = project.ext.displayName
-        description "Generates Javadoc for $variant.name."
-        source = variant.javaCompile.source
-        classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
-        classpath += configurations.compile
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                artifact sourcesJar
 
-        options {
-            links "https://docs.oracle.com/javase/8/docs/api/"
-            linksOffline "https://developer.android.com/reference","${android.sdkDirectory}/docs/reference"
+                groupId = project.group
+                artifactId = project.ext.projectName
+                version = project.version
+            }
         }
-
-        exclude '**/BuildConfig.java'
-        exclude '**/R.java'
     }
-}
 
-publish {
-    repoName = bintrayRepo
-    userOrg = bintrayUserOrg
-    groupId = project.group
-    artifactId = project.ext.projectName
-    uploadName = project.ext.uploadName
-    publishVersion = project.version
-    desc = project.description
-    website = siteUrl
-    repository = gitUrl
-
-    bintrayUser = project.hasProperty("bintray.user") ? project.getProperty("bintray.user") : ""
-    bintrayKey = project.hasProperty("bintray.apikey") ? project.getProperty("bintray.apikey") : ""
-
-    dryRun = false
+    bintray {
+        user = project.hasProperty("bintray.user") ? project.getProperty("bintray.user") : ""
+        key = project.hasProperty("bintray.apikey") ? project.getProperty("bintray.apikey") : ""
+        publications = ['release']
+        pkg {
+            repo = bintrayRepo
+            name = project.ext.uploadName
+            userOrg = bintrayUserOrg
+            vcsUrl = gitUrl
+            websiteUrl = siteUrl
+            issueTrackerUrl = issuesUrl
+            desc = project.description
+        }
+        dryRun = false
+        publish = true
+    }
 }

@@ -113,6 +113,7 @@ public class MraidBridgeTest {
         bannerWebViewClientCaptor.getValue().onPageFinished(mockBannerWebView, "fake://url");
 
         verify(mockBridgeListener).onPageLoaded();
+        verify(mockBannerWebView).setPageLoaded();
     }
 
     @Test

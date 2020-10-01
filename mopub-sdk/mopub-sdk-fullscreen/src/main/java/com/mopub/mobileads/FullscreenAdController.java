@@ -22,7 +22,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.mopub.common.CloseableLayout;
-import com.mopub.common.ExternalViewabilitySessionManager;
 import com.mopub.common.FullAdType;
 import com.mopub.common.Preconditions;
 import com.mopub.common.logging.MoPubLog;
@@ -35,7 +34,6 @@ import com.mopub.mraid.MraidVideoViewController;
 import com.mopub.mraid.PlacementType;
 import com.mopub.mraid.WebViewDebugListener;
 
-import static com.mopub.common.DataKeys.CLICKTHROUGH_URL_KEY;
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_CLICK;
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_DISMISS;
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_FAIL;
@@ -47,7 +45,8 @@ import static com.mopub.mobileads.AdData.DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLI
 import static com.mopub.mobileads.AdData.MILLIS_IN_SECOND;
 import static com.mopub.mobileads.BaseBroadcastReceiver.broadcastAction;
 
-public class FullscreenAdController implements BaseVideoViewController.BaseVideoViewControllerListener {
+public class FullscreenAdController implements BaseVideoViewController.BaseVideoViewControllerListener,
+        MraidController.UseCustomCloseListener {
 
     @NonNull
     private final Activity mActivity;
@@ -59,8 +58,6 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     private final AdData mAdData;
     @NonNull
     private ControllerState mState = ControllerState.MRAID;
-    @Nullable
-    private ExternalViewabilitySessionManager mExternalViewabilitySessionManager;
     @Nullable
     private WebViewDebugListener mDebugListener;
     @Nullable
@@ -90,15 +87,13 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
         mAdData = adData;
 
         boolean preloaded = false;
-        WebViewCacheService.Config config = null;
-        config = WebViewCacheService.popWebViewConfig(adData.getBroadcastIdentifier());
+        final WebViewCacheService.Config config = WebViewCacheService.popWebViewConfig(adData.getBroadcastIdentifier());
         if (config != null && config.getController() != null) {
             preloaded = true;
             mMoPubWebViewController = config.getController();
         } else if ("html".equals(adData.getAdType())) {
             mMoPubWebViewController = HtmlControllerFactory.create(activity,
-                    adData.getDspCreativeId(),
-                    adData.getExtras().get(CLICKTHROUGH_URL_KEY));
+                    adData.getDspCreativeId());
         } else {
             // If we hit this, then we assume this is MRAID since it isn't HTML
             mMoPubWebViewController = new MraidController(activity,
@@ -114,6 +109,9 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             return;
         }
 
+        if (mMoPubWebViewController instanceof MraidController) {
+            ((MraidController) mMoPubWebViewController).setUseCustomCloseListener(this);
+        }
         mMoPubWebViewController.setDebugListener(mDebugListener);
         mMoPubWebViewController.setMoPubWebViewListener(new BaseHtmlWebView.BaseWebViewListener() {
             @Override
@@ -154,7 +152,6 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             @Override
             public void onExpand() {
                 // No-op. The interstitial is always expanded.
-                int i = 0;
             }
 
             @Override
@@ -165,26 +162,12 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
         });
 
         if (preloaded) {
-            mExternalViewabilitySessionManager = config.getViewabilityManager();
         } else {
-            mMoPubWebViewController.fillContent(htmlData, new MoPubWebViewController.WebViewCacheListener() {
+            mMoPubWebViewController.fillContent(htmlData, adData.getViewabilityVendors(), new MoPubWebViewController.WebViewCacheListener() {
                 @Override
-                public void onReady(final @NonNull BaseWebView webView,
-                                    final @Nullable ExternalViewabilitySessionManager viewabilityManager) {
-                    if (viewabilityManager != null) {
-                        mExternalViewabilitySessionManager = viewabilityManager;
-                    } else {
-                        mExternalViewabilitySessionManager = new ExternalViewabilitySessionManager(
-                                activity);
-                        mExternalViewabilitySessionManager.createDisplaySession(
-                                activity, webView);
-                    }
+                public void onReady(final @NonNull BaseWebView webView) {
                 }
             });
-        }
-
-        if (mExternalViewabilitySessionManager != null) {
-            mExternalViewabilitySessionManager.startDeferredDisplaySession(activity);
         }
 
         mCloseableLayout = new CloseableLayout(mActivity);
@@ -271,6 +254,23 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
         }
     }
 
+    // MraidController.UseCustomCloseListener
+    @Override
+    public void useCustomCloseChanged(final boolean useCustomClose) {
+        if (mCloseableLayout == null) {
+            return;
+        }
+        if (useCustomClose && !mAdData.isRewarded()) {
+            mCloseableLayout.setCloseVisible(false);
+            return;
+        }
+        if (mShowCloseButtonEventFired) {
+            mCloseableLayout.setCloseVisible(true);
+        }
+
+    }
+    // End MraidController.UseCustomCloseListener implementation
+
     public void pause() {
         if (ControllerState.VIDEO.equals(mState) && mVideoViewController != null) {
             mVideoViewController.onPause();
@@ -296,10 +296,6 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     }
 
     public void destroy() {
-        if (mExternalViewabilitySessionManager != null) {
-            mExternalViewabilitySessionManager.endDisplaySession();
-            mExternalViewabilitySessionManager = null;
-        }
         mMoPubWebViewController.destroy();
         if (mVideoViewController != null) {
             mVideoViewController.onDestroy();
@@ -325,8 +321,12 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     void showCloseButton() {
         mShowCloseButtonEventFired = true;
 
-        mRadialCountdownWidget.setVisibility(View.GONE);
-        mCloseableLayout.setCloseVisible(true);
+        if (mRadialCountdownWidget != null) {
+            mRadialCountdownWidget.setVisibility(View.GONE);
+        }
+        if (mCloseableLayout != null) {
+            mCloseableLayout.setCloseVisible(true);
+        }
 
         if (!mIsRewarded) {
             broadcastAction(mActivity, mAdData.getBroadcastIdentifier(), ACTION_REWARDED_AD_COMPLETE);
@@ -336,7 +336,7 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
 
     private void updateCountdown(int currentElapsedTimeMillis) {
         mCurrentElapsedTimeMillis = currentElapsedTimeMillis;
-        if (mIsCalibrationDone) {
+        if (mIsCalibrationDone && mRadialCountdownWidget != null) {
             mRadialCountdownWidget.updateCountdownProgress(mShowCloseButtonDelayMillis,
                     mCurrentElapsedTimeMillis);
         }
@@ -422,6 +422,12 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     @NonNull
     CloseableLayout getCloseableLayout() {
         return mCloseableLayout;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    void setCloseableLayout(@Nullable final CloseableLayout closeableLayout) {
+        mCloseableLayout = closeableLayout;
     }
 
     @Deprecated

@@ -5,6 +5,7 @@
 package com.mopub.mobileads;
 
 import android.app.Activity;
+import android.os.Looper;
 
 import com.mopub.common.Constants;
 import com.mopub.common.test.support.SdkTestRunner;
@@ -22,6 +23,7 @@ import org.robolectric.shadows.ShadowLooper;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.mopub.mobileads.MoPubErrorCode.ADAPTER_CONFIGURATION_ERROR;
 import static com.mopub.mobileads.MoPubErrorCode.NETWORK_TIMEOUT;
@@ -33,6 +35,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
 @RunWith(SdkTestRunner.class)
 public class FullscreenAdAdapterTest {
@@ -87,11 +90,11 @@ public class FullscreenAdAdapterTest {
     @Test
     public void timeout_shouldSignalFailureAndInvalidateWithDefaultDelay() throws Exception {
         subject.load(loadListener);
-        ShadowLooper.idleMainLooper(DEFAULT_TIMEOUT_DELAY - 1);
+        shadowOf(Looper.getMainLooper()).idleFor(DEFAULT_TIMEOUT_DELAY - 1, TimeUnit.MILLISECONDS);
         verify(loadListener, never()).onAdLoadFailed(NETWORK_TIMEOUT);
         assertThat(subject.isInvalidated()).isFalse();
 
-        ShadowLooper.idleMainLooper(1);
+        shadowOf(Looper.getMainLooper()).idleFor(1, TimeUnit.MILLISECONDS);
         verify(loadListener).onAdLoadFailed(NETWORK_TIMEOUT);
         assertThat(subject.isInvalidated()).isTrue();
     }
@@ -101,11 +104,11 @@ public class FullscreenAdAdapterTest {
         adData.setTimeoutDelayMillis(77000);
 
         subject.load(loadListener);
-        ShadowLooper.idleMainLooper(77000 - 1);
+        shadowOf(Looper.getMainLooper()).idleFor(77000 - 1, TimeUnit.MILLISECONDS);
         verify(loadListener, never()).onAdLoadFailed(NETWORK_TIMEOUT);
         assertThat(subject.isInvalidated()).isFalse();
 
-        ShadowLooper.idleMainLooper(1);
+        shadowOf(Looper.getMainLooper()).idleFor(1, TimeUnit.MILLISECONDS);
         verify(loadListener).onAdLoadFailed(NETWORK_TIMEOUT);
         assertThat(subject.isInvalidated()).isTrue();
     }
@@ -132,15 +135,19 @@ public class FullscreenAdAdapterTest {
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(0);
 
         subject.load(loadListener);
+        shadowOf(Looper.getMainLooper()).idle();
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(1);
 
         subject.onAdLoaded();
+        shadowOf(Looper.getMainLooper()).idle();
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(0);
 
         subject.load(loadListener);
+        shadowOf(Looper.getMainLooper()).idle();
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(1);
 
         subject.onAdFailed(UNSPECIFIED);
+        shadowOf(Looper.getMainLooper()).idle();
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(0);
     }
 
@@ -199,6 +206,7 @@ public class FullscreenAdAdapterTest {
 
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(0);
         subject.load(loadListener);
+        shadowOf(Looper.getMainLooper()).idle();
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(0);
     }
 

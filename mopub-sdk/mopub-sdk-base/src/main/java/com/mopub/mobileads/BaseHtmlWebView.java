@@ -19,7 +19,7 @@ import com.mopub.network.Networking;
 
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 
-public class BaseHtmlWebView extends BaseWebView {
+public class BaseHtmlWebView extends BaseWebViewViewability {
 
     public interface BaseWebViewListener {
         void onLoaded(View view);

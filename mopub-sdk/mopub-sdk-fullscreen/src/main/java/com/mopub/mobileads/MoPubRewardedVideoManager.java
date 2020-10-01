@@ -609,7 +609,7 @@ public class MoPubRewardedVideoManager {
             final Runnable timeout = () -> {
                 MoPubLog.log(CUSTOM, "Base Ad failed to load rewarded ad in a timely fashion.");
                 adAdapter.onAdLoadFailed(NETWORK_TIMEOUT);
-                adAdapter.invalidate();
+                postToInstance(adAdapter::invalidate);
             };
 
             mBaseAdTimeoutHandler.postDelayed(timeout, timeoutMillis);
@@ -635,6 +635,9 @@ public class MoPubRewardedVideoManager {
                 case NO_FILL:
                 case WARMING_UP:
                     errorCode = MoPubErrorCode.NO_FILL;
+                    break;
+                case TOO_MANY_REQUESTS:
+                    errorCode = MoPubErrorCode.TOO_MANY_REQUESTS;
                     break;
                 case BAD_BODY:
                 case BAD_HEADER_DATA:
@@ -1009,6 +1012,7 @@ public class MoPubRewardedVideoManager {
             MoPubLog.log(SHOW_FAILED, errorCode.getIntCode(), errorCode);
             switch (errorCode) {
                 case VIDEO_PLAYBACK_ERROR:
+                case EXPIRED:
                     MoPubRewardedVideoManager.onRewardedVideoPlaybackError(adAdapter,
                             adAdapter.getAdNetworkId(), errorCode);
                     break;

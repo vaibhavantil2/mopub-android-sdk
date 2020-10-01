@@ -33,8 +33,6 @@ import static org.robolectric.Shadows.shadowOf;
 @RunWith(SdkTestRunner.class)
 public class HtmlWebViewClientTest {
 
-    private static final String CLICKTHROUGH_URL = "https://clickthrough";
-
     private HtmlWebViewClient subject;
     private BaseHtmlWebView.BaseWebViewListener baseWebViewListener;
     private BaseHtmlWebView htmlWebView;
@@ -47,7 +45,7 @@ public class HtmlWebViewClientTest {
         context = Robolectric.buildActivity(Activity.class).create().get().getApplicationContext();
         when(htmlWebView.getContext()).thenReturn(context);
         when(htmlWebView.wasClicked()).thenReturn(true);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, CLICKTHROUGH_URL,
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener,
                 "dsp_creative_id");
         while(shadowOf((Application) context).getNextStartedActivity() != null) {}
     }
@@ -58,6 +56,7 @@ public class HtmlWebViewClientTest {
 
         assertThat(didOverrideUrl).isTrue();
         verify(baseWebViewListener).onLoaded(eq(htmlWebView));
+        verify(htmlWebView).setPageLoaded();
     }
 
     @Test
@@ -91,7 +90,7 @@ public class HtmlWebViewClientTest {
     public void shouldOverrideUrlLoading_withCustomApplicationIntent_withUserClick_andCanHandleCustomIntent_shouldTryToLaunchCustomIntent() throws Exception {
         String customUrl = "myintent://something";
         when(htmlWebView.wasClicked()).thenReturn(true);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
         shadowOf(context.getPackageManager()).addResolveInfoForIntent(new Intent(Intent.ACTION_VIEW, Uri.parse(customUrl)), new ResolveInfo());
 
         boolean didOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView, customUrl);
@@ -106,7 +105,7 @@ public class HtmlWebViewClientTest {
     public void shouldOverrideUrlLoading_withCustomApplicationIntent_withoutUserClick_shouldNotTryToLaunchIntent() throws Exception {
         String customUrl = "myintent://something";
         when(htmlWebView.wasClicked()).thenReturn(false);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         boolean didOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView, customUrl);
 
@@ -120,7 +119,7 @@ public class HtmlWebViewClientTest {
     public void shouldOverrideUrlLoading_withCustomApplicationIntent_withUserClick_butCanNotHandleCustomIntent_shouldFailSilently() throws Exception {
         String customUrl = "myintent://something";
         when(htmlWebView.wasClicked()).thenReturn(true);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         boolean didOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView, customUrl);
 
@@ -134,7 +133,7 @@ public class HtmlWebViewClientTest {
     @Test
     public void shouldOverrideUrlLoading_withHttpUrl_withUserClick_shouldOpenBrowser() throws Exception {
         when(htmlWebView.wasClicked()).thenReturn(true);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, "dsp_creative_id");
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, "dsp_creative_id");
         String validUrl = "https://www.mopub.com/en";
         boolean didOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView, validUrl);
 
@@ -151,7 +150,7 @@ public class HtmlWebViewClientTest {
     @Test
     public void shouldOverrideUrlLoading_withHttpUrl_withoutUserClick_shouldNotOpenBrowser() throws Exception {
         when(htmlWebView.wasClicked()).thenReturn(false);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
         String validUrl = "https://www.mopub.com";
         boolean didOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView, validUrl);
 
@@ -185,7 +184,7 @@ public class HtmlWebViewClientTest {
     @Test
     public void shouldOverrideUrlLoading_withEmptyUrl_withUserClick_shouldFailSilently() throws Exception {
         when(htmlWebView.wasClicked()).thenReturn(true);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         subject.shouldOverrideUrlLoading(htmlWebView, "");
 
@@ -196,7 +195,7 @@ public class HtmlWebViewClientTest {
     @Test
     public void shouldOverrideUrlLoading_withEmptyUrl_withoutUserClick_shouldLoadAboutBlank() throws Exception {
         when(htmlWebView.wasClicked()).thenReturn(false);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         subject.shouldOverrideUrlLoading(htmlWebView, "");
 
@@ -206,7 +205,7 @@ public class HtmlWebViewClientTest {
     @Test
     public void shouldOverrideUrlLoading_withNativeBrowserScheme_withUserClick_shouldStartIntentWithActionView() throws Exception {
         when(htmlWebView.wasClicked()).thenReturn(true);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         boolean shouldOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView,
                 "mopubnativebrowser://navigate?url=https%3A%2F%2Fwww.mopub.com");
@@ -222,7 +221,7 @@ public class HtmlWebViewClientTest {
     @Test
     public void shouldOverrideUrlLoading_withNativeBrowserScheme_withoutUserClick_shouldStartIntentWithActionView() throws Exception {
         when(htmlWebView.wasClicked()).thenReturn(false);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         boolean shouldOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView,
                 "mopubnativebrowser://navigate?url=https%3A%2F%2Fwww.mopub.com");
@@ -237,7 +236,7 @@ public class HtmlWebViewClientTest {
     public void shouldOverrideUrlLoading_withNativeBrowserScheme_butOpaqueUri_withUserClick_shouldNotBeHandledByNativeBrowser() throws Exception {
         when(htmlWebView.wasClicked()).thenReturn(true);
         String opaqueNativeBrowserUriString = "mopubnativebrowser:navigate?url=https%3A%2F%2Fwww.mopub.com";
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         boolean shouldOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView, opaqueNativeBrowserUriString);
 
@@ -252,7 +251,7 @@ public class HtmlWebViewClientTest {
     public void shouldOverrideUrlLoading_withNativeBrowserScheme_butOpaqueUri_withoutUserClick_shouldNotLoad() throws Exception {
         when(htmlWebView.wasClicked()).thenReturn(false);
         String opaqueNativeBrowserUriString = "mopubnativebrowser:navigate?url=https%3A%2F%2Fwww.mopub.com";
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         boolean shouldOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView, opaqueNativeBrowserUriString);
 
@@ -266,7 +265,7 @@ public class HtmlWebViewClientTest {
     @Test
     public void shouldOverrideUrlLoading_withNativeBrowserScheme_withInvalidHostSchemeUrl_withUserClick_shouldFailSilently() throws Exception {
         when(htmlWebView.wasClicked()).thenReturn(true);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         boolean shouldOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView, "something://blah?url=invalid");
 
@@ -281,7 +280,7 @@ public class HtmlWebViewClientTest {
     @Test
     public void shouldOverrideUrlLoading_withNativeBrowserScheme_withInvalidHostSchemeUrl_withoutUserClick_shouldNotInvokeNativeBrowser() throws Exception {
         when(htmlWebView.wasClicked()).thenReturn(false);
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         boolean shouldOverrideUrl = subject.shouldOverrideUrlLoading(htmlWebView, "something://blah?url=invalid");
 
@@ -293,7 +292,7 @@ public class HtmlWebViewClientTest {
 
     @Test
     public void shouldOverrideUrlLoading_withAboutBlankUrl_shouldFailSilently() {
-        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null, null);
+        subject = new HtmlWebViewClient(htmlWebView, baseWebViewListener, null);
 
         subject.shouldOverrideUrlLoading(htmlWebView, "about:blank");
 

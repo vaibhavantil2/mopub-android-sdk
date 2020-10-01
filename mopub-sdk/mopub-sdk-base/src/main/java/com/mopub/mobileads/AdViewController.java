@@ -11,6 +11,7 @@ import android.location.Location;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -27,6 +28,7 @@ import com.mopub.common.LocationService;
 import com.mopub.common.MoPub;
 import com.mopub.common.MoPubReward;
 import com.mopub.common.Preconditions;
+import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.util.DeviceUtils;
@@ -47,6 +49,7 @@ import org.jetbrains.annotations.NotNull;
 import java.lang.reflect.Constructor;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.WeakHashMap;
 
@@ -134,6 +137,8 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
     private Integer mRefreshTimeMillis;
     @NonNull
     private String mLastTrackedRequestId;
+    private long mOnPauseViewedTimeMillis;
+    private long mShowStartedTimestampMillis;
 
     public static void setShouldHonorServerDimensions(View view) {
         sViewShouldHonorServerDimensions.put(view, true);
@@ -173,6 +178,7 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
                 internalLoadAd();
             }
         };
+        mOnPauseViewedTimeMillis = 0;
         mRefreshTimeMillis = DEFAULT_REFRESH_TIME_MILLISECONDS;
         mHandler = new Handler();
         mLastTrackedRequestId = "";
@@ -228,6 +234,8 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
                     return MoPubErrorCode.WARMUP;
                 case NO_FILL:
                     return MoPubErrorCode.NO_FILL;
+                case TOO_MANY_REQUESTS:
+                    return MoPubErrorCode.TOO_MANY_REQUESTS;
                 default:
                     return UNSPECIFIED;
             }
@@ -371,6 +379,7 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
         mUserDataKeywords = userDataKeywords;
     }
 
+    @Nullable
     public Location getLocation() {
         return LocationService.getLastKnownLocation(mContext);
     }
@@ -456,8 +465,10 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
 
         mCurrentAutoRefreshStatus = newAutoRefreshStatus;
         if (mAdWasLoaded && mCurrentAutoRefreshStatus) {
+            mShowStartedTimestampMillis = SystemClock.uptimeMillis();
             scheduleRefreshTimerIfEnabled();
         } else if (!mCurrentAutoRefreshStatus) {
+            mOnPauseViewedTimeMillis += SystemClock.uptimeMillis() - mShowStartedTimestampMillis;
             cancelRefreshTimer();
         }
     }
@@ -550,7 +561,7 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
     void registerClick() {
         if (mAdResponse != null) {
             // Click tracker fired from Banners and Interstitials
-            TrackingRequest.makeTrackingHttpRequest(mAdResponse.getClickTrackingUrl(),
+            TrackingRequest.makeTrackingHttpRequest(mAdResponse.getClickTrackingUrls(),
                     mContext);
         }
     }
@@ -622,10 +633,15 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
     void scheduleRefreshTimerIfEnabled() {
         cancelRefreshTimer();
         if (mCurrentAutoRefreshStatus && mRefreshTimeMillis != null && mRefreshTimeMillis > 0) {
+            final long maxExpectedRefreshTimeMillis = Math.min(MAX_REFRESH_TIME_MILLISECONDS,
+                    mRefreshTimeMillis * (long) Math.pow(BACKOFF_FACTOR, mBackoffPower));
+            long currentExpectedRefreshTimeMillis =
+                    maxExpectedRefreshTimeMillis - mOnPauseViewedTimeMillis;
+            if (currentExpectedRefreshTimeMillis < 0) {
+                currentExpectedRefreshTimeMillis = maxExpectedRefreshTimeMillis;
+            }
 
-            mHandler.postDelayed(mRefreshRunnable,
-                    Math.min(MAX_REFRESH_TIME_MILLISECONDS,
-                            mRefreshTimeMillis * (long) Math.pow(BACKOFF_FACTOR, mBackoffPower)));
+            mHandler.postDelayed(mRefreshRunnable, currentExpectedRefreshTimeMillis);
         }
     }
 
@@ -688,7 +704,8 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
             height = mAdResponse.getHeight();
         }
 
-        if (width != null && height != null && getShouldHonorServerDimensions(view) && width > 0 && height > 0) {
+        if (width != null && height != null && getShouldHonorServerDimensions(view) &&
+                width > 0 && height > 0 && mContext != null) {
             int scaledWidth = Dips.asIntPixels(width, mContext);
             int scaledHeight = Dips.asIntPixels(height, mContext);
 
@@ -706,6 +723,7 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
         final String impressionMinVisibleDipsString = mAdResponse.getImpressionMinVisibleDips();
         final String impressionMinVisibleMsString = mAdResponse.getImpressionMinVisibleMs();
         final boolean allowCustomClose = mAdResponse.allowCustomClose();
+        final Set<ViewabilityVendor> viewabilityVendors = mAdResponse.getViewabilityVendors();
 
         Preconditions.checkNotNull(serverExtras);
 
@@ -756,6 +774,7 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
                 .adType(adType)
                 .fullAdType(fullAdType)
                 .allowCustomClose(allowCustomClose)
+                .viewabilityVendors(viewabilityVendors)
                 .build();
 
         if (Reflection.classFound(adapterClassName)) {
@@ -790,6 +809,9 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
     }
 
     void show() {
+        mOnPauseViewedTimeMillis = 0;
+        mShowStartedTimestampMillis = SystemClock.uptimeMillis();
+
         final AdAdapter adAdapter = getAdAdapter();
         if (adAdapter != null) {
             adAdapter.setInteractionListener(this);
@@ -932,5 +954,15 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
     @VisibleForTesting
     public void setAdResponse(@Nullable final AdResponse adResponse) {
         mAdResponse = adResponse;
+    }
+
+    @VisibleForTesting
+    long getOnPauseViewedTimeMillis() {
+        return mOnPauseViewedTimeMillis;
+    }
+
+    @VisibleForTesting
+    long getShowStartedTimestampMillis() {
+        return mShowStartedTimestampMillis;
     }
 }

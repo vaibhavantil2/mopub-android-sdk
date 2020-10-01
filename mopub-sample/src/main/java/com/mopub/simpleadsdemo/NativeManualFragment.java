@@ -19,12 +19,13 @@ import com.mopub.nativeads.AdapterHelper;
 import com.mopub.nativeads.FacebookAdRenderer;
 import com.mopub.nativeads.GooglePlayServicesAdRenderer;
 import com.mopub.nativeads.MediaViewBinder;
-import com.mopub.nativeads.MintegralAdRenderer;
 import com.mopub.nativeads.MoPubNative;
 import com.mopub.nativeads.MoPubStaticNativeAdRenderer;
 import com.mopub.nativeads.MoPubVideoNativeAdRenderer;
 import com.mopub.nativeads.NativeAd;
 import com.mopub.nativeads.NativeErrorCode;
+import com.mopub.nativeads.PangleAdRenderer;
+import com.mopub.nativeads.PangleAdViewBinder;
 import com.mopub.nativeads.RequestParameters;
 import com.mopub.nativeads.VerizonNativeAdRenderer;
 import com.mopub.nativeads.ViewBinder;
@@ -174,21 +175,19 @@ public class NativeManualFragment extends Fragment {
                         .privacyInformationIconImageId(R.id.native_privacy_information_icon_image)
                         .build());
 
-        // Set up a renderer for Mintegral ads.
-        final MintegralAdRenderer mintegralAdRenderer = new MintegralAdRenderer(
-                new MintegralAdRenderer.MintegralViewBinder.Builder(R.layout.native_ad_mintegral_list_item)
-                        .titleId(R.id.native_title)
-                        .textId(R.id.native_text)
-                        .mediaViewId(R.id.native_main_image)
-                        .iconImageId(R.id.native_icon_image)
+        final PangleAdRenderer pangleAdRenderer = new PangleAdRenderer(
+                new PangleAdViewBinder.Builder(R.layout.native_ad_pangle_list_item)
                         .callToActionId(R.id.native_cta)
-                        .adChoicesId(R.id.native_privacy_information_icon_image)
+                        .decriptionTextId(R.id.native_text)
+                        .iconImageId(R.id.native_icon_image)
+                        .titleId(R.id.native_title)
+                        .mediaViewIdId(R.id.native_main_image)
                         .build());
 
         // The first renderer that can handle a particular native ad gets used.
         // We are prioritizing network renderers.
 
-        mMoPubNative.registerAdRenderer(mintegralAdRenderer);
+        mMoPubNative.registerAdRenderer(pangleAdRenderer);
         mMoPubNative.registerAdRenderer(facebookAdRenderer);
         mMoPubNative.registerAdRenderer(googlePlayServicesAdRenderer);
         mMoPubNative.registerAdRenderer(verizonNativeAdRenderer);

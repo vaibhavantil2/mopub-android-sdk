@@ -12,8 +12,6 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.mopub.common.DataKeys;
-import com.mopub.common.ExternalViewabilitySessionManager;
 import com.mopub.common.LifecycleListener;
 import com.mopub.common.Preconditions;
 import com.mopub.common.VisibleForTesting;
@@ -28,7 +26,6 @@ import java.util.Map;
 import static com.mopub.common.Constants.AD_EXPIRATION_DELAY;
 import static com.mopub.common.DataKeys.HTML_RESPONSE_BODY_KEY;
 import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.CLICKED;
-import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.CUSTOM;
 import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.EXPIRED;
 import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.LOAD_FAILED;
 import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.LOAD_SUCCESS;
@@ -47,8 +44,6 @@ public class MoPubInline extends BaseAd {
     private MoPubWebViewController mController;
     @Nullable
     private WebViewDebugListener mDebugListener;
-    @Nullable
-    private ExternalViewabilitySessionManager mExternalViewabilitySessionManager;
     @Nullable
     private Handler mHandler;
     @Nullable
@@ -70,13 +65,10 @@ public class MoPubInline extends BaseAd {
             mInteractionListener.onAdFailed(MoPubErrorCode.EXPIRED);
         };
 
-        String clickthroughUrl;
         Map<String, String> extras = mAdData.getExtras();
         String dspCreativeId = mAdData.getDspCreativeId();
 
-        if (extrasAreValid(extras)) {
-            clickthroughUrl = extras.get(DataKeys.CLICKTHROUGH_URL_KEY);
-        } else {
+        if (!extrasAreValid(extras)) {
             MoPubLog.log(LOAD_FAILED, ADAPTER_NAME,
                     INLINE_LOAD_ERROR.getIntCode(),
                     INLINE_LOAD_ERROR);
@@ -91,7 +83,7 @@ public class MoPubInline extends BaseAd {
                     PlacementType.INLINE,
                     mAdData.getAllowCustomClose());
         } else if ("html".equals(mAdData.getAdType())) {
-            mController = HtmlControllerFactory.create(context, dspCreativeId, clickthroughUrl);
+            mController = HtmlControllerFactory.create(context, dspCreativeId);
         } else {
             // We can only handle MRAID and HTML here. Anything else should fail
             MoPubLog.log(LOAD_FAILED, ADAPTER_NAME,
@@ -109,7 +101,9 @@ public class MoPubInline extends BaseAd {
                 AdViewController.setShouldHonorServerDimensions(view);
                 MoPubLog.log(LOAD_SUCCESS, ADAPTER_NAME);
                 mLoadListener.onAdLoaded();
-                mHandler.postDelayed(mAdExpiration, AD_EXPIRATION_DELAY);
+                if (mHandler != null) {
+                    mHandler.postDelayed(mAdExpiration, AD_EXPIRATION_DELAY);
+                }
             }
 
             @Override
@@ -173,20 +167,10 @@ public class MoPubInline extends BaseAd {
             }
         });
 
-        mController.fillContent(mAdData.getAdPayload(), new MoPubWebViewController.WebViewCacheListener() {
+        mController.fillContent(mAdData.getAdPayload(), adData.getViewabilityVendors(),  new MoPubWebViewController.WebViewCacheListener() {
             @Override
-            public void onReady(final @NonNull BaseWebView webView,
-                                final @Nullable ExternalViewabilitySessionManager viewabilityManager) {
+            public void onReady(final @NonNull BaseWebView webView) {
                 webView.getSettings().setJavaScriptEnabled(true);
-
-                // We only measure viewability when we have an activity context. This sets up a delayed
-                // viewability session if we have the new pixel-counting banner impression tracking enabled.
-                // Otherwise, set up a regular display session.
-                if (context instanceof Activity) {
-                    mExternalViewabilitySessionManager = new ExternalViewabilitySessionManager(
-                            context);
-                    mExternalViewabilitySessionManager.createDisplaySession(context, webView);
-                }
             }
         });
     }
@@ -208,10 +192,6 @@ public class MoPubInline extends BaseAd {
         mAdExpiration = null;
         mHandler = null;
 
-        if (mExternalViewabilitySessionManager != null) {
-            mExternalViewabilitySessionManager.endDisplaySession();
-            mExternalViewabilitySessionManager = null;
-        }
         if (mController != null) {
             mController.setMoPubWebViewListener(null);
             mController.destroy();
@@ -226,19 +206,6 @@ public class MoPubInline extends BaseAd {
         }
 
         mController.loadJavascript(WEB_VIEW_DID_APPEAR.getJavascript());
-
-        // mExternalViewabilitySessionManager is usually only null if the original Context given
-        // to mMraidController was not an Activity Context. We don't need to start the deferred
-        // viewability tracker since it wasn't created, and if it was, and the activity reference
-        // was lost, something bad has happened, so we should drop the request.
-        if (mExternalViewabilitySessionManager != null) {
-            final Activity activity = mController.getWeakActivity().get();
-            if (activity != null) {
-                mExternalViewabilitySessionManager.startDeferredDisplaySession(activity);
-            } else {
-                MoPubLog.log(CUSTOM, ADAPTER_NAME, "Lost the activity for deferred Viewability tracking. Dropping session.");
-            }
-        }
     }
 
     @VisibleForTesting

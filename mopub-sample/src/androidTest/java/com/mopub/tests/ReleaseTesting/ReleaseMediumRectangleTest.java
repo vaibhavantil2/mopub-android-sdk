@@ -4,8 +4,6 @@
 
 package com.mopub.tests.ReleaseTesting;
 
-import android.content.pm.ActivityInfo;
-
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 
@@ -16,43 +14,69 @@ import com.mopub.tests.base.MoPubBaseTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import static com.mopub.framework.base.BasePage.clickCellOnList;
+
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class ReleaseMediumRectangleTest extends MoPubBaseTestCase {
 
     @Test
     public void release_portraitMediumRectangleHtml_shouldLoadCenteredHorizontally_shouldShowMoPubBrowser() {
-        isAlignedInLine(MediumRectangleTestAdUnits.HTML.getAdName(), ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        clickCellOnList(MediumRectangleTestAdUnits.HTML.getAdName());
+        adDetailPage.pressLoadAdButton();
+        inLineAdDidLoad();
+        adDetailPage.changeOrientationTo(PORTRAIT_ORIENTATION);
+        isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
     }
 
     @Test
     public void release_landscapeMediumRectangleHtml_shouldLoadCenteredHorizontally_shouldShowMoPubBrowser() {
-        isAlignedInLine(MediumRectangleTestAdUnits.HTML.getAdName(), ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        clickCellOnList(MediumRectangleTestAdUnits.HTML.getAdName());
+        adDetailPage.pressLoadAdButton();
+        inLineAdDidLoad();
+        adDetailPage.changeOrientationTo(LANDSCAPE_ORIENTATION);
+        isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
     }
 
     @Test
     public void release_portraitMediumRectangleImage_shouldLoadCenteredHorizontally_shouldShowMoPubBrowser() {
-        isAlignedInLine(MediumRectangleTestAdUnits.IMAGE.getAdName(), ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        clickCellOnList(MediumRectangleTestAdUnits.IMAGE.getAdName());
+        adDetailPage.pressLoadAdButton();
+        inLineAdDidLoad();
+        adDetailPage.changeOrientationTo(PORTRAIT_ORIENTATION);
+        isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
     }
 
     @Test
     public void release_landscapeMediumRectangleImage_shouldLoadCenteredHorizontally_shouldShowMoPubBrowser() {
-        isAlignedInLine(MediumRectangleTestAdUnits.IMAGE.getAdName(), ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        clickCellOnList(MediumRectangleTestAdUnits.IMAGE.getAdName());
+        adDetailPage.pressLoadAdButton();
+        inLineAdDidLoad();
+        adDetailPage.changeOrientationTo(LANDSCAPE_ORIENTATION);
+        isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
     }
 
     @Test
-    public void release_PortraitMediumRectangleHtmlVideo_shouldLoadCenteredHorizontally_shouldShowMoPubBrowser() {
-        isAlignedInLine(MediumRectangleTestAdUnits.VIDEO.getAdName(), ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+    public void release_portraitMediumRectangleHtmlVideo_shouldLoadCenteredHorizontally_shouldShowMoPubBrowser() {
+        clickCellOnList(MediumRectangleTestAdUnits.VIDEO.getAdName());
+        adDetailPage.pressLoadAdButton();
+        inLineAdDidLoad();
+        adDetailPage.changeOrientationTo(PORTRAIT_ORIENTATION);
+        isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
     }
 
     @Test
-    public void release_LandscapeMediumRectangleHtmlVideo_shouldLoadCenteredHorizontally_shouldShowMoPubBrowser() {
-        isAlignedInLine(MediumRectangleTestAdUnits.VIDEO.getAdName(), ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+    public void release_landscapeMediumRectangleHtmlVideo_shouldLoadCenteredHorizontally_shouldShowMoPubBrowser() {
+        clickCellOnList(MediumRectangleTestAdUnits.VIDEO.getAdName());
+        adDetailPage.pressLoadAdButton();
+        inLineAdDidLoad();
+        adDetailPage.changeOrientationTo(LANDSCAPE_ORIENTATION);
+        isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
     }
 

@@ -38,12 +38,8 @@ import androidx.media2.common.UriMediaItem
 import androidx.media2.player.MediaPlayer
 import androidx.media2.player.PlaybackParams
 import androidx.media2.widget.VideoView
-import com.mopub.common.DataKeys
-import com.mopub.common.ExternalViewabilitySession.VideoEvent
-import com.mopub.common.ExternalViewabilitySessionManager
-import com.mopub.common.IntentActions
+import com.mopub.common.*
 import com.mopub.common.MoPubBrowser.MOPUB_BROWSER_REQUEST_CODE
-import com.mopub.common.VisibleForTesting
 import com.mopub.common.logging.MoPubLog
 import com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM
 import com.mopub.common.util.AsyncTasks
@@ -87,7 +83,7 @@ class VastVideoViewController(
     val vastVideoConfig: VastVideoConfig
     @VisibleForTesting
     val vastIconConfig: VastIconConfig?
-    private val externalViewabilitySessionManager = ExternalViewabilitySessionManager(activity)
+    private val externalViewabilitySessionManager = ExternalViewabilitySessionManager.create()
     @VisibleForTesting
     val blurredLastVideoFrameImageView: ImageView
     @VisibleForTesting
@@ -200,8 +196,11 @@ class VastVideoViewController(
         videoView = createVideoView(activity, VISIBLE)
         videoView.requestFocus()
 
-        externalViewabilitySessionManager.createVideoSession(activity, videoView, vastVideoConfig)
-        externalViewabilitySessionManager.registerVideoObstruction(blurredLastVideoFrameImageView)
+        externalViewabilitySessionManager.createVideoSession(
+            videoView,
+            vastVideoConfig.viewabilityVendors
+        )
+        externalViewabilitySessionManager.registerVideoObstruction(blurredLastVideoFrameImageView, ViewabilityObstruction.BLUR)
 
         landscapeCompanionAdView =
             vastVideoConfig.createCompanionAdView(ORIENTATION_LANDSCAPE, INVISIBLE)
@@ -216,10 +215,11 @@ class VastVideoViewController(
             hasCompanionAd,
             VISIBLE,
             RelativeLayout.ALIGN_TOP,
-            layout.id
+            layout.id,
+            true
         ).also {
             layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it)
+            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.OVERLAY)
         }
 
         // Progress bar overlaying bottom of video view
@@ -227,7 +227,7 @@ class VastVideoViewController(
             it.setAnchorId(videoView.id)
             it.visibility = INVISIBLE
             layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it)
+            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.PROGRESS_BAR)
         }
 
         // Bottom transparent gradient strip above progress bar
@@ -237,17 +237,18 @@ class VastVideoViewController(
             hasCompanionAd,
             GONE,
             RelativeLayout.ABOVE,
-            progressBarWidget.id
+            progressBarWidget.id,
+            false
         ).also {
             layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it)
+            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.OVERLAY)
         }
 
         // Radial countdown timer snapped to top-right corner of screen
         radialCountdownWidget = RadialCountdownWidget(context).also {
             it.visibility = INVISIBLE
             layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it)
+            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.COUNTDOWN_TIMER)
         }
 
         iconView = vastIconConfig?.let { iconConfig ->
@@ -288,7 +289,7 @@ class VastVideoViewController(
                 layoutParams?.setMargins(leftMargin, topMargin, 0, 0)
 
                 layout.addView(it, layoutParams)
-                externalViewabilitySessionManager.registerVideoObstruction(it)
+                externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.INDUSTRY_ICON)
             }
         } ?: View(context)
 
@@ -299,7 +300,7 @@ class VastVideoViewController(
             !vastVideoConfig.clickThroughUrl.isNullOrEmpty()
         ).also {
             layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it)
+            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.CTA_BUTTON)
             vastVideoConfig.customCtaText?.let { ctaText ->
                 it.updateCtaText(ctaText)
             }
@@ -309,7 +310,7 @@ class VastVideoViewController(
         closeButtonWidget = VastVideoCloseButtonWidget(context).also {
             it.visibility = GONE
             layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it)
+            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.CLOSE_BUTTON)
 
             it.setOnTouchListenerToContent(OnTouchListener { _, event ->
                 if (event.action != ACTION_UP) {
@@ -393,7 +394,7 @@ class VastVideoViewController(
                     // Called when media source is ready for playback
                     // The VideoView duration defaults to -1 when the video is not prepared or playing;
                     // Therefore set it here so that we have access to it at all times
-                    externalViewabilitySessionManager.onVideoPrepared(layout, duration.toInt())
+                    externalViewabilitySessionManager.onVideoPrepared(duration)
                     adjustSkipOffset()
                     mediaPlayer.playerVolume = 1.0f
 
@@ -426,7 +427,7 @@ class VastVideoViewController(
             val layoutParams = RelativeLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
             relativeLayout.gravity = CENTER
             layout.addView(relativeLayout, layoutParams)
-            externalViewabilitySessionManager.registerVideoObstruction(relativeLayout)
+            externalViewabilitySessionManager.registerVideoObstruction(relativeLayout, ViewabilityObstruction.OTHER)
 
             companionConfig.createWebView().also { wv ->
                 wv.visibility = initialVisibility
@@ -442,7 +443,7 @@ class VastVideoViewController(
                 )
                 wvLayout.addRule(CENTER_IN_PARENT, TRUE)
                 relativeLayout.addView(wv, wvLayout)
-                externalViewabilitySessionManager.registerVideoObstruction(wv)
+                externalViewabilitySessionManager.registerVideoObstruction(wv, ViewabilityObstruction.OTHER)
             }
         } ?: View(context).also { it.visibility = INVISIBLE }
     }
@@ -489,19 +490,14 @@ class VastVideoViewController(
     }
 
     override fun onResume() {
+        if (!externalViewabilitySessionManager.isTracking()) {
+            externalViewabilitySessionManager.startSession();
+        }
         startRunnables()
 
         if (seekerPositionOnPause > 0) {
-            externalViewabilitySessionManager.recordVideoEvent(
-                VideoEvent.AD_PLAYING,
-                seekerPositionOnPause
-            )
             mediaPlayer.seekTo(seekerPositionOnPause.toLong(), MediaPlayer.SEEK_CLOSEST)
         } else {
-            externalViewabilitySessionManager.recordVideoEvent(
-                VideoEvent.AD_LOADED,
-                getDuration()
-            )
             if (!isComplete) {
                 mediaPlayer.play()
             }
@@ -522,21 +518,13 @@ class VastVideoViewController(
         mediaPlayer.audioFocusHandler.close()
 
         if (!isComplete) {
-            externalViewabilitySessionManager.recordVideoEvent(
-                VideoEvent.AD_PAUSED,
-                getCurrentPosition()
-            )
             vastVideoConfig.handlePause(context, seekerPositionOnPause)
         }
     }
 
     override fun onDestroy() {
         stopRunnables()
-        externalViewabilitySessionManager.recordVideoEvent(
-            VideoEvent.AD_STOPPED,
-            getCurrentPosition()
-        )
-        externalViewabilitySessionManager.endVideoSession()
+        externalViewabilitySessionManager.endSession()
         broadcastAction(IntentActions.ACTION_FULLSCREEN_DISMISS)
     }
 
@@ -588,7 +576,7 @@ class VastVideoViewController(
         }
     }
 
-    internal fun handleViewabilityQuartileEvent(enumValue: String) {
+    fun handleViewabilityQuartileEvent(enumValue: String) {
         VideoEvent.valueOf(enumValue)?.let {
             externalViewabilitySessionManager.recordVideoEvent(it, getCurrentPosition())
         }
@@ -669,24 +657,19 @@ class VastVideoViewController(
         }
     }
 
-    private fun handleExitTrackers() {
+    fun handleExitTrackers() {
         val currentPosition: Int = getCurrentPosition()
-        val duration: Int = getDuration()
-        if (isComplete || currentPosition >= duration) {
-            externalViewabilitySessionManager.recordVideoEvent(
-                VideoEvent.AD_COMPLETE,
-                duration
-            )
-            vastVideoConfig.handleComplete(context, duration)
+        if (isComplete || currentPosition >= getDuration()) {
+            vastVideoConfig.handleComplete(context, getDuration())
         } else {
             externalViewabilitySessionManager.recordVideoEvent(
-                VideoEvent.AD_COMPLETE,
+                VideoEvent.AD_SKIPPED,
                 currentPosition
             )
             vastVideoConfig.handleSkip(context, currentPosition)
         }
 
-        vastVideoConfig.handleClose(context, duration)
+        vastVideoConfig.handleClose(context, getDuration())
     }
 
     private fun startRunnables() {
@@ -723,6 +706,24 @@ class VastVideoViewController(
                         context,
                         VastErrorCode.GENERAL_LINEAR_AD_ERROR, getCurrentPosition()
                     )
+                }
+                PLAYER_STATE_PAUSED -> {
+                    if(externalViewabilitySessionManager.hasImpressionOccurred() ) {
+                        externalViewabilitySessionManager.recordVideoEvent(
+                            VideoEvent.AD_PAUSED,
+                            getCurrentPosition()
+                        )
+                    }
+                }
+                PLAYER_STATE_PLAYING -> {
+                    if (externalViewabilitySessionManager.hasImpressionOccurred()) {
+                        externalViewabilitySessionManager.recordVideoEvent(
+                            VideoEvent.AD_RESUMED,
+                            getCurrentPosition()
+                        )
+                    } else {
+                        externalViewabilitySessionManager.trackImpression()
+                    }
                 }
                 else -> {
                     MoPubLog.log(

@@ -27,7 +27,11 @@ import androidx.media2.common.SessionPlayer;
 import androidx.media2.player.MediaPlayer;
 import androidx.media2.widget.VideoView;
 
+import com.mopub.common.ExternalViewabilitySessionManager;
 import com.mopub.common.MoPubBrowser;
+import com.mopub.common.VideoEvent;
+import com.mopub.common.ViewabilityObstruction;
+import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.mobileads.test.support.GestureUtils;
 import com.mopub.mobileads.test.support.TestMediaPlayerFactory;
@@ -134,6 +138,8 @@ public class VastVideoViewControllerTest {
     private MediaMetadataRetriever mockMediaMetadataRetriever;
     @Mock
     private Bitmap mockBitmap;
+    @Mock
+    private ExternalViewabilitySessionManager mockExternalViewabilityManager;
 
     private VastVideoViewCountdownRunnable spyCountdownRunnable;
     private VastVideoViewProgressRunnable spyProgressRunnable;
@@ -248,6 +254,24 @@ public class VastVideoViewControllerTest {
         LocalBroadcastManager.getInstance(context).unregisterReceiver(broadcastReceiver);
 
         validateMockitoUsage(); // makes sure that issues from one test don't carry over to the next
+        ExternalViewabilitySessionManager.setCreator(null);
+    }
+
+    @Test
+    public void constructor_shouldCallExternalViewabilityManager() throws IllegalAccessException {
+        initializeSubject();
+
+        verify(mockExternalViewabilityManager).createVideoSession(any(View.class), any());
+        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getBlurredLastVideoFrameImageView(), ViewabilityObstruction.BLUR);
+        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getTopGradientStripWidget(), ViewabilityObstruction.OVERLAY);
+        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getProgressBarWidget(), ViewabilityObstruction.PROGRESS_BAR);
+        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getBottomGradientStripWidget(), ViewabilityObstruction.OVERLAY);
+        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getRadialCountdownWidget(), ViewabilityObstruction.COUNTDOWN_TIMER);
+        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getIconView(), ViewabilityObstruction.INDUSTRY_ICON);
+        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getCtaButtonWidget(), ViewabilityObstruction.CTA_BUTTON);
+        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getCloseButtonWidget(), ViewabilityObstruction.CLOSE_BUTTON);
+        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getLandscapeCompanionAdView(), ViewabilityObstruction.OTHER);
+        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getPortraitCompanionAdView(), ViewabilityObstruction.OTHER);
     }
 
     @Test
@@ -646,6 +670,7 @@ public class VastVideoViewControllerTest {
 
         verify(broadcastReceiver).onReceive(any(Context.class),
                 argThat(new IntentIsEqual(expectedIntent)));
+        verify(mockExternalViewabilityManager).endSession();
     }
 
     @Test
@@ -2046,6 +2071,7 @@ public class VastVideoViewControllerTest {
 
     @Test
     public void onResume_shouldStartRunnables() throws Exception {
+        when(mockExternalViewabilityManager.isTracking()).thenReturn(false);
         initializeSubject();
 
         subject.onPause();
@@ -2055,6 +2081,8 @@ public class VastVideoViewControllerTest {
         subject.onResume();
         verify(spyCountdownRunnable).startRepeating(anyLong());
         verify(spyProgressRunnable).startRepeating(anyLong());
+        verify(mockExternalViewabilityManager).isTracking();
+        verify(mockExternalViewabilityManager).startSession();
     }
 
     @Test
@@ -2430,7 +2458,7 @@ public class VastVideoViewControllerTest {
     }
 
     @Test
-    public void handleIconDisplay_withCurrentPositionGreaterThanOffsetPlusDuration_shouldSetIconToGone() throws Exception {
+    public void handleIconDisplay_withCurrentPositionGreaterThanOffsetPlusDuration_shouldSetIconToINVISIBLE() throws Exception {
         initializeSubject();
 
         VastIconConfig mockVastIconConfig = mock(VastIconConfig.class);
@@ -2445,6 +2473,15 @@ public class VastVideoViewControllerTest {
     }
 
     @Test
+    public void handleViewabilityQuartileEvent_shouldRecordVideoEvent() throws IllegalAccessException {
+        initializeSubject();
+
+        subject.handleViewabilityQuartileEvent(VideoEvent.AD_VIDEO_MIDPOINT.toString());
+
+        verify(mockExternalViewabilityManager).recordVideoEvent(eq(VideoEvent.AD_VIDEO_MIDPOINT), anyInt());
+    }
+
+    @Test
     public void makeInteractable_shouldHideCountdownWidgetAndShowCtaAndCloseButtonWidgets() throws Exception {
         initializeSubject();
 
@@ -2454,7 +2491,74 @@ public class VastVideoViewControllerTest {
         assertThat(subject.getCloseButtonWidget().getVisibility()).isEqualTo(View.VISIBLE);
     }
 
+    @Test
+    public void mediaPlayerCallbackPepare_shouldCallViewabilityOnVideoPrepared() throws Exception {
+        initializeSubject();
+        setVideoViewParams(1000, 15777);
+
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+
+        verify(mockExternalViewabilityManager).onVideoPrepared(15777);
+    }
+
+    @Test
+    public void onDestroy_shouldCallViewabilityEndSession() throws Exception {
+        initializeSubject();
+
+        subject.onDestroy();
+
+        verify(mockExternalViewabilityManager).endSession();
+    }
+
+    @Test
+    public void handleExitTrackers_whenNotComplete_shouldRecordEventSkipped() throws IllegalAccessException {
+        initializeSubject();
+
+        subject.handleExitTrackers();
+
+        verify(mockExternalViewabilityManager).recordVideoEvent(eq(VideoEvent.AD_SKIPPED), anyInt());
+    }
+
+    @Test
+    public void handleExitTrackers_whenComplete_shouldNotRecordEventSkipped() throws IllegalAccessException {
+        initializeSubject();
+        subject.setComplete(true);
+        reset(mockExternalViewabilityManager);
+
+        subject.handleExitTrackers();
+
+        verifyZeroInteractions(mockExternalViewabilityManager);
+    }
+
+    @Test
+    public void onPlayerStatePause_shouldFireViewabilityPausedEvent() throws Exception {
+        initializeSubject();
+        when(mockExternalViewabilityManager.hasImpressionOccurred()).thenReturn(true);
+
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+        subject.getPlayerCallback().onPlayerStateChanged(mockMediaPlayer, SessionPlayer.PLAYER_STATE_PAUSED);
+        Robolectric.getForegroundThreadScheduler().unPause();
+
+        verify(mockExternalViewabilityManager).recordVideoEvent(eq(VideoEvent.AD_PAUSED), anyInt());
+    }
+
+    @Test
+    public void onPlayerStatePlaying_shouldFireViewabilityResumedEvent() throws Exception {
+        initializeSubject();
+        when(mockExternalViewabilityManager.hasImpressionOccurred()).thenReturn(true);
+
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+        subject.getPlayerCallback().onPlayerStateChanged(mockMediaPlayer, SessionPlayer.PLAYER_STATE_PLAYING);
+        Robolectric.getForegroundThreadScheduler().unPause();
+
+        verify(mockExternalViewabilityManager).recordVideoEvent(eq(VideoEvent.AD_RESUMED), anyInt());
+    }
+
     private void initializeSubject() throws IllegalAccessException {
+        ExternalViewabilitySessionManager.setCreator(() -> mockExternalViewabilityManager);
         subject = new VastVideoViewController((Activity) context, bundle, savedInstanceState,
                 testBroadcastIdentifier, baseVideoViewControllerListener);
         subject.setMediaMetadataRetriever(mockMediaMetadataRetriever);

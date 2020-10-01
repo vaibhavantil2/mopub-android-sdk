@@ -13,6 +13,7 @@ public enum MoPubErrorCode implements MoPubError {
     NO_FILL("No ads found."),
     WARMUP("Ad unit is warming up. Try again in a few minutes."),
     SERVER_ERROR("Unable to connect to MoPub adserver."),
+    TOO_MANY_REQUESTS("Too many failed requests have been made. Please try again later."),
 
     // Client ad load errors
     INTERNAL_ERROR("Unable to serve ad due to invalid internal state."),

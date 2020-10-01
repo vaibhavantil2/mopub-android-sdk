@@ -19,10 +19,7 @@ import com.google.gson.reflect.TypeToken
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import com.google.gson.stream.JsonWriter
-import com.mopub.common.Constants
-import com.mopub.common.MoPubBrowser
-import com.mopub.common.UrlAction
-import com.mopub.common.UrlHandler
+import com.mopub.common.*
 import com.mopub.common.UrlHandler.ResultActions
 import com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM
 import com.mopub.common.logging.MoPubLog.log
@@ -134,32 +131,13 @@ class VastVideoConfig : Serializable {
             return ArrayList(_absoluteTrackers)
         }
 
-    // Viewability
-    @Expose
-    @SerializedName(Constants.VAST_EXTERNAL_VIEWABILITY_TRACKERS)
-    private val _externalViewabilityTrackers = mutableMapOf<String, String>()
-    val externalViewabilityTrackers: Map<String, String>
+    @Expose @SerializedName(Constants.VIEWABILITY_VERIFICATION_RESOURCES)
+    private val _viewabilityVendors = mutableSetOf<ViewabilityVendor>()
+    val viewabilityVendors: Set<ViewabilityVendor>
         get() {
-            return HashMap(_externalViewabilityTrackers)
+            return HashSet(_viewabilityVendors)
         }
 
-    @Expose
-    @SerializedName(Constants.VAST_AVID_JAVASCRIPT_RESOURCES)
-    private val _avidJavascriptResources = mutableSetOf<String>()
-    val avidJavascriptResources: Set<String>
-        get() {
-            return HashSet(_avidJavascriptResources)
-        }
-
-    @Expose
-    @SerializedName(Constants.VAST_MOAT_IMPRESSION_PIXELS)
-    private val _moatImpressionPixels = mutableSetOf<String>()
-    val moatImpressionPixels: Set<String>
-        get() {
-            return HashSet(_moatImpressionPixels)
-        }
-
-    @Expose
     @SerializedName(Constants.VAST_URL_CLICKTHROUGH)
     var clickThroughUrl: String? = null
     @Expose
@@ -282,18 +260,8 @@ class VastVideoConfig : Serializable {
         _errorTrackers.addAll(errorTrackers)
     }
 
-    fun addExternalViewabilityTrackers(
-        externalViewabilityTrackers: Map<String, String>?
-    ) {
-        externalViewabilityTrackers?.let { _externalViewabilityTrackers.putAll(it) }
-    }
-
-    fun addAvidJavascriptResources(javascriptResources: Set<String>?) {
-        javascriptResources?.let { _avidJavascriptResources.addAll(it) }
-    }
-
-    fun addMoatImpressionPixels(impressionPixels: Set<String>?) {
-        impressionPixels?.let { _moatImpressionPixels.addAll(it) }
+    fun addViewabilityVendors(viewabilityVendors: Set<ViewabilityVendor>?) {
+        viewabilityVendors?.let { _viewabilityVendors.addAll(it) }
     }
 
     /**

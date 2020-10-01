@@ -11,6 +11,7 @@ import android.graphics.Point;
 import android.view.Display;
 import android.view.WindowManager;
 
+import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.test.support.ShadowMoPubHttpUrlConnection;
 import com.mopub.mobileads.test.support.VastUtils;
@@ -26,14 +27,17 @@ import org.mockito.stubbing.Answer;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import static com.mopub.common.VolleyRequestMatcher.isUrl;
 import static com.mopub.mobileads.VastXmlManagerAggregator.VastXmlManagerAggregatorListener;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.doAnswer;
@@ -128,9 +132,11 @@ public class VastXmlManagerAggregatorTest {
             "                        <![CDATA[https://ad.server.com/impression/dot.gif]]>" +
             "                    </MoPubViewabilityTracker>" +
             "                </Extension>" +
+            "                <PLACEHOLDER1 />" +
             "            </Extensions>" +
             "            <Error><![CDATA[https://wrapperErrorOne?errorcode=[ERRORCODE]]]></Error>" +
             "            <Error><![CDATA[https://wrapperErrorTwo?errorcode=[ERRORCODE]]]></Error>" +
+            "            <PLACEHOLDER2 />" +
             "        </Wrapper>" +
             "    </Ad>" +
             "</VAST>" +
@@ -272,10 +278,48 @@ public class VastXmlManagerAggregatorTest {
             "                        <![CDATA[https://ad.server.com/impression/dot.png]]>" +
             "                    </MoPubViewabilityTracker>" +
             "                </Extension>" +
+            "                <PLACEHOLDER1 />" +
             "            </Extensions>" +
+            "            <PLACEHOLDER2 />" +
             "        </InLine>" +
             "    </Ad>" +
             "</VAST>";
+
+    private static final String NODE_OM_AD_VERIFICATION =
+            "              <AdVerifications>" +
+            "                <Verification vendor=\"iabtechlab.com-omid\">" +
+            "                    <JavaScriptResource apiFramework=\"omid\" browserOptional=\"true\">" +
+            "                        <![CDATA[https://weburl.com]]>" +
+            "                    </JavaScriptResource>" +
+            "                    <TrackingEvents> " +
+            "                        <Tracking event=\"verificationNotExecuted\">" +
+            "                            <![CDATA[https://notexecuted.com]]>" +
+            "                        </Tracking>" +
+            "                    </TrackingEvents> " +
+            "                    <VerificationParameters>" +
+            "                        <![CDATA[tagtype=video]]>" +
+            "                    </VerificationParameters>" +
+            "                </Verification>" +
+            "            </AdVerifications>";
+
+    private static final String NODE_OM_AD_VERIFICATION_EXT =
+            "               <Extension type=\"AdVerifications\">" +
+            "                    <AdVerifications>" +
+            "                        <Verification vendor=\"iabtechlab.com-omid\">" +
+            "                            <JavaScriptResource apiFramework=\"omid\" browserOptional=\"true\">" +
+            "                                <![CDATA[https://weburl.com]]>" +
+            "                            </JavaScriptResource>" +
+            "                            <TrackingEvents>" +
+            "                                <Tracking event=\"verificationNotExecuted\">" +
+            "                                    <![CDATA[https://notexecuted.com]]>" +
+            "                                </Tracking>" +
+            "                            </TrackingEvents>" +
+            "                            <VerificationParameters>" +
+            "                                <![CDATA[tagtype=video]]>" +
+            "                            </VerificationParameters>" +
+            "                        </Verification>" +
+            "                    </AdVerifications>" +
+            "                </Extension>\"";
 
     static final String TEST_VAST_BAD_NEST_URL_XML_STRING = "<VAST version='2.0'><Ad id='62833'><Wrapper><AdSystem>Tapad</AdSystem><VASTAdTagURI>https://dsp.x-team.staging.mopub.com/xml\"$|||</VASTAdTagURI><Impression>https://myTrackingURL/wrapper/impression1</Impression><Impression>https://myTrackingURL/wrapper/impression2</Impression><Creatives><Creative AdID='62833'><Linear><TrackingEvents><Tracking event='creativeView'>https://myTrackingURL/wrapper/creativeView</Tracking><Tracking event='start'>https://myTrackingURL/wrapper/start</Tracking><Tracking event='midpoint'>https://myTrackingURL/wrapper/midpoint</Tracking><Tracking event='firstQuartile'>https://myTrackingURL/wrapper/firstQuartile</Tracking><Tracking event='thirdQuartile'>https://myTrackingURL/wrapper/thirdQuartile</Tracking><Tracking event='complete'>https://myTrackingURL/wrapper/complete</Tracking><Tracking event='mute'>https://myTrackingURL/wrapper/mute</Tracking><Tracking event='unmute'>https://myTrackingURL/wrapper/unmute</Tracking><Tracking event='pause'>https://myTrackingURL/wrapper/pause</Tracking><Tracking event='resume'>https://myTrackingURL/wrapper/resume</Tracking><Tracking event='fullscreen'>https://myTrackingURL/wrapper/fullscreen</Tracking></TrackingEvents><VideoClicks><ClickTracking>https://myTrackingURL/wrapper/click</ClickTracking></VideoClicks></Linear></Creative></Creatives><Error>![CDATA[https://badNestedError]]</Error>]</Wrapper></Ad></VAST><MP_TRACKING_URLS><MP_TRACKING_URL>https://www.mopub.com/imp1</MP_TRACKING_URL><MP_TRACKING_URL>https://www.mopub.com/imp2</MP_TRACKING_URL></MP_TRACKING_URLS>";
 
@@ -1496,6 +1540,70 @@ public class VastXmlManagerAggregatorTest {
         assertThat(tracker.getPercentViewable()).isEqualTo(70);
         assertThat(tracker.getViewablePlaytimeMS()).isEqualTo(3500);
         assertThat(tracker.getContent()).isEqualTo("https://ad.server.com/impression/dot.png");
+    }
+
+    @Test
+    public void evaluateVastXmlManager_withAdVerificationInLine_shouldReturnVastVideoConfigurationWithViewabilityVendors() {
+        final VastVideoConfig vastVideoConfig = subject.evaluateVastXmlManager(
+                TEST_NESTED_NO_COMPANION_VAST_XML_STRING.replace("<PLACEHOLDER2 />", NODE_OM_AD_VERIFICATION), new ArrayList<VastTracker>());
+
+        assertNotNull(vastVideoConfig);
+        final Set<ViewabilityVendor> vendors = vastVideoConfig.getViewabilityVendors();
+        assertThat(vendors.size()).isEqualTo(1);
+        final ViewabilityVendor vendor = vendors.iterator().next();
+        assertThat(vendor.getJavascriptResourceUrl().toString()).isEqualTo("https://weburl.com");
+        assertThat(vendor.getVerificationParameters()).isEqualTo("tagtype=video");
+        assertThat(vendor.getVendorKey()).isEqualTo("iabtechlab.com-omid");
+        assertThat(vendor.getVerificationNotExecuted()).isEqualTo("https://notexecuted.com");
+    }
+
+    @Test
+    public void evaluateVastXmlManager_withAdVerificationInLineExtension_shouldReturnVastVideoConfigurationWithViewabilityVendors() {
+        final VastVideoConfig vastVideoConfig = subject.evaluateVastXmlManager(
+                TEST_NESTED_NO_COMPANION_VAST_XML_STRING.replace("<PLACEHOLDER1 />", NODE_OM_AD_VERIFICATION_EXT), new ArrayList<>());
+
+        assertNotNull(vastVideoConfig);
+        final Set<ViewabilityVendor> vendors = vastVideoConfig.getViewabilityVendors();
+        assertThat(vendors.size()).isEqualTo(1);
+        final ViewabilityVendor vendor = vendors.iterator().next();
+        assertThat(vendor.getJavascriptResourceUrl().toString()).isEqualTo("https://weburl.com");
+        assertThat(vendor.getVerificationParameters()).isEqualTo("tagtype=video");
+        assertThat(vendor.getVendorKey()).isEqualTo("iabtechlab.com-omid");
+        assertThat(vendor.getVerificationNotExecuted()).isEqualTo("https://notexecuted.com");
+    }
+
+    @Test
+    public void evaluateVastXmlManager_withAdVerificationWrapper_shouldReturnVastVideoConfigurationWithViewabilityVendors() throws IOException {
+        ShadowMoPubHttpUrlConnection.addPendingResponse(200,
+                TEST_NESTED_NO_COMPANION_VAST_XML_STRING);
+        final VastVideoConfig vastVideoConfig = subject.evaluateVastXmlManager(
+                TEST_VAST_XML_STRING.replace("<PLACEHOLDER2 />", NODE_OM_AD_VERIFICATION), new ArrayList<>());
+
+        assertNotNull(vastVideoConfig);
+        final Set<ViewabilityVendor> vendors = vastVideoConfig.getViewabilityVendors();
+        assertThat(vendors.size()).isEqualTo(1);
+        final ViewabilityVendor vendor = vendors.iterator().next();
+        assertThat(vendor.getJavascriptResourceUrl().toString()).isEqualTo("https://weburl.com");
+        assertThat(vendor.getVerificationParameters()).isEqualTo("tagtype=video");
+        assertThat(vendor.getVendorKey()).isEqualTo("iabtechlab.com-omid");
+        assertThat(vendor.getVerificationNotExecuted()).isEqualTo("https://notexecuted.com");
+    }
+
+    @Test
+    public void evaluateVastXmlManager_withAdVerificationWrapperExtension_shouldReturnVastVideoConfigurationWithViewabilityVendors() throws IOException {
+        ShadowMoPubHttpUrlConnection.addPendingResponse(200,
+                TEST_NESTED_NO_COMPANION_VAST_XML_STRING);
+        final VastVideoConfig vastVideoConfig = subject.evaluateVastXmlManager(
+                TEST_VAST_XML_STRING.replace("<PLACEHOLDER1 />", NODE_OM_AD_VERIFICATION_EXT), new ArrayList<>());
+
+        assertNotNull(vastVideoConfig);
+        final Set<ViewabilityVendor> vendors = vastVideoConfig.getViewabilityVendors();
+        assertThat(vendors.size()).isEqualTo(1);
+        final ViewabilityVendor vendor = vendors.iterator().next();
+        assertThat(vendor.getJavascriptResourceUrl().toString()).isEqualTo("https://weburl.com");
+        assertThat(vendor.getVerificationParameters()).isEqualTo("tagtype=video");
+        assertThat(vendor.getVendorKey()).isEqualTo("iabtechlab.com-omid");
+        assertThat(vendor.getVerificationNotExecuted()).isEqualTo("https://notexecuted.com");
     }
 
     @Test

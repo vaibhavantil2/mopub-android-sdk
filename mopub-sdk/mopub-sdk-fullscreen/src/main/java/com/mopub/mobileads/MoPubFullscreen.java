@@ -16,13 +16,11 @@ import androidx.annotation.Nullable;
 import com.mopub.common.CacheService;
 import com.mopub.common.CreativeOrientation;
 import com.mopub.common.DataKeys;
-import com.mopub.common.ExternalViewabilitySessionManager;
 import com.mopub.common.FullAdType;
 import com.mopub.common.LifecycleListener;
 import com.mopub.common.Preconditions;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.logging.MoPubLog;
-import com.mopub.common.util.Json;
 import com.mopub.mobileads.factories.HtmlControllerFactory;
 import com.mopub.mobileads.factories.VastManagerFactory;
 import com.mopub.mraid.MraidBridge;
@@ -35,7 +33,6 @@ import org.json.JSONObject;
 import java.util.Map;
 
 import static com.mopub.common.Constants.AD_EXPIRATION_DELAY;
-import static com.mopub.common.DataKeys.CLICKTHROUGH_URL_KEY;
 import static com.mopub.common.DataKeys.CREATIVE_ORIENTATION_KEY;
 import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.CUSTOM;
 import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.CUSTOM_WITH_THROWABLE;
@@ -65,13 +62,10 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
     private long mBroadcastIdentifier;
     @Nullable
     AdData mAdData;
-    private ExternalViewabilitySessionManager mExternalViewabilitySessionManager;
     @Nullable
     private VastManager mVastManager;
     @Nullable
     private JSONObject mVideoTrackers;
-    @Nullable
-    private Map<String, String> mExternalViewabilityTrackers;
     @Nullable
     private Handler mHandler;
     @Nullable
@@ -140,15 +134,6 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
 
         mAdData.setOrientation(CreativeOrientation.fromString(serverExtras.get(CREATIVE_ORIENTATION_KEY)));
 
-        final String externalViewabilityTrackers =
-                serverExtras.get(DataKeys.EXTERNAL_VIDEO_VIEWABILITY_TRACKERS_KEY);
-        try {
-            mExternalViewabilityTrackers = Json.jsonStringToMap(externalViewabilityTrackers);
-        } catch (JSONException e) {
-            MoPubLog.log(CUSTOM, "Failed to parse video viewability trackers to JSON: " +
-                    externalViewabilityTrackers);
-        }
-
         final String videoTrackers = serverExtras.get(DataKeys.VIDEO_TRACKERS_KEY);
         if (!TextUtils.isEmpty(videoTrackers)) {
             try {
@@ -179,8 +164,8 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
         mHandler = new Handler();
         mAdExpiration = () -> {
             MoPubLog.log(EXPIRED, ADAPTER_NAME, "time in seconds");
-            mInteractionListener.onAdFailed(MoPubErrorCode.EXPIRED);
-            mReady = false;
+            mLoadListener.onAdLoadFailed(MoPubErrorCode.EXPIRED);
+            onInvalidate();
         };
 
         if (FullAdType.VAST.equals(mAdData.getFullAdType())) {
@@ -222,25 +207,18 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
             baseWebView = new HtmlWebView(context);
 
             moPubWebViewController = HtmlControllerFactory.create(context,
-                    adData.getDspCreativeId(),
-                    adData.getExtras().get(CLICKTHROUGH_URL_KEY));
+                    adData.getDspCreativeId());
         } else {
             mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
             return;
         }
 
         moPubWebViewController.setMoPubWebViewListener(new MoPubFullScreenWebListener(mLoadListener));
-
-        final ExternalViewabilitySessionManager externalViewabilitySessionManager =
-                new ExternalViewabilitySessionManager(context);
-        externalViewabilitySessionManager.createDisplaySession(context, baseWebView);
-
-        moPubWebViewController.fillContent(htmlData, null);
+        moPubWebViewController.fillContent(htmlData, adData.getViewabilityVendors(), null);
 
         WebViewCacheService.storeWebViewConfig(broadcastIdentifier,
                 baseWebView,
                 this,
-                externalViewabilitySessionManager,
                 moPubWebViewController);
     }
 
@@ -297,7 +275,7 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
         }
 
         vastVideoConfig.addVideoTrackers(mVideoTrackers);
-        vastVideoConfig.addExternalViewabilityTrackers(mExternalViewabilityTrackers);
+        vastVideoConfig.addViewabilityVendors(mAdData.getViewabilityVendors());
         if (mAdData.isRewarded()) {
             vastVideoConfig.setRewarded(true);
         }
@@ -314,7 +292,7 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
     @VisibleForTesting
     void markReady() {
         mReady = true;
-        if (mAdData == null || !mAdData.isRewarded() || mHandler == null || mAdExpiration == null) {
+        if (mAdData == null || mHandler == null || mAdExpiration == null) {
             return;
         }
         mHandler.postDelayed(mAdExpiration, AD_EXPIRATION_DELAY);
@@ -323,7 +301,7 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
     @VisibleForTesting
     void markNotReady() {
         mReady = false;
-        if (mAdData == null || !mAdData.isRewarded() || mHandler == null || mAdExpiration == null) {
+        if (mAdData == null ||mHandler == null || mAdExpiration == null) {
             return;
         }
         mHandler.removeCallbacks(mAdExpiration);

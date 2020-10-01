@@ -10,8 +10,6 @@ import com.mopub.common.AdUrlGenerator;
 import com.mopub.common.ClientMetadata;
 import com.mopub.common.Constants;
 
-import static com.mopub.common.ExternalViewabilitySessionManager.ViewabilityVendor;
-
 public class WebViewAdUrlGenerator extends AdUrlGenerator {
 
     public WebViewAdUrlGenerator(Context context) {
@@ -28,8 +26,6 @@ public class WebViewAdUrlGenerator extends AdUrlGenerator {
         addBaseParams(clientMetadata);
 
         setMraidFlag(true);
-
-        enableViewability(ViewabilityVendor.getEnabledVendorKey());
 
         return getFinalUrlString();
     }

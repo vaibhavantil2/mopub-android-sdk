@@ -4,118 +4,186 @@
 
 package com.mopub.common;
 
-import android.app.Activity;
-import android.content.Context;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.UiThread;
+
+import android.util.Pair;
 import android.view.View;
 import android.webkit.WebView;
 
 import com.mopub.common.logging.MoPubLog;
-import com.mopub.mobileads.VastVideoConfig;
 
-import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
+import java.util.HashSet;
+import java.util.Set;
+
+import static com.mopub.common.logging.MoPubLog.AdLogEvent.CUSTOM;
+import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM_WITH_THROWABLE;
 
 /**
  * Encapsulates all third-party viewability session measurements.
  */
 public class ExternalViewabilitySessionManager {
-
+    /**
+     * @deprecated as of 5.14.0. Use {@link MoPub#disableViewability()}
+     */
+    @Deprecated
     public enum ViewabilityVendor {
-        AVID, MOAT, ALL;
-
-        public void disable() {
-            MoPubLog.log(CUSTOM, "Disabled viewability for " + this);
-        }
-
-        /**
-         * @link { AdUrlGenerator#VIEWABILITY_KEY }
-         */
-        @NonNull
-        public static String getEnabledVendorKey() {
-            return "0";
-        }
-
-        @Nullable
-        public static ViewabilityVendor fromKey(@NonNull final String key) {
-            Preconditions.checkNotNull(key);
-
-            switch (key) {
-                case "1":
-                    return AVID;
-                case "2":
-                    return MOAT;
-                case "3":
-                    return ALL;
-                default:
-                    return null;
-            }
-        }
+        AVID, MOAT, ALL
     }
 
-    public ExternalViewabilitySessionManager(@NonNull final Context context) {
-        Preconditions.checkNotNull(context);
+    @Nullable
+    private ViewabilityTracker mViewabilityTracker = null;
 
-        initialize(context);
+    @NonNull
+    final Set<Pair<View, ViewabilityObstruction>> mObstructions = new HashSet<>();
+
+    private ExternalViewabilitySessionManager() {
+    }
+
+    @NonNull
+    public static ExternalViewabilitySessionManager create() {
+        if (sCreator == null) {
+            return new ExternalViewabilitySessionManager();
+        } else {
+            return sCreator.create();
+        }
     }
 
     /**
-     * Allow the viewability session to perform any necessary initialization. Each session
-     * must handle any relevant caching or lazy loading independently.
+     * Create ViewabilityTracker to track viewability of a WebView
      *
-     * @param context Preferably Activity Context. Currently only used to obtain a reference to the
-     *                Application required by some viewability vendors.
+     * @param webView to track viewability on
      */
-    private void initialize(@NonNull final Context context) {
-        Preconditions.checkNotNull(context);
-
-    }
-
-    /**
-     * Perform any necessary clean-up and release of resources.
-     */
-    public void invalidate() {
-    }
-
-    /**
-     * Registers and starts viewability tracking for the given WebView.
-     * @param context Preferably an Activity Context.
-     * @param webView The WebView to be tracked.
-     */
-    public void createDisplaySession(@NonNull final Context context,
-            @NonNull final WebView webView) {
-        Preconditions.checkNotNull(context);
+    @UiThread
+    public void createWebViewSession(@NonNull final WebView webView) {
+        Preconditions.checkUiThread();
         Preconditions.checkNotNull(webView);
 
+        if (mViewabilityTracker != null) {
+            return;
+        }
+
+        try {
+            mViewabilityTracker = ViewabilityTracker.createWebViewTracker(webView);
+        } catch (Exception ex) {
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, "createWebViewTracker failed", ex);
+        }
     }
 
     /**
-     * Begins deferred impression tracking. For cached ads (i.e. interstitials) this should be
-     * called separately from {@link ExternalViewabilitySessionManager#createDisplaySession(Context, WebView)}.
-     * @param activity
+     * Create ViewabilityTracker to track viewability of native ads
+     *
+     * @param adView             to track viewability on
+     * @param viewabilityVendors list of third party viewability vendors
      */
-    public void startDeferredDisplaySession(@NonNull final Activity activity) {
+    @UiThread
+    public void createNativeSession(@NonNull final View adView,
+                                    @NonNull final Set<com.mopub.common.ViewabilityVendor> viewabilityVendors) {
+        Preconditions.checkUiThread();
+        Preconditions.checkNotNull(adView);
+        Preconditions.checkNotNull(viewabilityVendors);
+
+        if (mViewabilityTracker != null) {
+            return;
+        }
+
+        try {
+            mViewabilityTracker = ViewabilityTracker.createNativeTracker(adView, viewabilityVendors);
+        } catch (Exception ex) {
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, "createNativeTracker failed", ex);
+        }
+    }
+
+    /**
+     * Create ViewabilityTracker to track viewability of VAST video
+     *
+     * @param videoView          to track viewability on
+     * @param viewabilityVendors list of third party viewability vendors
+     */
+    @UiThread
+    public void createVideoSession(@NonNull final View videoView,
+                                   @NonNull final Set<com.mopub.common.ViewabilityVendor> viewabilityVendors) {
+        Preconditions.checkUiThread();
+        Preconditions.checkNotNull(videoView);
+        Preconditions.checkNotNull(viewabilityVendors);
+
+        if (mViewabilityTracker != null) {
+            return;
+        }
+
+        try {
+            mViewabilityTracker = ViewabilityTrackerVideo.createVastVideoTracker(videoView, viewabilityVendors);
+        } catch (Exception ex) {
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, "createVastVideoTracker failed", ex);
+        }
+    }
+
+    @UiThread
+    public void startSession() {
+        Preconditions.checkUiThread();
+
+        try {
+            if (mViewabilityTracker != null) {
+                registerFriendlyObstruction(null, null);// yes, it is intentional
+                mViewabilityTracker.startTracking();
+            }
+        } catch (Exception ex) {
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, "startSession()", ex);
+        }
+    }
+
+    @UiThread
+    public boolean isTracking() {
+        Preconditions.checkUiThread();
+
+        if (mViewabilityTracker == null) {
+            return false;
+        }
+
+        return mViewabilityTracker.isTracking();
+    }
+
+    @UiThread
+    public void trackImpression() {
+        Preconditions.checkUiThread();
+
+        try {
+            if (mViewabilityTracker != null) {
+                mViewabilityTracker.trackImpression();
+            }
+        } catch (Exception ex) {
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, "trackImpression()", ex);
+        }
+    }
+
+    public boolean hasImpressionOccurred() {
+        if (mViewabilityTracker != null) {
+            return mViewabilityTracker.hasImpressionOccurred();
+        }
+        return false;
+    }
+
+    public void registerTrackedView(@NonNull final View adView) {
+        if (mViewabilityTracker != null) {
+            mViewabilityTracker.registerTrackedView(adView);
+        }
     }
 
     /**
      * Unregisters and disables all viewability tracking for the given WebView.
      */
-    public void endDisplaySession() {
-    }
+    @UiThread
+    public void endSession() {
+        Preconditions.checkUiThread();
 
-    /**
-     * Registers and starts video viewability tracking for the given View.
-     *
-     * @param activity An Activity Context.
-     * @param view The player View.
-     * @param vastVideoConfig Configuration file used to store video viewability tracking tags.
-     */
-    public void createVideoSession(@NonNull final Activity activity, @NonNull final View view,
-                                   @NonNull final VastVideoConfig vastVideoConfig) {
-        Preconditions.checkNotNull(activity);
-        Preconditions.checkNotNull(view);
-        Preconditions.checkNotNull(vastVideoConfig);
-
+        try {
+            if (mViewabilityTracker != null) {
+                mViewabilityTracker.stopTracking();
+            }
+        } catch (Exception ex) {
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, "stopTracking failed", ex);
+        }
     }
 
     /**
@@ -123,38 +191,87 @@ public class ExternalViewabilitySessionManager {
      *
      * @param view View in the same Window and a higher z-index as the video playing.
      */
-    public void registerVideoObstruction(@NonNull View view) {
-        Preconditions.checkNotNull(view);
+    @UiThread
+    public void registerFriendlyObstruction(@Nullable final View view, @Nullable final ViewabilityObstruction purpose) {
+        Preconditions.checkUiThread();
 
+        final ViewabilityTracker tracker = mViewabilityTracker;
+        try {
+            if (tracker == null) {
+                if (view != null && purpose != null) {
+                    mObstructions.add(new Pair<>(view, purpose));
+                }
+            } else {
+                if (view != null && purpose != null) {
+                    tracker.registerFriendlyObstruction(view, purpose);
+                }
+                if (mObstructions.size() > 0) {
+                    tracker.registerFriendlyObstructions(mObstructions);
+                    mObstructions.clear();
+                }
+            }
+        } catch (Exception ex) {
+            MoPubLog.log(CUSTOM, ex.getLocalizedMessage());
+        }
     }
 
-    public void onVideoPrepared(@NonNull final View playerView, final int duration) {
-        Preconditions.checkNotNull(playerView);
+    public void registerVideoObstruction(@Nullable final View view, @Nullable final ViewabilityObstruction purpose) {
+        registerFriendlyObstruction(view, purpose);
+    }
 
+    @UiThread
+    public void onVideoPrepared(final long durationMills) {
+        Preconditions.checkUiThread();
+
+        try {
+            if (mViewabilityTracker != null) {
+                mViewabilityTracker.videoPrepared(durationMills / 1000f);
+            }
+        } catch (Exception ex) {
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, "videoPrepared failed", ex);
+        }
     }
 
     /**
      * Notify pertinent video lifecycle events (e.g. MediaPlayer onPrepared, first quartile fired).
      *
-     * @param event Corresponding {@link ExternalViewabilitySession.VideoEvent}.
+     * @param event          Corresponding {@link VideoEvent}.
      * @param playheadMillis Current video playhead, in milliseconds.
      */
-    public void recordVideoEvent(@NonNull final ExternalViewabilitySession.VideoEvent event,
-            final int playheadMillis) {
+    @UiThread
+    public void recordVideoEvent(@NonNull final VideoEvent event,
+                                 final int playheadMillis) {
+        Preconditions.checkUiThread();
         Preconditions.checkNotNull(event);
 
+        try {
+            if (mViewabilityTracker != null) {
+                mViewabilityTracker.trackVideo(event);
+            }
+        } catch (Exception ex) {
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, "trackVideo failed", ex);
+        }
     }
 
-    /**
-     * Unregisters and disables all viewability tracking for the given View.
-     */
-    public void endVideoSession() {
+    //region unit tests helper
+    @VisibleForTesting
+    void setMockViewabilityTracker(@Nullable final ViewabilityTracker tracker) {
+        mViewabilityTracker = tracker;
     }
 
-    private void logEvent(@NonNull final String session,
-            @NonNull final String event,
-            @Nullable final Boolean successful,
-            final boolean isVerbose) {
+    // for unit testing
+    @Nullable
+    private static ExternalViewabilityManagerFactory sCreator;
 
+    @VisibleForTesting
+    public interface ExternalViewabilityManagerFactory {
+        @NonNull
+        ExternalViewabilitySessionManager create();
     }
+
+    @VisibleForTesting
+    public static void setCreator(@Nullable final ExternalViewabilityManagerFactory factory) {
+        sCreator = factory;
+    }
+    //endregion
 }

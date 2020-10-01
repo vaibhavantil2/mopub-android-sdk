@@ -5,7 +5,7 @@
 package com.mopub.mobileads
 
 import android.os.Handler
-import com.mopub.common.ExternalViewabilitySession.VideoEvent
+import com.mopub.common.VideoEvent
 import com.mopub.network.TrackingRequest
 import java.util.*
 
@@ -57,18 +57,6 @@ class VastVideoViewProgressRunnable(
         // Keep track of quartile measurement for ExternalViewabilitySessions
         val trackers: MutableList<VastFractionalProgressTracker> =
             ArrayList()
-        trackers.add(
-            VastFractionalProgressTracker.Builder(
-                VideoEvent.AD_STARTED.name,
-                0f
-            ).messageType(VastTracker.MessageType.QUARTILE_EVENT).build()
-        )
-        trackers.add(
-            VastFractionalProgressTracker.Builder(
-                VideoEvent.AD_IMPRESSED.name,
-                0f
-            ).messageType(VastTracker.MessageType.QUARTILE_EVENT).build()
-        )
         trackers.add(
             VastFractionalProgressTracker.Builder(
                 VideoEvent.AD_VIDEO_FIRST_QUARTILE.name,

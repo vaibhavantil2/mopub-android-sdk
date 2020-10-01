@@ -33,9 +33,9 @@ public class HtmlControllerTest {
 
         activity = spy(Robolectric.buildActivity(Activity.class).create().get());
 
-        subject = new HtmlController(activity, "", "fake_html_click_url");
+        subject = new HtmlController(activity, "");
         subject.setMoPubWebViewListener(mockWebViewListener);
-        subject.fillContent("fake_html_data", null);
+        subject.fillContent("fake_html_data", null, null);
     }
 
     @Test

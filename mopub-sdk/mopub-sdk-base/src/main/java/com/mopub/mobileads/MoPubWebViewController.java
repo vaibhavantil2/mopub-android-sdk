@@ -15,13 +15,15 @@ import android.widget.FrameLayout;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.mopub.common.ExternalViewabilitySessionManager;
 import com.mopub.common.Preconditions;
+import com.mopub.common.ViewabilityManager;
+import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.mobileads.util.WebViews;
 import com.mopub.mraid.WebViewDebugListener;
 
 import java.lang.ref.WeakReference;
+import java.util.Set;
 
 public abstract class MoPubWebViewController {
 
@@ -48,7 +50,7 @@ public abstract class MoPubWebViewController {
 
 
     public interface WebViewCacheListener {
-        void onReady(final BaseWebView webView, final ExternalViewabilitySessionManager viewabilityManager);
+        void onReady(final BaseWebView webView);
     }
 
     public MoPubWebViewController(@NonNull Context context, @Nullable String dspCreativeId) {
@@ -73,20 +75,25 @@ public abstract class MoPubWebViewController {
      *
      * @param htmlData            The HTML of the ad. This will only be loaded if a cached WebView
      *                            is not found.
+     * @param viewabilityVendors  Set of third party open measurement vendors
      * @param listener            Optional listener that (if non-null) is notified when an
      *                            MraidWebView is loaded from the cache or created.
      */
     public final void fillContent(@NonNull final String htmlData,
-                            @Nullable final WebViewCacheListener listener) {
+                                  @Nullable final Set<ViewabilityVendor> viewabilityVendors,
+                                  @Nullable final WebViewCacheListener listener ) {
         Preconditions.checkNotNull(htmlData, "htmlData cannot be null");
 
         mWebView = createWebView();
 
         if (listener != null) {
-            listener.onReady(mWebView, null);
+            listener.onReady(mWebView);
         }
 
-        doFillContent(htmlData);
+        String htmlDataOm = ViewabilityManager.injectVerificationUrlsIntoHtml(htmlData, viewabilityVendors);
+        htmlDataOm = ViewabilityManager.injectScriptContentIntoHtml(htmlDataOm);
+
+        doFillContent(htmlDataOm);
     }
 
     protected abstract ViewGroup.LayoutParams getLayoutParams();

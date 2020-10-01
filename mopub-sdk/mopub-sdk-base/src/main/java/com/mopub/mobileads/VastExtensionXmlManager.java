@@ -28,9 +28,8 @@ public class VastExtensionXmlManager {
     // Attributes
     public static final String TYPE = "type";
     public static final String ID = "id";
-    public static final String MOAT = "Moat";
 
-    private final Node mExtensionNode;
+    final Node mExtensionNode;
 
     public VastExtensionXmlManager(@NonNull Node extensionNode) {
         Preconditions.checkNotNull(extensionNode);
@@ -66,29 +65,8 @@ public class VastExtensionXmlManager {
 
         return new VideoViewabilityTracker.Builder(videoViewabilityTrackerUrl,
                 viewablePlaytime, percentViewable).build();
-    }
 
-    /**
-     * If there is an Extension node with an AVID element, return associated JavaScriptResources
-     * from buyer tags.
-     *
-     * @return Set of JavaScriptResources in string form, or null if AVID node is missing.
-     */
-    @Nullable
-    Set<String> getAvidJavaScriptResources() {
-        return null;
-    }
-
-    /**
-     * If the Extension node contains Moat-related Verification nodes, return their corresponding
-     * impression pixels from buyer tags.
-     *
-     * @return Set of impression pixels in string form, or null if no Moat Verification nodes
-     * are present.
-     */
-    @Nullable
-    Set<String> getMoatImpressionPixels() {
-        return null;
+ 
     }
 
     /**

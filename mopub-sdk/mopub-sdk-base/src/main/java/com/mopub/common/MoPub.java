@@ -13,6 +13,7 @@ import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.UiThread;
 
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.privacy.PersonalInfoManager;
@@ -30,7 +31,7 @@ import static com.mopub.common.logging.MoPubLog.SdkLogEvent.INIT_FINISHED;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.INIT_STARTED;
 
 public class MoPub {
-    public static final String SDK_VERSION = "5.13.1";
+    public static final String SDK_VERSION = "5.14.0";
 
     public enum LocationAwareness { NORMAL, TRUNCATED, DISABLED }
 
@@ -188,6 +189,8 @@ public class MoPub {
                     " was built with target SDK version of " + appInfo.targetSdkVersion);
         }
 
+        ViewabilityManager.activate(context.getApplicationContext());
+
         if (context instanceof Activity) {
             final Activity activity = (Activity) context;
             initializeRewardedVideo(activity, sdkConfiguration);
@@ -339,10 +342,17 @@ public class MoPub {
         MoPubLifecycleManager.getInstance(activity).onBackPressed(activity);
     }
 
+    @UiThread
+    public static void disableViewability() {
+        ViewabilityManager.disableViewability();
+    }
+
+    /**
+     * @deprecated as of 5.14.0. Use {@link #disableViewability()}
+     */
     @Deprecated
     public static void disableViewability(@NonNull final ViewabilityVendor vendor) {
-        Preconditions.checkNotNull(vendor);
-
+        ViewabilityManager.disableViewability();
     }
 
     @Nullable

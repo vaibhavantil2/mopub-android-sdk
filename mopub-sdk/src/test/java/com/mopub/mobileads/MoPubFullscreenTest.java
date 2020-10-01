@@ -14,6 +14,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import com.mopub.common.CacheServiceTest;
 import com.mopub.common.DataKeys;
 import com.mopub.common.FullAdType;
+import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.Utils;
 import com.mopub.mobileads.test.support.TestVastManagerFactory;
@@ -33,7 +34,9 @@ import org.robolectric.shadows.httpclient.FakeHttp;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static com.mopub.common.Constants.FOUR_HOURS_MILLIS;
 import static com.mopub.common.DataKeys.HTML_RESPONSE_BODY_KEY;
@@ -50,7 +53,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 @RunWith(SdkTestRunner.class)
@@ -327,6 +330,24 @@ public class MoPubFullscreenTest {
     }
 
     @Test
+    public void onVastVideoConfigurationPrepared_withViewabilityVendors_shouldAddViewabilityVendors() throws Exception {
+        final ViewabilityVendor mockViewabilityVendor1 = mock(ViewabilityVendor.class);
+        when(mockViewabilityVendor1.getVendorKey()).thenReturn("1");
+        final ViewabilityVendor mockViewabilityVendor2 = mock(ViewabilityVendor.class);
+        when(mockViewabilityVendor2.getVendorKey()).thenReturn("2");
+        final Set<ViewabilityVendor> viewabilityVendors = new HashSet<>();
+        viewabilityVendors.add(mockViewabilityVendor1);
+        viewabilityVendors.add(mockViewabilityVendor2);
+        adData.setViewabilityVendors(viewabilityVendors);
+        subject.internalLoad(context, loadListener, adData);
+        final VastVideoConfig mockVastVideoConfig = mock(VastVideoConfig.class);
+
+        subject.onVastVideoConfigurationPrepared(mockVastVideoConfig);
+
+        verify(mockVastVideoConfig).addViewabilityVendors(viewabilityVendors);
+    }
+
+    @Test
     public void load_withAdUnitId_shouldSetAdNetworkId() throws Exception {
         adData.setAdUnit(AD_UNIT);
         subject.internalLoad(context, loadListener, adData);
@@ -374,18 +395,29 @@ public class MoPubFullscreenTest {
     }
 
     @Test
-    public void markReady_withRewardedFalse_shouldNotPostExpirationRunnable() throws Exception {
+    public void markReady_withRewardedFalse_shouldPostExpirationRunnable() throws Exception {
         subject.internalLoad(context, loadListener, adData);
         subject.setHandler(mockHandler);
 
         subject.markReady();
 
-        verifyZeroInteractions(mockHandler);
+        verify(mockHandler).postDelayed(any(Runnable.class), eq((long) FOUR_HOURS_MILLIS));
     }
 
     @Test
     public void markNotReady_withRewardedTrue_shouldClearRunnable() throws Exception {
         adData.setRewarded(true);
+        subject.internalLoad(context, loadListener, adData);
+        subject.setHandler(mockHandler);
+
+        subject.markNotReady();
+
+        verify(mockHandler).removeCallbacks(any(Runnable.class));
+    }
+
+    @Test
+    public void markNotReady_withRewardedFalse_shouldClearRunnable() throws Exception {
+        adData.setRewarded(false);
         subject.internalLoad(context, loadListener, adData);
         subject.setHandler(mockHandler);
 

@@ -1341,7 +1341,7 @@ public class
         requestListener.onSuccessResponse(testResponse);
         MoPubRewardedVideoManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoadFailed(MoPubErrorCode.EXPIRED);
 
-        verify(mockVideoListener).onRewardedVideoLoadFailure(eq(adUnitId),
+        verify(mockVideoListener).onRewardedVideoPlaybackError(eq(adUnitId),
                 eq(MoPubErrorCode.EXPIRED));
         verifyNoMoreInteractions(mockVideoListener);
         verify(mockRequestQueue).add(any(MultiAdRequest.class));
@@ -1457,8 +1457,8 @@ public class
                 "        \"x-banner-impression-min-pixels\": \"\",\n" +
                 "        \"x-before-load-url\": \"\",\n" +
                 "        \"x-browser-agent\": -1,\n" +
-//                "        \"x-clickthrough\": \"http://ads-staging.mopub.com/m/aclk?appid=&cid=4652bd83d89a40c5a4e276dbf101499f&city=San%20Francisco&ckv=2&country_code=US&cppck=E3A19&dev=Android%20SDK%20built%20for%20x86&exclude_adgroups=b4148ea9ed7b4003b9d7c1e61036e0b1&id=920b6145fb1546cf8b5cf2ac34638bb7&is_mraid=0&os=Android&osv=8.0.0&req=5e3d79f17abb48468d95fde17e82f7f6&reqt=1519938200.0&rev=0&udid=ifa%3Abd9022e4-5ced-4af2-8cba-dd15ffa715ee&video_type=\",\n" +
-                "        \"x-clickthrough\": \"\",\n" +
+//                "        \"clicktrackers\": \"http://ads-staging.mopub.com/m/aclk?appid=&cid=4652bd83d89a40c5a4e276dbf101499f&city=San%20Francisco&ckv=2&country_code=US&cppck=E3A19&dev=Android%20SDK%20built%20for%20x86&exclude_adgroups=b4148ea9ed7b4003b9d7c1e61036e0b1&id=920b6145fb1546cf8b5cf2ac34638bb7&is_mraid=0&os=Android&osv=8.0.0&req=5e3d79f17abb48468d95fde17e82f7f6&reqt=1519938200.0&rev=0&udid=ifa%3Abd9022e4-5ced-4af2-8cba-dd15ffa715ee&video_type=\",\n" +
+                "        \"clicktrackers\": \"\",\n" +
                 "        \"x-creativeid\": \"4652bd83d89a40c5a4e276dbf101499f\",\n" +
                 "        \"x-custom-event-class-data\": \"\",\n" +
                 "        \"x-custom-event-class-name\": \"\",\n" +
@@ -1482,7 +1482,6 @@ public class
                 "        \"x-rewarded-video-currency-name\": \"Coins\",\n" +
                 "        \"x-vastvideoplayer\": \"\",\n" +
                 "        \"x-video-trackers\": \"\",\n" +
-                "        \"x-video-viewability-trackers\": \"\",\n" +
                 "        \"x-width\": -1\n" +
                 "      }\n" +
                 "    }\n" +

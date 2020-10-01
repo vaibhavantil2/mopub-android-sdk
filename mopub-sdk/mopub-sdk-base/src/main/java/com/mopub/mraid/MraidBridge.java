@@ -31,7 +31,7 @@ import com.mopub.common.Preconditions;
 import com.mopub.common.VisibilityTracker;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.logging.MoPubLog;
-import com.mopub.mobileads.BaseWebView;
+import com.mopub.mobileads.BaseWebViewViewability;
 import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.mobileads.ViewGestureDetector;
 import com.mopub.network.Networking;
@@ -232,7 +232,7 @@ public class MraidBridge {
                 + JSONObject.quote(command.toJavascriptString()) + ")");
     }
 
-    public static class MraidWebView extends BaseWebView {
+    public static class MraidWebView extends BaseWebViewViewability {
 
         private static final int DEFAULT_MIN_VISIBLE_PX = 1;
 
@@ -319,6 +319,9 @@ public class MraidBridge {
 
         @Override
         public void onPageFinished(@NonNull WebView view, @NonNull String url) {
+            if (view instanceof BaseWebViewViewability) {
+                ((BaseWebViewViewability) view).setPageLoaded();
+            }
             handlePageFinished();
         }
 

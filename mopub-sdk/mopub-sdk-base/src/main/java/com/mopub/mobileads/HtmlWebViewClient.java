@@ -5,9 +5,10 @@
 package com.mopub.mobileads;
 
 import android.content.Context;
-import androidx.annotation.NonNull;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
+import androidx.annotation.NonNull;
 
 import com.mopub.common.UrlAction;
 import com.mopub.common.UrlHandler;
@@ -15,8 +16,6 @@ import com.mopub.common.UrlHandler;
 import java.util.EnumSet;
 
 class HtmlWebViewClient extends WebViewClient {
-    static final String MOPUB_FINISH_LOAD = "mopub://finishLoad";
-    static final String MOPUB_FAIL_LOAD = "mopub://failLoad";
 
     private final EnumSet<UrlAction> SUPPORTED_URL_ACTIONS = EnumSet.of(
             UrlAction.HANDLE_MOPUB_SCHEME,
@@ -33,14 +32,11 @@ class HtmlWebViewClient extends WebViewClient {
     private final String mDspCreativeId;
     private BaseHtmlWebView.BaseWebViewListener mBaseWebViewListener;
     private final BaseHtmlWebView mHtmlWebView;
-    private final String mClickthroughUrl;
 
     HtmlWebViewClient(BaseHtmlWebView htmlWebView,
                       BaseHtmlWebView.BaseWebViewListener baseWebViewListener,
-                      String clickthrough,
                       String dspCreativeId) {
         mHtmlWebView = htmlWebView;
-        mClickthroughUrl = clickthrough;
         mDspCreativeId = dspCreativeId;
         mContext = htmlWebView.getContext();
         mBaseWebViewListener = baseWebViewListener;
@@ -72,6 +68,7 @@ class HtmlWebViewClient extends WebViewClient {
                     @Override
                     public void onFinishLoad() {
                         // Called when window.location="mopub://finishLoad"
+                        mHtmlWebView.setPageLoaded();
                         if (mBaseWebViewListener != null) {
                             mBaseWebViewListener.onLoaded(mHtmlWebView);
                         }

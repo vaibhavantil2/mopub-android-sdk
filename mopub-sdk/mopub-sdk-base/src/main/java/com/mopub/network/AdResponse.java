@@ -9,6 +9,7 @@ import androidx.annotation.Nullable;
 
 import com.mopub.common.MoPub.BrowserAgent;
 import com.mopub.common.Preconditions;
+import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.util.DateAndTime;
 
 import org.json.JSONObject;
@@ -17,9 +18,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
-
-import static com.mopub.common.Constants.VIDEO_CONTROLLER_ONE;
 
 public class AdResponse implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -52,14 +52,14 @@ public class AdResponse implements Serializable {
 
     @Nullable
     private final ImpressionData mImpressionData;
-    @Nullable
-    private final String mClickTrackingUrl;
+    @NonNull
+    private final List<String> mClickTrackingUrls;
     @NonNull
     private final List<String> mImpressionTrackingUrls;
     @Nullable
     private final String mFailoverUrl;
-    @Nullable
-    private final String mBeforeLoadUrl;
+    @NonNull
+    private final List<String> mBeforeLoadUrls;
     @NonNull
     private final List<String> mAfterLoadUrls;
     @NonNull
@@ -100,6 +100,9 @@ public class AdResponse implements Serializable {
 
     private final boolean mAllowCustomClose;
 
+    @Nullable
+    private final Set<ViewabilityVendor> mViewabilityVendors;
+
     private AdResponse(@NonNull Builder builder) {
 
         mAdType = builder.adType;
@@ -116,10 +119,10 @@ public class AdResponse implements Serializable {
         mShouldRewardOnClick = builder.shouldRewardOnClick;
 
         mImpressionData = builder.impressionData;
-        mClickTrackingUrl = builder.clickTrackingUrl;
+        mClickTrackingUrls = builder.clickTrackingUrls;
         mImpressionTrackingUrls = builder.impressionTrackingUrls;
         mFailoverUrl = builder.failoverUrl;
-        mBeforeLoadUrl = builder.beforeLoadUrl;
+        mBeforeLoadUrls = builder.beforeLoadUrls;
         mAfterLoadUrls = builder.afterLoadUrls;
         mAfterLoadSuccessUrls = builder.afterLoadSuccessUrls;
         mAfterLoadFailUrls = builder.afterLoadFailUrls;
@@ -138,6 +141,7 @@ public class AdResponse implements Serializable {
         mServerExtras = builder.serverExtras;
         mTimestamp = DateAndTime.now().getTime();
         mAllowCustomClose = builder.allowCustomClose;
+        mViewabilityVendors = builder.viewabilityVendors;
     }
 
     public boolean hasJson() {
@@ -213,9 +217,9 @@ public class AdResponse implements Serializable {
         return mImpressionData;
     }
 
-    @Nullable
-    public String getClickTrackingUrl() {
-        return mClickTrackingUrl;
+    @NonNull
+    public List<String> getClickTrackingUrls() {
+        return mClickTrackingUrls;
     }
 
     @NonNull
@@ -229,9 +233,9 @@ public class AdResponse implements Serializable {
         return mFailoverUrl;
     }
 
-    @Nullable
-    public String getBeforeLoadUrl() {
-        return mBeforeLoadUrl;
+    @NonNull
+    public List<String> getBeforeLoadUrls() {
+        return mBeforeLoadUrls;
     }
 
     @NonNull
@@ -320,6 +324,11 @@ public class AdResponse implements Serializable {
         return mAllowCustomClose;
     }
 
+    @Nullable
+    public Set<ViewabilityVendor> getViewabilityVendors() {
+        return mViewabilityVendors;
+    }
+
     public Builder toBuilder() {
         return new Builder()
                 .setAdType(mAdType)
@@ -333,10 +342,10 @@ public class AdResponse implements Serializable {
                 .setShouldRewardOnClick(mShouldRewardOnClick)
                 .setAllowCustomClose(mAllowCustomClose)
                 .setImpressionData(mImpressionData)
-                .setClickTrackingUrl(mClickTrackingUrl)
+                .setClickTrackingUrls(mClickTrackingUrls)
                 .setImpressionTrackingUrls(mImpressionTrackingUrls)
                 .setFailoverUrl(mFailoverUrl)
-                .setBeforeLoadUrl(mBeforeLoadUrl)
+                .setBeforeLoadUrls(mBeforeLoadUrls)
                 .setAfterLoadUrls(mAfterLoadUrls)
                 .setAfterLoadSuccessUrls(mAfterLoadSuccessUrls)
                 .setAfterLoadFailUrls(mAfterLoadFailUrls)
@@ -351,7 +360,8 @@ public class AdResponse implements Serializable {
                 .setBaseAdClassName(mBaseAdClassName)
                 .setBrowserAgent(mBrowserAgent)
                 .setAllowCustomClose(mAllowCustomClose)
-                .setServerExtras(mServerExtras);
+                .setServerExtras(mServerExtras)
+                .setViewabilityVendors(mViewabilityVendors);
     }
 
     public static class Builder {
@@ -369,10 +379,10 @@ public class AdResponse implements Serializable {
         private boolean shouldRewardOnClick;
 
         private ImpressionData impressionData;
-        private String clickTrackingUrl;
+        private List<String> clickTrackingUrls = new ArrayList<>();
         private List<String> impressionTrackingUrls = new ArrayList<>();
         private String failoverUrl;
-        private String beforeLoadUrl;
+        private List<String> beforeLoadUrls = new ArrayList<>();
         private List<String> afterLoadUrls = new ArrayList<>();
         private List<String> afterLoadSuccessUrls = new ArrayList<>();
         private List<String> afterLoadFailUrls = new ArrayList<>();
@@ -395,6 +405,8 @@ public class AdResponse implements Serializable {
         private Map<String, String> serverExtras = new TreeMap<>();
 
         private boolean allowCustomClose = false;
+
+        private Set<ViewabilityVendor> viewabilityVendors = null;
 
         public Builder setAdType(@Nullable final String adType) {
             this.adType = adType;
@@ -459,8 +471,10 @@ public class AdResponse implements Serializable {
             return this;
         }
 
-        public Builder setClickTrackingUrl(@Nullable final String clickTrackingUrl) {
-            this.clickTrackingUrl = clickTrackingUrl;
+        public Builder setClickTrackingUrls(@NonNull final List<String> clickTrackingUrls) {
+            Preconditions.checkNotNull(clickTrackingUrls);
+
+            this.clickTrackingUrls = clickTrackingUrls;
             return this;
         }
 
@@ -476,8 +490,10 @@ public class AdResponse implements Serializable {
             return this;
         }
 
-        public Builder setBeforeLoadUrl(@Nullable final String beforeLoadUrl) {
-            this.beforeLoadUrl = beforeLoadUrl;
+        public Builder setBeforeLoadUrls(@NonNull final List<String> beforeLoadUrls) {
+            Preconditions.checkNotNull(beforeLoadUrls);
+
+            this.beforeLoadUrls = beforeLoadUrls;
             return this;
         }
 
@@ -567,6 +583,11 @@ public class AdResponse implements Serializable {
 
         public Builder setAllowCustomClose(final boolean allow) {
             allowCustomClose = allow;
+            return this;
+        }
+
+        public Builder setViewabilityVendors(@Nullable final Set<ViewabilityVendor> viewabilityVendors) {
+            this.viewabilityVendors = viewabilityVendors;
             return this;
         }
 

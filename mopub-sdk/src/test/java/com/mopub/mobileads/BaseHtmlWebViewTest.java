@@ -15,13 +15,13 @@ import com.mopub.common.test.support.SdkTestRunner;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowWebView;
 
 import static android.webkit.WebSettings.PluginState;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -41,6 +41,11 @@ public class BaseHtmlWebViewTest {
 
         touchDown = createMotionEvent(MotionEvent.ACTION_DOWN);
         touchUp = createMotionEvent(MotionEvent.ACTION_UP);
+    }
+
+    @Test
+    public void baseHtmlWebView_derivesFromBaseWebViewViewability() {
+        assertTrue(subject instanceof BaseWebViewViewability);
     }
 
     @Test

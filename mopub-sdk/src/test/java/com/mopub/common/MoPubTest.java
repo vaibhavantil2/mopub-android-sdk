@@ -56,7 +56,7 @@ import static org.powermock.api.mockito.PowerMockito.verifyStatic;
 @RunWith(SdkTestRunner.class)
 @Config(sdk = 21)
 @PowerMockIgnore({ "org.mockito.*", "org.robolectric.*", "android.*", "org.json.*", "com.mopub.network.CustomSSLSocketFactory" })
-@PrepareForTest({MoPubRewardedVideoManager.class})
+@PrepareForTest({MoPubRewardedVideoManager.class, ViewabilityManager.class})
 public class MoPubTest {
 
     public static final String INIT_ADUNIT = "b195f8dd8ded45fe847ad89ed1d016da";
@@ -303,6 +303,14 @@ public class MoPubTest {
         final boolean actual = MoPub.shouldAllowLegitimateInterest();
 
         assertThat(actual).isTrue();
+    }
+
+    @Test
+    public void disableViewability_callsViewabilityManager() {
+        MoPub.disableViewability();
+
+        verifyStatic(ViewabilityManager.class);
+        ViewabilityManager.disableViewability();
     }
 
     private static class AdapterConfigurationTestClass extends BaseAdapterConfiguration {

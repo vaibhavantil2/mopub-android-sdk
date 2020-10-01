@@ -13,21 +13,16 @@ import android.widget.FrameLayout;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.mopub.common.Preconditions;
 import com.mopub.common.VisibleForTesting;
 
 public class HtmlController extends MoPubWebViewController {
 
-    private String mClickThroughUrl;
     private BaseHtmlWebView.BaseWebViewListener mHtmlWebViewListener = new HtmlWebViewListener();
 
     public HtmlController(final @NonNull Context context,
-                          final @Nullable String dspCreativeId,
-                          final @Nullable String clickthroughUrl) {
+                          final @Nullable String dspCreativeId) {
         super(context, dspCreativeId);
 
-        Preconditions.checkNotNull(clickthroughUrl);
-        mClickThroughUrl = clickthroughUrl;
         mDefaultAdContainer.setLayoutParams(getLayoutParams());
     }
 
@@ -35,7 +30,7 @@ public class HtmlController extends MoPubWebViewController {
     protected BaseWebView createWebView() {
         final HtmlWebView htmlWebView = new HtmlWebView(mContext);
         AdViewController.setShouldHonorServerDimensions(htmlWebView);
-        htmlWebView.init(mHtmlWebViewListener, mClickThroughUrl, mDspCreativeId);
+        htmlWebView.init(mHtmlWebViewListener, mDspCreativeId);
         return htmlWebView;
     }
 

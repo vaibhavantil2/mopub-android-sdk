@@ -7,6 +7,7 @@ package com.mopub.mobileads
 import android.os.Parcelable
 import com.mopub.common.Constants
 import com.mopub.common.CreativeOrientation
+import com.mopub.common.ViewabilityVendor
 import kotlinx.android.parcel.Parcelize
 import java.util.TreeMap
 import kotlin.collections.HashMap
@@ -32,7 +33,8 @@ data class AdData(
     var adType: String?,
     var fullAdType: String?,
     var customerId: String?,
-    var allowCustomClose: Boolean
+    var allowCustomClose: Boolean,
+    var viewabilityVendors: Set<ViewabilityVendor>?
 ) : Parcelable {
     companion object {
         const val MILLIS_IN_SECOND: Int = 1_000
@@ -70,7 +72,8 @@ data class AdData(
         builder.adType,
         builder.fullAdType,
         builder.customerId,
-        builder.allowCustomClose
+        builder.allowCustomClose,
+        builder.viewabilityVendors
     )
 
     class Builder() {
@@ -113,6 +116,8 @@ data class AdData(
         var customerId: String? = null
             private set
         var allowCustomClose: Boolean = false
+            private set
+        var viewabilityVendors: Set<ViewabilityVendor>? = null
             private set
 
         fun vastVideoConfig(vastVideoConfigString: String?) =
@@ -166,6 +171,13 @@ data class AdData(
         fun allowCustomClose(allowCustomClose: Boolean) =
             apply { this.allowCustomClose = allowCustomClose }
 
+        fun viewabilityVendors(vendors: Set<ViewabilityVendor?>?) =
+            apply {
+                this.viewabilityVendors = vendors?.let {
+                    HashSet(it.filterNotNull())
+                }
+            }
+
         fun build() = AdData(this)
 
         fun fromAdData(adData: AdData) = apply {
@@ -187,8 +199,9 @@ data class AdData(
             this.adUnit = adData.adUnit
             this.adType = adData.adType
             this.fullAdType = adData.fullAdType
-            this.customerId = customerId
-            this.allowCustomClose = allowCustomClose
+            this.customerId = adData.customerId
+            this.allowCustomClose = adData.allowCustomClose
+            this.viewabilityVendors = adData.viewabilityVendors
         }
     }
 }

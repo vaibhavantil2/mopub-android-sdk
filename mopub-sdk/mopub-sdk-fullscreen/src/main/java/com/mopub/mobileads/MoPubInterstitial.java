@@ -8,6 +8,7 @@ import android.app.Activity;
 import android.graphics.Point;
 import android.os.Build;
 import android.os.Handler;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
 
@@ -67,7 +68,6 @@ public class MoPubInterstitial implements MoPubAd {
     }
 
     @Nullable protected AdViewController mAdViewController;
-    @Nullable private FullscreenAdAdapter mFullscreenAdapter;
     @Nullable private InterstitialAdListener mInterstitialAdListener;
     @NonNull private Activity mActivity;
     @NonNull private Handler mHandler;
@@ -264,7 +264,12 @@ public class MoPubInterstitial implements MoPubAd {
             if (window == null) {
                 return;
             }
-            final WindowInsets insets = window.getDecorView().getRootWindowInsets();
+            final View decorView = window.getDecorView();
+            // Some publishers have reported the decorView sometimes is null.
+            if (decorView == null) {
+                return;
+            }
+            final WindowInsets insets = decorView.getRootWindowInsets();
             if (insets == null) {
                 return;
             }
@@ -305,9 +310,8 @@ public class MoPubInterstitial implements MoPubAd {
     }
 
     private void invalidateInterstitialAdapter() {
-        if (mFullscreenAdapter != null) {
-            mFullscreenAdapter.invalidate();
-            mFullscreenAdapter = null;
+        if (mAdViewController != null) {
+            mAdViewController.invalidateAdapter();
         }
     }
 
@@ -482,10 +486,4 @@ public class MoPubInterstitial implements MoPubAd {
         return mCurrentInterstitialState;
     }
 
-    @VisibleForTesting
-    @Deprecated
-    void setFullscreenAdAdapter(@NonNull final FullscreenAdAdapter
-            fullscreenAdAdapter) {
-        mFullscreenAdapter = fullscreenAdAdapter;
-    }
 }
