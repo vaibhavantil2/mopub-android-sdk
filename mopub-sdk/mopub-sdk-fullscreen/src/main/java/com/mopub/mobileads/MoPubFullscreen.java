@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -26,6 +26,9 @@ import com.mopub.mobileads.factories.VastManagerFactory;
 import com.mopub.mraid.MraidBridge;
 import com.mopub.mraid.MraidController;
 import com.mopub.mraid.PlacementType;
+import com.mopub.network.Networking;
+import com.mopub.volley.VolleyError;
+import com.mopub.volley.toolbox.ImageLoader;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -42,6 +45,7 @@ import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.LOAD_FAILED;
 import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.LOAD_SUCCESS;
 import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.SHOW_ATTEMPTED;
 import static com.mopub.common.logging.MoPubLog.AdapterLogEvent.SHOW_FAILED;
+import static com.mopub.mobileads.FullscreenAdController.IMAGE_KEY;
 import static com.mopub.mobileads.MoPubErrorCode.ADAPTER_CONFIGURATION_ERROR;
 import static com.mopub.mobileads.MoPubErrorCode.FULLSCREEN_LOAD_ERROR;
 
@@ -172,6 +176,8 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
             mVastManager = VastManagerFactory.create(mContext);
             mVastManager.prepareVastVideoConfiguration(mAdData.getAdPayload(), this,
                     mAdData.getDspCreativeId(), mContext);
+        } else if (FullAdType.JSON.equals(mAdData.getFullAdType())) {
+            preRenderJson(mContext, mAdData);
         } else {
             preRenderWeb(mContext, mAdData);
         }
@@ -222,6 +228,49 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
                 moPubWebViewController);
     }
 
+    void preRenderJson(@NonNull final Context context,
+                       @NonNull final AdData adData) {
+        Preconditions.checkNotNull(context);
+        Preconditions.checkNotNull(adData);
+
+        final String imageUrl;
+        try {
+            final JSONObject imageData = new JSONObject(adData.getAdPayload());
+            imageUrl = imageData.getString(IMAGE_KEY);
+        } catch (JSONException e) {
+            MoPubLog.log(CUSTOM, "Unable to get image url.");
+            mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+            return;
+        }
+
+        if (TextUtils.isEmpty(imageUrl)) {
+            MoPubLog.log(CUSTOM, "Image url is empty.");
+            mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+            return;
+        }
+
+        ImageLoader.ImageListener imageListener = new ImageLoader.ImageListener() {
+            @Override
+            public void onResponse(final ImageLoader.ImageContainer imageContainer, final boolean isImmediate) {
+                // Image Loader returns a "default" response immediately. We want to ignore this
+                // unless the image is already cached.
+                if (imageContainer.getBitmap() == null) {
+                    return;
+                }
+                mLoadListener.onAdLoaded();
+                markReady();
+            }
+
+            @Override
+            public void onErrorResponse(VolleyError volleyError) {
+                mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+            }
+        };
+
+        final ImageLoader imageLoader = Networking.getImageLoader(context);
+        imageLoader.get(imageUrl, imageListener);
+    }
+
     @Override
     protected void show() {
         MoPubLog.log(SHOW_ATTEMPTED, ADAPTER_NAME);
@@ -230,6 +279,9 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
             MoPubLog.log(SHOW_FAILED, ADAPTER_NAME,
                     ADAPTER_CONFIGURATION_ERROR.getIntCode(),
                     ADAPTER_CONFIGURATION_ERROR);
+            if (mInteractionListener != null) {
+                mInteractionListener.onAdFailed(ADAPTER_CONFIGURATION_ERROR);
+            }
             return;
         }
 
@@ -248,6 +300,7 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
         mHandler = null;
         mLoadListener = null;
         mInteractionListener = null;
+        mContext = null;
 
         if (mBroadcastReceiver != null) {
             mBroadcastReceiver.unregister(mBroadcastReceiver);

@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -220,14 +220,14 @@ public class VastLinearXmlManagerTest {
                 "    <Icon program=\"program\" width=\"123\" height=\"234\" xPosition=\"789\" " +
                 "    yPosition=\"101\" apiFramework=\"apiFramework\" offset=\"01:02:03\" " +
                 "    duration=\"01:02:03.456\">" +
-                "        <StaticResource creativeType=\"ImAge/JpEg\">" +
+                "        <StaticResource creativeType=\"ImAge/JpG\">" +
                 "           <![CDATA[staticResource1]]>" +
                 "        </StaticResource>" +
                 "    </Icon>" +
                 "    <Icon program=\"program\" width=\"123\" height=\"234\" xPosition=\"789\" " +
                 "    yPosition=\"101\" apiFramework=\"apiFramework\" offset=\"01:02:03\" " +
                 "    duration=\"01:02:03.456\">" +
-                "        <StaticResource creativeType=\"ImAge/JpEg\">" +
+                "        <StaticResource creativeType=\"ImAge/JpG\">" +
                 "           <![CDATA[staticResource2]]>" +
                 "        </StaticResource>" +
                 "    </Icon>" +

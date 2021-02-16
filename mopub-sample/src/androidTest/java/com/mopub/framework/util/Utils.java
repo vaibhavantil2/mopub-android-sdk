@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.framework.util;
 
@@ -12,15 +12,21 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry;
 import androidx.test.runner.lifecycle.Stage;
 
+import com.mopub.common.MoPub;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import static org.junit.Assert.fail;
+
 public class Utils {
 
-    private static int BUFFER_SIZE = 4 * 1024;
+    private static final int BUFFER_SIZE = 4 * 1024;
+    private static final int DEFAULT_RETRY_COUNT = 6;
+    private static final int SAMPLE_TIME_MS = 300;
 
     /**
      * When running an instrumentation test, this method will return the currently resumed activity.
@@ -68,6 +74,16 @@ public class Utils {
             Thread.sleep(waitInMills);
         } catch (InterruptedException e1) {
             e1.printStackTrace();
+        }
+    }
+
+    public static void waitForSdkToInitialize() {
+        int i = 0;
+        while (i++ < DEFAULT_RETRY_COUNT && !MoPub.isSdkInitialized()) {
+            Actions.loopMainThreadAtLeast(SAMPLE_TIME_MS);
+        }
+        if (!MoPub.isSdkInitialized()) {
+            fail("SDK failed to initialize");
         }
     }
 }

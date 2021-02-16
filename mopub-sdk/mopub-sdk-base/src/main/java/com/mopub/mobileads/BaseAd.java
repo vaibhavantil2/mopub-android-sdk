@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -68,7 +68,7 @@ public abstract class BaseAd {
     protected abstract LifecycleListener getLifecycleListener();
 
     /**
-     * Called by the MoPubRewardedVideoManager after loading the base ad.
+     * Called by the MoPubRewardedAdManager after loading the base ad.
      * This should return the "ad unit id", "zone id" or similar identifier for the network.
      * May be empty if the network does not have anything more specific than an application ID.
      *
@@ -128,7 +128,7 @@ public abstract class BaseAd {
      * Implementers should also use this method (or checkAndInitializeSdk)
      * to register a listener for their SDK.
      * <p/>
-     * This method should not call any MoPubRewardedVideoManager event methods directly
+     * This method should not call any MoPubRewardedAdManager event methods directly
      * (onAdLoadSuccess, etc). Instead the SDK delegate/listener should call these methods.
      *
      * @param context a context from the calling application.

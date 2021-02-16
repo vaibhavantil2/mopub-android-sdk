@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common;
 
@@ -15,9 +15,9 @@ import com.mopub.common.privacy.SyncRequest;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.AsyncTasks;
 import com.mopub.common.util.Reflection;
-import com.mopub.mobileads.MoPubRewardedVideoListener;
-import com.mopub.mobileads.MoPubRewardedVideoManager;
-import com.mopub.mobileads.MoPubRewardedVideos;
+import com.mopub.mobileads.MoPubRewardedAdListener;
+import com.mopub.mobileads.MoPubRewardedAdManager;
+import com.mopub.mobileads.MoPubRewardedAds;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
 import com.mopub.network.TrackingRequest;
@@ -56,7 +56,7 @@ import static org.powermock.api.mockito.PowerMockito.verifyStatic;
 @RunWith(SdkTestRunner.class)
 @Config(sdk = 21)
 @PowerMockIgnore({ "org.mockito.*", "org.robolectric.*", "android.*", "org.json.*", "com.mopub.network.CustomSSLSocketFactory" })
-@PrepareForTest({MoPubRewardedVideoManager.class, ViewabilityManager.class})
+@PrepareForTest({MoPubRewardedAdManager.class, ViewabilityManager.class})
 public class MoPubTest {
 
     public static final String INIT_ADUNIT = "b195f8dd8ded45fe847ad89ed1d016da";
@@ -95,7 +95,7 @@ public class MoPubTest {
             }
         });
 
-        mockStatic(MoPubRewardedVideoManager.class);
+        mockStatic(MoPubRewardedAdManager.class);
 
         MoPub.resetBrowserAgent();
         AsyncTasks.setExecutor(new RoboExecutorService());
@@ -148,7 +148,7 @@ public class MoPubTest {
     }
 
     @Test
-    public void initializeSdk_withRewardedVideo_shouldCallMoPubRewardedVideoManager() {
+    public void initializeSdk_withRewardedAd_shouldCallMoPubRewardedAdManager() {
         MoPub.initializeSdk(mActivity,
                 new SdkConfiguration.Builder(INIT_ADUNIT).build(),
                 mockInitializationListener);
@@ -156,11 +156,11 @@ public class MoPubTest {
         ShadowLooper.runUiThreadTasks();
         verify(mockInitializationListener).onInitializationFinished();
         verifyStatic();
-        MoPubRewardedVideoManager.init(mActivity, mMediationSettings);
+        MoPubRewardedAdManager.init(mActivity, mMediationSettings);
     }
 
     @Test
-    public void initializeSdk_withRewardedVideo_withMediationSettings_shouldCallMoPubRewardedVideoManager() {
+    public void initializeSdk_withRewardedAd_withMediationSettings_shouldCallMoPubRewardedAdManager() {
         MoPub.initializeSdk(mActivity,
                 new SdkConfiguration.Builder(INIT_ADUNIT).withMediationSettings(mMediationSettings).build(),
                 mockInitializationListener);
@@ -168,12 +168,12 @@ public class MoPubTest {
         ShadowLooper.runUiThreadTasks();
         verify(mockInitializationListener).onInitializationFinished();
         verifyStatic();
-        MoPubRewardedVideoManager.init(mActivity, mMediationSettings);
+        MoPubRewardedAdManager.init(mActivity, mMediationSettings);
     }
 
     @Test
-    public void initializeSdk_withRewardedVideo_withoutActivity_shouldNotCallMoPubRewardedVideoManager() {
-        // Since we can't verifyStatic with 0 times, we expect this to call the rewarded video
+    public void initializeSdk_withRewardedAd_withoutActivity_shouldNotCallMoPubRewardedAdManager() {
+        // Since we can't verifyStatic with 0 times, we expect this to call the rewarded ad
         // manager exactly twice instead of three times since one of the times is with the
         // application context instead of the activity context.
         MoPub.initializeSdk(mActivity.getApplication(),
@@ -189,42 +189,42 @@ public class MoPubTest {
                         mMediationSettings).build(), mockInitializationListener);
 
         verifyStatic(times(2));
-        MoPubRewardedVideoManager.init(mActivity, mMediationSettings);
+        MoPubRewardedAdManager.init(mActivity, mMediationSettings);
         verify(mockInitializationListener);
     }
 
     @Test
     public void updateActivity_withReflection_shouldExist() throws Exception {
-        assertThat(Reflection.getDeclaredMethodWithTraversal(MoPubRewardedVideoManager.class,
+        assertThat(Reflection.getDeclaredMethodWithTraversal(MoPubRewardedAdManager.class,
                 "updateActivity", Activity.class)).isNotNull();
     }
 
     @Test
-    public void updateActivity_withValidActivity_shouldCallMoPubRewardedVideoManager() {
+    public void updateActivity_withValidActivity_shouldCallMoPubRewardedAdManager() {
         MoPub.updateActivity(mActivity);
 
         verifyStatic();
-        MoPubRewardedVideoManager.updateActivity(mActivity);
+        MoPubRewardedAdManager.updateActivity(mActivity);
     }
 
     @Test
-    public void setRewardedVideoListener_withReflection_shouldExist() throws Exception {
-        assertThat(Reflection.getDeclaredMethodWithTraversal(MoPubRewardedVideos.class,
-                "setRewardedVideoListener", MoPubRewardedVideoListener.class)).isNotNull();
+    public void setRewardedAdListener_withReflection_shouldExist() throws Exception {
+        assertThat(Reflection.getDeclaredMethodWithTraversal(MoPubRewardedAds.class,
+                "setRewardedAdListener", MoPubRewardedAdListener.class)).isNotNull();
     }
 
     @Test
-    public void loadRewardedVideo_withReflection_shouldExist() throws Exception {
-        assertThat(Reflection.getDeclaredMethodWithTraversal(MoPubRewardedVideos.class,
-                "loadRewardedVideo", String.class,
-                MoPubRewardedVideoManager.RequestParameters.class,
+    public void loadRewardedAd_withReflection_shouldExist() throws Exception {
+        assertThat(Reflection.getDeclaredMethodWithTraversal(MoPubRewardedAds.class,
+                "loadRewardedAd", String.class,
+                MoPubRewardedAdManager.RequestParameters.class,
                 MediationSettings[].class)).isNotNull();
     }
 
     @Test
-    public void hasRewardedVideo_withReflection_shouldExist() throws Exception {
-        assertThat(Reflection.getDeclaredMethodWithTraversal(MoPubRewardedVideos.class,
-                "hasRewardedVideo", String.class)).isNotNull();
+    public void hasRewardedAd_withReflection_shouldExist() throws Exception {
+        assertThat(Reflection.getDeclaredMethodWithTraversal(MoPubRewardedAds.class,
+                "hasRewardedAd", String.class)).isNotNull();
     }
 
     @Test

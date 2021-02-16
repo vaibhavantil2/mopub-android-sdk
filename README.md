@@ -30,7 +30,7 @@ The MoPub SDK is available via:
     }
 
     dependencies {
-        implementation('com.mopub:mopub-sdk:5.15.0@aar') {
+        implementation('com.mopub:mopub-sdk:5.16.0@aar') {
             transitive = true
         }
     }
@@ -51,17 +51,17 @@ The MoPub SDK is available via:
         // ... other project dependencies
 
         // For banners
-        implementation('com.mopub:mopub-sdk-banner:5.15.0@aar') {
+        implementation('com.mopub:mopub-sdk-banner:5.16.0@aar') {
             transitive = true
         }
         
         // For interstitials and rewarded ads
-        implementation('com.mopub:mopub-sdk-fullscreen:5.15.0@aar') {
+        implementation('com.mopub:mopub-sdk-fullscreen:5.16.0@aar') {
             transitive = true
         }
 
         // For native static (images).
-        implementation('com.mopub:mopub-sdk-native-static:5.15.0@aar') {
+        implementation('com.mopub:mopub-sdk-native-static:5.16.0@aar') {
             transitive = true
         }
     }
@@ -90,11 +90,18 @@ The MoPub SDK is available via:
 Please view the [changelog](https://github.com/mopub/mopub-android-sdk/blob/master/CHANGELOG.md) for a complete list of additions, fixes, and enhancements in the latest release.
 
 - **Features**
-  - Update countdown animation background color to black for better visibility.
-  - Enforce HTTPS for base URLs.
-  - Remove native video support.
-  - Add support for Snap Audience Network.
-  - Update sample app dependency on `com.google.android.gms:play-services-base` from version 17.3.0 to 17.5.0.
+  - Add support for rewarded display ads and rewarded ads with rich media end cards. See [Integration Steps](https://developers.mopub.com/publishers/android/rewarded-ad/).
+  - Rename `MoPubRewardedVideos` to `MoPubRewardedAds` and `MoPubRewardedVideoListener` to `MoPubRewardedAdListener`. See the [API Reference](https://developers.mopub.com/publishers/reference/android/MoPub/) for more details.
+  - Add 5G cellular support.
+  - Update AndroidX Media2 dependencies from version 1.0.1 to 1.1.1.
+
+- **Bug Fixes**
+  - Fix crash when adding a theme to native recycler view layout.
+  - Fix memory leak when destroy is called on a fullscreen ad.
+  - Fix rotation for ads without an orientation specified.
+  - Fix rewarded ads being playable after they have expired.
+  - Address clickability issues with image and rewarded ads.
+  - Address `MoPubRewardedVideos.hasRewardedVideo()` returning the wrong value in certain instances.
 
 ## Requirements
 
@@ -105,9 +112,9 @@ Please view the [changelog](https://github.com/mopub/mopub-android-sdk/blob/mast
 - androidx.recyclerview:recyclerview:1.0.0 (**Updated in 5.9.0**)
 - androidx.core:core-ktx:1.1.0 (**Added in 5.11.0**)
 - com.google.code.gson:gson:2.8.6 (**Added in 5.11.0**)
-- androidx.media2:media2-session (**Added in 5.11.0**)
-- androidx.media2:media2-widget (**Added in 5.11.0**)
-- androidx.media2:media2-player (**Added in 5.11.0**)
+- androidx.media2:media2-session:1.1.1 (**Updated in 5.16.0**)
+- androidx.media2:media2-widget:1.1.1 (**Updated in 5.16.0**)
+- androidx.media2:media2-player:1.1.1 (**Updated in 5.16.0**)
 - com.mopub:omsdk-android:1.3.4 (**Added in 5.14.0**)
 - MoPub Volley Library (mopub-volley-2.1.0.jar - available on JCenter) (**Updated in 5.6.0**)
 - **Recommended** Google Play Services (com.google.android.gms:play-services-ads-identifier:17.0.0 and com.google.android.gms:play-services-base:17.5.0) (**Updated in 5.15.0**)

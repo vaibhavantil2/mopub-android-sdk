@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -28,7 +28,7 @@ public class VastResourceTest {
     }
 
     @Test
-    public void fromVastResourceXmlManager_withIFrameType_shouldSetIFrameResource() throws Exception {
+    public void fromVastResourceXmlManager_withIFrameType_shouldSetIFrameResource() {
         final VastResourceXmlManager resourceXmlManager =
                 VastXmlManagerAggregatorTest.initializeVastResourceXmlManagerMock(
                         "StaticResource", "image/jpeg", "IFrameResource", "HTMLResource");
@@ -45,7 +45,7 @@ public class VastResourceTest {
     }
 
     @Test
-    public void fromVastResourceXmlManager_withHTMLType_shouldSetHTMLResource() throws Exception {
+    public void fromVastResourceXmlManager_withHTMLType_shouldSetHTMLResource() {
         final VastResourceXmlManager resourceXmlManager =
                 VastXmlManagerAggregatorTest.initializeVastResourceXmlManagerMock(
                         "StaticResource", "image/jpeg", "IFrameResource", "HTMLResource");
@@ -62,7 +62,7 @@ public class VastResourceTest {
     }
 
     @Test
-    public void fromVastResourceXmlManager_withStaticType_withImageCreativeType_shouldSetImageCreativeType() throws Exception {
+    public void fromVastResourceXmlManager_withStaticType_withImageCreativeType_shouldSetImageCreativeType() {
         final VastResourceXmlManager resourceXmlManager =
                 VastXmlManagerAggregatorTest.initializeVastResourceXmlManagerMock(
                         "StaticResource", "image/jpeg", "IFrameResource", "HTMLResource");
@@ -78,7 +78,7 @@ public class VastResourceTest {
     }
 
     @Test
-    public void fromVastResourceXmlManager_withStaticType_withJavaScriptCreativeType_shouldSetJavascriptCreativeType() throws Exception {
+    public void fromVastResourceXmlManager_withStaticType_withJavaScriptCreativeType_shouldSetJavascriptCreativeType() {
         final VastResourceXmlManager resourceXmlManager =
                 VastXmlManagerAggregatorTest.initializeVastResourceXmlManagerMock(
                         "StaticResource", "application/x-javascript", "IFrameResource", "HTMLResource");
@@ -94,7 +94,7 @@ public class VastResourceTest {
     }
 
     @Test
-    public void fromVastResourceXmlManager_withStaticType_withMissingCreativeType_shouldReturnNull() throws Exception {
+    public void fromVastResourceXmlManager_withStaticType_withMissingCreativeType_shouldReturnNull() {
         final VastResourceXmlManager resourceXmlManager =
                 VastXmlManagerAggregatorTest.initializeVastResourceXmlManagerMock(
                         "StaticResource", null, "IFrameResource", "HTMLResource");
@@ -104,7 +104,7 @@ public class VastResourceTest {
     }
 
     @Test
-    public void fromVastResourceXmlManager_withStaticType_withInvalidCreativeType_shouldReturnNull() throws Exception {
+    public void fromVastResourceXmlManager_withStaticType_withInvalidCreativeType_shouldReturnNull() {
         final VastResourceXmlManager resourceXmlManager =
                 VastXmlManagerAggregatorTest.initializeVastResourceXmlManagerMock(
                         "StaticResource", "INVALID_CREATIVE_TYPE", "IFrameResource", "HTMLResource");
@@ -114,7 +114,7 @@ public class VastResourceTest {
     }
 
     @Test
-    public void fromVastResourceXmlManager_withNoResource_shouldReturnNull() throws Exception {
+    public void fromVastResourceXmlManager_withNoResource_shouldReturnNull() {
         final VastResourceXmlManager resourceXmlManager =
                 VastXmlManagerAggregatorTest.initializeVastResourceXmlManagerMock(
                         null, null, null, null);
@@ -124,14 +124,14 @@ public class VastResourceTest {
     }
 
     @Test
-    public void constructor_shouldInitializeFieldsCorrectly() throws Exception {
+    public void constructor_shouldInitializeFieldsCorrectly() {
         assertThat(subject.getResource()).isEqualTo("resource");
         assertThat(subject.getType()).isEqualTo(VastResource.Type.STATIC_RESOURCE);
         assertThat(subject.getCreativeType()).isEqualTo(VastResource.CreativeType.IMAGE);
     }
 
     @Test
-    public void initializeWebView_withIFrameResource_shouldLoadData() throws Exception {
+    public void initializeWebView_withIFrameResource_shouldLoadData() {
         subject = new VastResource("resource", VastResource.Type.IFRAME_RESOURCE, VastResource
                 .CreativeType.NONE, 50, 100);
         subject.initializeWebView(mockVastWebView);
@@ -143,7 +143,7 @@ public class VastResourceTest {
     }
 
     @Test
-    public void initializeWebView_withHTMLResource_shouldLoadData() throws Exception {
+    public void initializeWebView_withHTMLResource_shouldLoadData() {
         subject = new VastResource("resource", VastResource.Type.HTML_RESOURCE, VastResource
                 .CreativeType.NONE, 50, 100);
         subject.initializeWebView(mockVastWebView);
@@ -152,18 +152,16 @@ public class VastResourceTest {
     }
 
     @Test
-    public void initializeWebView_withStaticResource_withImageCreativeType_shouldLoadData() throws Exception {
+    public void initializeWebView_withStaticResource_withImageCreativeType_shouldLoadData() {
         subject = new VastResource("resource", VastResource.Type.STATIC_RESOURCE, VastResource
                 .CreativeType.IMAGE, 50, 100);
         subject.initializeWebView(mockVastWebView);
 
-        verify(mockVastWebView).loadData("<html><head></head><body style=\"margin:0;padding:0\">" +
-                "<img src=\"resource\" width=\"100%\" style=\"max-width:100%;max-height:100%;\" />" +
-                "</body></html>");
+        verify(mockVastWebView).loadData("resource");
     }
 
     @Test
-    public void initializeWebView_withStaticResource_withJavascriptCreativeType_shouldLoadData() throws Exception {
+    public void initializeWebView_withStaticResource_withJavascriptCreativeType_shouldLoadData() {
         subject = new VastResource("resource", VastResource.Type.STATIC_RESOURCE, VastResource
                 .CreativeType.JAVASCRIPT, 50, 100);
         subject.initializeWebView(mockVastWebView);
@@ -172,7 +170,16 @@ public class VastResourceTest {
     }
 
     @Test
-    public void getCorrectClickThroughUrl_shouldReturnCorrectClickThroughUrl() throws Exception {
+    public void initializeWebView_withBlurredLastFrameResource_withImageCreativeType_shouldLoadData() {
+        subject = new VastResource("resource", VastResource.Type.BLURRED_LAST_FRAME, VastResource
+                .CreativeType.IMAGE, 50, 100);
+        subject.initializeWebView(mockVastWebView);
+
+        verify(mockVastWebView).loadData("resource");
+    }
+
+    @Test
+    public void getCorrectClickThroughUrl_shouldReturnCorrectClickThroughUrl() {
         subject = new VastResource("resource", VastResource.Type.STATIC_RESOURCE, VastResource
                 .CreativeType.IMAGE, 50, 100);
         assertThat(subject.getCorrectClickThroughUrl("xml", "web")).isEqualTo("xml");
@@ -198,6 +205,10 @@ public class VastResourceTest {
         assertThat(subject.getCorrectClickThroughUrl("xml", null)).isNull();
 
         subject = new VastResource("resource", VastResource.Type.STATIC_RESOURCE, VastResource
+                .CreativeType.IMAGE, 50, 100);
+        assertThat(subject.getCorrectClickThroughUrl("xml", null)).isEqualTo("xml");
+
+        subject = new VastResource("resource", VastResource.Type.BLURRED_LAST_FRAME, VastResource
                 .CreativeType.IMAGE, 50, 100);
         assertThat(subject.getCorrectClickThroughUrl("xml", null)).isEqualTo("xml");
     }

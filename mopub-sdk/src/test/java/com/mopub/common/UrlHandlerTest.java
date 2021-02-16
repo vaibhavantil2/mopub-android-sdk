@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common;
 
@@ -891,6 +891,50 @@ public class UrlHandlerTest {
         verify(mockResultActions).urlHandlingFailed(deepLinkUrl, FOLLOW_DEEP_LINK);
         verifyNoMoreCallbacks();
         verifyNoStartedActivity();
+    }
+
+    @Test
+    public void urlHandler_withMarketDeepLinkUrl_withNullIdQueryParam_shouldCallUrlHandlingFailed() {
+        final String deepLinkUrl = "market://details?id=null";
+
+        new UrlHandler.Builder()
+                .withSupportedUrlActions(OPEN_APP_MARKET)
+                .withResultActions(mockResultActions)
+                .withMoPubSchemeListener(mockMoPubSchemeListener)
+                .build().handleResolvedUrl(context, deepLinkUrl, true, null);
+
+        verify(mockResultActions).urlHandlingFailed(deepLinkUrl, NOOP);
+        verifyNoMoreCallbacks();
+        verifyNoStartedActivity();
+    }
+
+    @Test
+    public void urlHandler_withMarketDeepLinkUrl_withEmptyIdQueryParam_shouldCallUrlHandlingFailed() {
+        final String deepLinkUrl = "market://details?id=";
+
+        new UrlHandler.Builder()
+                .withSupportedUrlActions(OPEN_APP_MARKET)
+                .withResultActions(mockResultActions)
+                .withMoPubSchemeListener(mockMoPubSchemeListener)
+                .build().handleResolvedUrl(context, deepLinkUrl, true, null);
+
+        verify(mockResultActions).urlHandlingFailed(deepLinkUrl, NOOP);
+        verifyNoMoreCallbacks();
+        verifyNoStartedActivity();
+    }
+
+    @Test
+    public void urlHandler_withMarketDeepLinkUrl_withNonNullNoEmptyIdQueryParam_shouldCallUrlHandlingSucceeded() {
+        final String deepLinkUrl = "market://details?id=com.mopub.simpleadsdemo";
+
+        new UrlHandler.Builder()
+                .withSupportedUrlActions(OPEN_APP_MARKET)
+                .withResultActions(mockResultActions)
+                .withMoPubSchemeListener(mockMoPubSchemeListener)
+                .build().handleResolvedUrl(context, deepLinkUrl, true, null);
+
+        verify(mockResultActions).urlHandlingSucceeded(deepLinkUrl, OPEN_APP_MARKET);
+        verifyNoMoreCallbacks();
     }
 
     private void assertPhoneSchemeCallback(@NonNull final String url) {

@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common;
 
@@ -62,7 +62,8 @@ public class ClientMetadata {
         MOBILE(3),
         GG(4),      // connected to 2G network
         GGG(5),     // connected to 3G network
-        GGGG(6);    // connected to 4G network
+        GGGG(6),    // connected to 4G network
+        GGGGG(7);   // connected to 5G network
 
         private final int mId;
         MoPubNetworkType(int id) {
@@ -278,6 +279,8 @@ public class ClientMetadata {
                 case TelephonyManager.NETWORK_TYPE_HSPAP:
                 case TelephonyManager.NETWORK_TYPE_LTE:
                     return MoPubNetworkType.GGGG; // 4G
+                case TelephonyManager.NETWORK_TYPE_NR:
+                    return MoPubNetworkType.GGGGG; // 5G
                 default:
                     return MoPubNetworkType.MOBILE;
             }

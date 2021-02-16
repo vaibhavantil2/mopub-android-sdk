@@ -11,10 +11,6 @@
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:theme="@style/MoPubFullscreenTheme" />
         <activity
-            android:name="com.mopub.mobileads.MraidVideoPlayerActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize"
-            android:theme="@style/MoPubFullscreenTheme" />
-        <activity
             android:name="com.mopub.common.privacy.ConsentDialogActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:theme="@style/MoPubFullscreenTheme" />

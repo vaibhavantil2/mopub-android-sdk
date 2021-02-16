@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -118,8 +118,7 @@ public class VastManagerTest {
         assertThat(mVastVideoConfig.getSkipTrackers().size()).isEqualTo(2);
         assertThat(mVastVideoConfig.getClickTrackers().size()).isEqualTo(1);
 
-        final VastCompanionAdConfig vastCompanionAdConfig = mVastVideoConfig.getVastCompanionAd(
-                context.getResources().getConfiguration().orientation);
+        final VastCompanionAdConfig vastCompanionAdConfig = mVastVideoConfig.getVastCompanionAdConfigs().iterator().next();
         assertThat(vastCompanionAdConfig.getWidth()).isEqualTo(300);
         assertThat(vastCompanionAdConfig.getHeight()).isEqualTo(250);
         assertThat(vastCompanionAdConfig.getVastResource().getResource())
@@ -186,8 +185,7 @@ public class VastManagerTest {
         assertThat(mVastVideoConfig.getClickTrackers().size()).isEqualTo(3);
         assertThat(mVastVideoConfig.getErrorTrackers().size()).isEqualTo(4);
 
-        final VastCompanionAdConfig vastCompanionAdConfig = mVastVideoConfig.getVastCompanionAd(
-                context.getResources().getConfiguration().orientation);
+        final VastCompanionAdConfig vastCompanionAdConfig = mVastVideoConfig.getVastCompanionAdConfigs().iterator().next();
         assertThat(vastCompanionAdConfig.getWidth()).isEqualTo(300);
         assertThat(vastCompanionAdConfig.getHeight()).isEqualTo(250);
         assertThat(vastCompanionAdConfig.getVastResource().getResource())

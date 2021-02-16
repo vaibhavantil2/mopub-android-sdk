@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.simpleadsdemo
 
@@ -14,8 +14,8 @@ internal enum class SampleAppAdUnits (private val adUnitId: Int,
     SAMPLE_BANNER(R.string.ad_unit_id_banner, BANNER, "MoPub Banner Sample"),
     SAMPLE_MEDIUM_RECTANGLE(R.string.ad_unit_id_medium_rectangle, MEDIUM_RECTANGLE, "MoPub Medium Rectangle Sample"),
     SAMPLE_INTERSTITIAL(R.string.ad_unit_id_interstitial, INTERSTITIAL, "MoPub Interstitial Sample"),
-    SAMPLE_REWARDED_VIDEO(R.string.ad_unit_id_rewarded_video, REWARDED_VIDEO, "MoPub Rewarded Video Sample"),
-    SAMPLE_REWARDED_RICH_MEDIA(R.string.ad_unit_id_rewarded_rich_media, REWARDED_VIDEO, "MoPub Rewarded Rich Media Sample"),
+    SAMPLE_REWARDED_VIDEO(R.string.ad_unit_id_rewarded_video, REWARDED_AD, "MoPub Rewarded Video Sample"),
+    SAMPLE_REWARDED_RICH_MEDIA(R.string.ad_unit_id_rewarded_rich_media, REWARDED_AD, "MoPub Rewarded Rich Media Sample"),
     SAMPLE_NATIVE_LIST_VIEW(R.string.ad_unit_id_native, LIST_VIEW, "MoPub Ad Placer Sample"),
     SAMPLE_NATIVE_RECYCLER_VIEW(R.string.ad_unit_id_native, RECYCLER_VIEW, "MoPub Recycler View Sample"),
     SAMPLE_NATIVE_VIEW_PAGER(R.string.ad_unit_id_native, CUSTOM_NATIVE, "MoPub View Pager Sample"),

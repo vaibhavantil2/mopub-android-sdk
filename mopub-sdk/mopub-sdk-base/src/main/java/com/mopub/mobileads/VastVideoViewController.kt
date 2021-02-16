@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads
 
@@ -9,31 +9,29 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.content.res.Configuration.ORIENTATION_LANDSCAPE
-import android.content.res.Configuration.ORIENTATION_PORTRAIT
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
-import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.Gravity.CENTER
 import android.view.MotionEvent.ACTION_UP
 import android.view.View
-import android.view.View.*
-import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.View.GONE
+import android.view.View.INVISIBLE
+import android.view.View.OnTouchListener
+import android.view.View.VISIBLE
+import android.view.View.generateViewId
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.ImageView
 import android.widget.RelativeLayout
-import android.widget.RelativeLayout.CENTER_IN_PARENT
-import android.widget.RelativeLayout.TRUE
 import androidx.core.content.ContextCompat
 import androidx.media.AudioAttributesCompat
 import androidx.media2.common.SessionPlayer
-import androidx.media2.common.SessionPlayer.*
+import androidx.media2.common.SessionPlayer.PLAYER_STATE_ERROR
+import androidx.media2.common.SessionPlayer.PLAYER_STATE_IDLE
+import androidx.media2.common.SessionPlayer.PLAYER_STATE_PAUSED
+import androidx.media2.common.SessionPlayer.PLAYER_STATE_PLAYING
 import androidx.media2.common.UriMediaItem
 import androidx.media2.player.MediaPlayer
 import androidx.media2.player.PlaybackParams
@@ -42,13 +40,15 @@ import com.mopub.common.*
 import com.mopub.common.MoPubBrowser.MOPUB_BROWSER_REQUEST_CODE
 import com.mopub.common.logging.MoPubLog
 import com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM
-import com.mopub.common.util.AsyncTasks
+import com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM_WITH_THROWABLE
 import com.mopub.common.util.Dips
+import com.mopub.mobileads.AdData.Companion.MILLIS_IN_SECOND
 import com.mopub.mobileads.factories.MediaPlayerFactory
 import com.mopub.mobileads.factories.VideoViewFactory
 import com.mopub.mobileads.resource.DrawableConstants.PrivacyInfoIcon.LEFT_MARGIN_DIPS
 import com.mopub.mobileads.resource.DrawableConstants.PrivacyInfoIcon.TOP_MARGIN_DIPS
 import com.mopub.network.TrackingRequest.makeVastTrackingHttpRequest
+import java.util.Collections
 
 @Mockable
 class VastVideoViewController(
@@ -78,18 +78,12 @@ class VastVideoViewController(
     val playerCallback = PlayerCallback()
 
     private var seekerPositionOnPause = SEEKER_POSITION_NOT_INITIALIZED
-    private var vastCompanionAdConfig: VastCompanionAdConfig? = null
+    private var vastCompanionAdConfigs: MutableSet<VastCompanionAdConfig> = HashSet()
     @VisibleForTesting
     val vastVideoConfig: VastVideoConfig
     @VisibleForTesting
     val vastIconConfig: VastIconConfig?
     private val externalViewabilitySessionManager = ExternalViewabilitySessionManager.create()
-    @VisibleForTesting
-    val blurredLastVideoFrameImageView: ImageView
-    @VisibleForTesting
-    val landscapeCompanionAdView: View
-    @VisibleForTesting
-    val portraitCompanionAdView: View
     @VisibleForTesting
     val iconView: View
 
@@ -107,26 +101,22 @@ class VastVideoViewController(
     @VisibleForTesting
     lateinit var radialCountdownWidget: RadialCountdownWidget
     @VisibleForTesting
-    val ctaButtonWidget: VastVideoCtaButtonWidget
+    val ctaButtonWidget: VideoCtaButtonWidget
     @VisibleForTesting
     lateinit var closeButtonWidget: VastVideoCloseButtonWidget
-
-    @VisibleForTesting
-    var blurLastVideoFrameTask: VastVideoBlurLastVideoFrameTask? = null
-    @VisibleForTesting
-    var mediaMetadataRetriever: MediaMetadataRetriever? = MediaMetadataRetriever()
 
     @VisibleForTesting
     var isComplete: Boolean = false
     @VisibleForTesting
     var shouldAllowClose: Boolean = false
-    private var isInClickExperiment: Boolean = false
     @VisibleForTesting
     var showCloseButtonDelay = DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON
     @VisibleForTesting
     var isCalibrationDone: Boolean = false
     @VisibleForTesting
     var isClosing: Boolean = false
+    @VisibleForTesting
+    var hasCompanionAd: Boolean = false
 
     var videoError: Boolean = false
     val networkMediaFileUrl get() = vastVideoConfig.networkMediaFileUrl
@@ -148,7 +138,9 @@ class VastVideoViewController(
                     })) {
                 "VastVideoConfig is invalid"
             }
-
+        adData?.let {
+            vastVideoConfig.countdownTimerDuration = it.rewardedDurationSeconds * MILLIS_IN_SECOND
+        }
 
         seekerPositionOnPause = resumed?.let {
             savedInstanceState?.getInt(CURRENT_POSITION, SEEKER_POSITION_NOT_INITIALIZED)
@@ -158,20 +150,44 @@ class VastVideoViewController(
             "VastVideoConfig does not have a video disk path"
         }
 
-        vastCompanionAdConfig = vastVideoConfig.getVastCompanionAd(
-            activity.resources.configuration.orientation
-        )
+        vastCompanionAdConfigs = vastVideoConfig.vastCompanionAdConfigs
+        if (vastCompanionAdConfigs.isEmpty()) {
+            vastVideoConfig.diskMediaFileUrl?.let {
+                val vastResource = VastResource(
+                    it,
+                    VastResource.Type.BLURRED_LAST_FRAME,
+                    VastResource.CreativeType.IMAGE,
+                    RelativeLayout.LayoutParams.MATCH_PARENT,
+                    RelativeLayout.LayoutParams.MATCH_PARENT
+                )
+                vastCompanionAdConfigs.add(
+                    VastCompanionAdConfig(
+                        RelativeLayout.LayoutParams.MATCH_PARENT,
+                        RelativeLayout.LayoutParams.MATCH_PARENT,
+                        vastResource,
+                        vastVideoConfig.clickThroughUrl,
+                        vastVideoConfig.clickTrackers,
+                        Collections.emptyList(),
+                        vastVideoConfig.customCtaText
+                    )
+                )
+            }
+        } else {
+            hasCompanionAd = true
+        }
         vastIconConfig = vastVideoConfig.vastIconConfig
-        isInClickExperiment = vastVideoConfig.enableClickExperiment
 
 
         clickThroughListener = OnTouchListener { _, event ->
-            if (event.action == ACTION_UP && (shouldAllowClose || isInClickExperiment)) {
+            if (event.action == ACTION_UP &&
+                !vastVideoConfig.clickThroughUrl.isNullOrEmpty() &&
+                (!vastVideoConfig.isRewarded || (shouldAllowClose))
+            ) {
                 externalViewabilitySessionManager.recordVideoEvent(
                     VideoEvent.AD_CLICK_THRU,
                     getCurrentPosition()
                 )
-                isClosing = !isInClickExperiment || isComplete
+                isClosing = isComplete
                 broadcastAction(IntentActions.ACTION_FULLSCREEN_CLICK)
                 vastVideoConfig.handleClickForResult(activity,
                     getDuration().takeIf { isComplete } ?: getCurrentPosition(),
@@ -182,16 +198,6 @@ class VastVideoViewController(
 
         layout.setBackgroundColor(Color.BLACK)
 
-        blurredLastVideoFrameImageView = ImageView(context).also {
-            it.visibility = INVISIBLE
-            val layoutParams = RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.MATCH_PARENT,
-                RelativeLayout.LayoutParams.MATCH_PARENT
-            )
-            layout.addView(it, layoutParams)
-            it.setOnTouchListener(clickThroughListener)
-        }
-
         // Video view
         videoView = createVideoView(activity, VISIBLE)
         videoView.requestFocus()
@@ -200,15 +206,9 @@ class VastVideoViewController(
             videoView,
             vastVideoConfig.viewabilityVendors
         )
-        externalViewabilitySessionManager.registerVideoObstruction(blurredLastVideoFrameImageView, ViewabilityObstruction.BLUR)
-
-        landscapeCompanionAdView =
-            vastVideoConfig.createCompanionAdView(ORIENTATION_LANDSCAPE, INVISIBLE)
-        portraitCompanionAdView =
-            vastVideoConfig.createCompanionAdView(ORIENTATION_PORTRAIT, INVISIBLE)
 
         // Top transparent gradient strip overlaying top of screen
-        val hasCompanionAd = vastCompanionAdConfig != null
+        val hasCompanionAd = !vastCompanionAdConfigs.isEmpty()
         topGradientStripWidget = VastVideoGradientStripWidget(
             context,
             GradientDrawable.Orientation.TOP_BOTTOM,
@@ -249,6 +249,10 @@ class VastVideoViewController(
             it.visibility = INVISIBLE
             layout.addView(it)
             externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.COUNTDOWN_TIMER)
+            it.setOnTouchListener { view, event ->
+                true
+            }
+            it.setOnClickListener{ }
         }
 
         iconView = vastIconConfig?.let { iconConfig ->
@@ -293,9 +297,8 @@ class VastVideoViewController(
             }
         } ?: View(context)
 
-        ctaButtonWidget = VastVideoCtaButtonWidget(
+        ctaButtonWidget = VideoCtaButtonWidget(
             context,
-            videoView.id,
             hasCompanionAd,
             !vastVideoConfig.clickThroughUrl.isNullOrEmpty()
         ).also {
@@ -317,9 +320,9 @@ class VastVideoViewController(
                     return@OnTouchListener true
                 }
 
-                isClosing = !isInClickExperiment || isComplete
+                isClosing = isComplete
                 handleExitTrackers()
-                baseVideoViewControllerListener.onFinish()
+                baseVideoViewControllerListener.onVideoFinish(getCurrentPosition())
                 return@OnTouchListener true
             })
             vastVideoConfig.customSkipText?.let { skipText ->
@@ -330,7 +333,7 @@ class VastVideoViewController(
             }
         }
 
-        if (isInClickExperiment && !vastVideoConfig.isRewarded) {
+        if (!vastVideoConfig.isRewarded) {
             // This makes the CTA button clickable immediately
             ctaButtonWidget.notifyVideoSkippable()
         }
@@ -348,7 +351,11 @@ class VastVideoViewController(
         val videoDuration = getDuration()
         // If this is a rewarded video, never allow it to be skippable.
         if (vastVideoConfig.isRewarded) {
-            showCloseButtonDelay = videoDuration
+            showCloseButtonDelay = if (hasCompanionAd) {
+                vastVideoConfig.countdownTimerDuration
+            } else {
+                videoDuration
+            }
             return
         }
         // Default behavior: video is non-skippable if duration < 16 seconds
@@ -397,17 +404,14 @@ class VastVideoViewController(
                     externalViewabilitySessionManager.onVideoPrepared(duration)
                     adjustSkipOffset()
                     mediaPlayer.playerVolume = 1.0f
+                    baseVideoViewControllerListener.onCompanionAdsReady(vastCompanionAdConfigs, duration.toInt())
 
-                    if (vastCompanionAdConfig == null) {
-                        vastVideoConfig.diskMediaFileUrl?.let {
-                            prepareBlurredLastVideoFrame(blurredLastVideoFrameImageView, it)
-                        }
-                    }
                     progressBarWidget.calibrateAndMakeVisible(
                         duration.toInt(),
                         showCloseButtonDelay
                     )
                     radialCountdownWidget.calibrateAndMakeVisible(showCloseButtonDelay)
+                    radialCountdownWidget.updateCountdownProgress(showCloseButtonDelay, currentPosition.toInt())
                     isCalibrationDone = true
                 },
                 executor
@@ -416,72 +420,6 @@ class VastVideoViewController(
         }
 
         return tempVideoView
-    }
-
-    fun VastVideoConfig.createCompanionAdView(
-        orientation: Int,
-        initialVisibility: Int
-    ): View {
-        return this.getVastCompanionAd(orientation)?.let { companionConfig ->
-            val relativeLayout = RelativeLayout(context)
-            val layoutParams = RelativeLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-            relativeLayout.gravity = CENTER
-            layout.addView(relativeLayout, layoutParams)
-            externalViewabilitySessionManager.registerVideoObstruction(relativeLayout, ViewabilityObstruction.OTHER)
-
-            companionConfig.createWebView().also { wv ->
-                wv.visibility = initialVisibility
-                val wvLayout = RelativeLayout.LayoutParams(
-                    Dips.dipsToIntPixels(
-                        (companionConfig.width + WEBVIEW_PADDING).toFloat(),
-                        context
-                    ),
-                    Dips.dipsToIntPixels(
-                        (companionConfig.height + WEBVIEW_PADDING).toFloat(),
-                        context
-                    )
-                )
-                wvLayout.addRule(CENTER_IN_PARENT, TRUE)
-                relativeLayout.addView(wv, wvLayout)
-                externalViewabilitySessionManager.registerVideoObstruction(wv, ViewabilityObstruction.OTHER)
-            }
-        } ?: View(context).also { it.visibility = INVISIBLE }
-    }
-
-    fun VastCompanionAdConfig.createWebView(): VastWebView {
-        return VastWebView.createView(context, vastResource).also {
-            it.vastWebViewClickListener = VastWebView.VastWebViewClickListener {
-                broadcastAction(IntentActions.ACTION_FULLSCREEN_CLICK)
-                isClosing = true
-                // We only should track and handleClick for non-null, non-empty clickthrough urls
-                if (!this.clickThroughUrl.isNullOrEmpty()) {
-                    makeVastTrackingHttpRequest(
-                        this.clickTrackers,
-                        null,
-                        getCurrentPosition(),
-                        null,
-                        context
-                    )
-                    this.handleClick(
-                        context,
-                        MOPUB_BROWSER_REQUEST_CODE,
-                        null,
-                        vastVideoConfig.dspCreativeId
-                    )
-                }
-            }
-            it.webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                    vastCompanionAdConfig?.handleClick(
-                        context,
-                        MOPUB_BROWSER_REQUEST_CODE,
-                        url,
-                        vastVideoConfig.dspCreativeId
-                    )
-                    return true
-                }
-            }
-        }
     }
 
     override fun onCreate() {
@@ -515,7 +453,17 @@ class VastVideoViewController(
         mediaPlayer.pause()
         // To address a bug where a video may resume after a transient audio loss, we close the
         // focus handler here in onPause() as we manage play and pause manually
-        mediaPlayer.audioFocusHandler.close()
+        try {
+            val audioFocusHandlerField =
+                MediaPlayer::class.java.getDeclaredField("mAudioFocusHandler")
+            audioFocusHandlerField.isAccessible = true
+            val audioFocusHandler = audioFocusHandlerField.get(mediaPlayer)
+
+            val audioFocusHandlerCloseMethod = audioFocusHandler.javaClass.getMethod("close")
+            audioFocusHandlerCloseMethod.invoke(audioFocusHandler)
+        } catch(e: Exception) {
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, "Unable to call close() on the AudioFocusHandler due to an exception.", e)
+        }
 
         if (!isComplete) {
             vastVideoConfig.handlePause(context, seekerPositionOnPause)
@@ -525,7 +473,6 @@ class VastVideoViewController(
     override fun onDestroy() {
         stopRunnables()
         externalViewabilitySessionManager.endSession()
-        broadcastAction(IntentActions.ACTION_FULLSCREEN_DISMISS)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -534,24 +481,7 @@ class VastVideoViewController(
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
-        vastCompanionAdConfig = context.resources.configuration.orientation.let {
-            var companionAdConfig: VastCompanionAdConfig? = null
-            if (landscapeCompanionAdView.visibility == VISIBLE
-                || portraitCompanionAdView.visibility == VISIBLE
-            ) {
-                companionAdConfig = vastVideoConfig.getVastCompanionAd(it)
-                if (it == ORIENTATION_PORTRAIT) {
-                    landscapeCompanionAdView.visibility = INVISIBLE
-                    portraitCompanionAdView.visibility = VISIBLE
-                } else {
-                    landscapeCompanionAdView.visibility = VISIBLE
-                    portraitCompanionAdView.visibility = INVISIBLE
-                }
-            }
-            companionAdConfig?.also { config ->
-                config.handleImpression(context, getDuration())
-            }
-        }
+        // Deliberate no-op
     }
 
     override fun getVideoView(): View {
@@ -572,7 +502,7 @@ class VastVideoViewController(
             && requestCode == MOPUB_BROWSER_REQUEST_CODE
             && resultCode == Activity.RESULT_OK
         ) {
-            baseVideoViewControllerListener.onFinish()
+            baseVideoViewControllerListener.onVideoFinish(getCurrentPosition())
         }
     }
 
@@ -603,10 +533,8 @@ class VastVideoViewController(
             closeButtonWidget.visibility = VISIBLE
             shouldAllowClose = true
 
-            if (isInClickExperiment || !vastVideoConfig.isRewarded) {
-                // This makes the CTA button clickable - both rewarded and non-rewarded
-                ctaButtonWidget.notifyVideoSkippable()
-            }
+            // This makes the CTA button clickable - both rewarded and non-rewarded
+            ctaButtonWidget.notifyVideoSkippable()
         }
     }
 
@@ -639,24 +567,6 @@ class VastVideoViewController(
         }
     }
 
-    fun prepareBlurredLastVideoFrame(
-        blurredLastVideoFrameImageView: ImageView,
-        diskMediaFileUrl: String
-    ) {
-        mediaMetadataRetriever?.let { it ->
-            blurLastVideoFrameTask = VastVideoBlurLastVideoFrameTask(
-                it,
-                blurredLastVideoFrameImageView,
-                getDuration()
-            ).also { task ->
-                AsyncTasks.safeExecuteOnExecutor(
-                    task,
-                    diskMediaFileUrl
-                )
-            }
-        }
-    }
-
     fun handleExitTrackers() {
         val currentPosition: Int = getCurrentPosition()
         if (isComplete || currentPosition >= getDuration()) {
@@ -680,11 +590,6 @@ class VastVideoViewController(
     private fun stopRunnables() {
         progressCheckerRunnable.stop()
         countdownRunnable.stop()
-        blurLastVideoFrameTask?.run {
-            if (status != AsyncTask.Status.FINISHED) {
-                cancel(true)
-            }
-        }
     }
 
     inner class PlayerCallback : MediaPlayer.PlayerCallback() {
@@ -738,10 +643,7 @@ class VastVideoViewController(
             stopRunnables()
             updateCountdown()
             isComplete = true
-            videoCompleted(false)
-            if (vastVideoConfig.isRewarded) {
-                broadcastAction(IntentActions.ACTION_REWARDED_AD_COMPLETE)
-            }
+            videoCompleted(false, getDuration())
 
             if (!videoError && vastVideoConfig.remainingProgressTrackerCount == 0) {
                 externalViewabilitySessionManager.recordVideoEvent(
@@ -760,19 +662,8 @@ class VastVideoViewController(
             ctaButtonWidget.notifyVideoComplete()
             closeButtonWidget.notifyVideoComplete()
 
-            // Show companion ad if available
-            vastCompanionAdConfig?.let {
-                val orientation = context.resources.configuration.orientation
-                if (orientation == ORIENTATION_PORTRAIT) {
-                    portraitCompanionAdView.visibility = VISIBLE
-                } else {
-                    landscapeCompanionAdView.visibility = VISIBLE
-                }
-                it.handleImpression(context, getDuration())
-            } ?: if (blurredLastVideoFrameImageView.drawable != null) {
-                // If there is no companion ad, show blurred last video frame with dark overlay
-                blurredLastVideoFrameImageView.visibility = VISIBLE
-            }
+            // Show companion ad or blurred last frame
+            baseVideoViewControllerListener.onVideoFinish(getDuration())
         }
 
         override fun onSeekCompleted(player: SessionPlayer, position: Long) {

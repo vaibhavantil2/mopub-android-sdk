@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mraid;
 
@@ -22,10 +22,8 @@ import com.mopub.common.ViewabilityManager;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.Utils;
 import com.mopub.mobileads.BaseHtmlWebView;
-import com.mopub.mobileads.BaseVideoPlayerActivityTest;
 import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.mobileads.MoPubWebViewController;
-import com.mopub.mobileads.MraidVideoPlayerActivity;
 import com.mopub.mobileads.WebViewCacheService;
 import com.mopub.mraid.MraidBridge.MraidBridgeListener;
 import com.mopub.mraid.MraidBridge.MraidWebView;
@@ -455,13 +453,6 @@ public class MraidControllerTest {
         assertThat(subject.getViewState()).isEqualTo(ViewState.HIDDEN);
 
         verify(mockWebViewListener).onClose();
-    }
-
-    @Test
-    public void handleShowVideo_shouldStartVideoPlayerActivity() {
-        subject.handleShowVideo("https://video");
-        BaseVideoPlayerActivityTest.assertMraidVideoPlayerActivityStarted(
-                MraidVideoPlayerActivity.class, "https://video");
     }
 
     @Test

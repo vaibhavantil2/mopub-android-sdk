@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.network;
 
@@ -476,14 +476,11 @@ public class MultiAdResponse implements Iterator<AdResponse> {
                 ResponseHeader.REWARDED_VIDEO_COMPLETION_URL);
         final Integer rewardedDuration = extractIntegerHeader(jsonHeaders,
                 ResponseHeader.REWARDED_DURATION);
-        final boolean shouldRewardOnClick = extractBooleanHeader(jsonHeaders,
-                ResponseHeader.SHOULD_REWARD_ON_CLICK, false);
-        builder.setRewardedVideoCurrencyName(rewardedVideoCurrencyName);
-        builder.setRewardedVideoCurrencyAmount(rewardedVideoCurrencyAmount);
+        builder.setRewardedAdCurrencyName(rewardedVideoCurrencyName);
+        builder.setRewardedAdCurrencyAmount(rewardedVideoCurrencyAmount);
         builder.setRewardedCurrencies(rewardedCurrencies);
-        builder.setRewardedVideoCompletionUrl(rewardedVideoCompletionUrl);
+        builder.setRewardedAdCompletionUrl(rewardedVideoCompletionUrl);
         builder.setRewardedDuration(rewardedDuration);
-        builder.setShouldRewardOnClick(shouldRewardOnClick);
 
         return builder.build();
     }
@@ -528,6 +525,7 @@ public class MultiAdResponse implements Iterator<AdResponse> {
                                                      @Nullable final String fullAdType) {
         return AdType.MRAID.equals(adType) || AdType.HTML.equals(adType) ||
                 (AdType.INTERSTITIAL.equals(adType) && FullAdType.VAST.equals(fullAdType)) ||
+                (AdType.INTERSTITIAL.equals(adType) && FullAdType.JSON.equals(fullAdType)) ||
                 (AdType.REWARDED_VIDEO.equals(adType) && FullAdType.VAST.equals(fullAdType)) ||
                 AdType.REWARDED_PLAYABLE.equals(adType) ||
                 AdType.FULLSCREEN.equals(adType);

@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -14,12 +14,10 @@ import android.view.WindowManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.mopub.common.CreativeOrientation;
 import com.mopub.common.DataKeys;
 import com.mopub.common.IntentActions;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.logging.MoPubLog;
-import com.mopub.common.util.DeviceUtils;
 import com.mopub.common.util.Intents;
 import com.mopub.common.util.Utils;
 import com.mopub.exceptions.IntentNotResolvableException;
@@ -81,13 +79,6 @@ public class MoPubFullscreenActivity extends Activity {
             finish();
             return;
         }
-
-        // Default to device orientation
-        CreativeOrientation requestedOrientation = CreativeOrientation.DEVICE;
-        if (adData.getOrientation() != null) {
-            requestedOrientation = adData.getOrientation();
-        }
-        DeviceUtils.lockOrientation(this, requestedOrientation);
 
         MoPubLog.log(SHOW_SUCCESS);
         broadcastAction(this, adData.getBroadcastIdentifier(), ACTION_FULLSCREEN_SHOW);

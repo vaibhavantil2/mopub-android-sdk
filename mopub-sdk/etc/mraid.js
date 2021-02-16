@@ -1,3 +1,11 @@
+// Copyright 2018-2021 Twitter, Inc.
+// Licensed under the MoPub SDK License Agreement
+// https://www.mopub.com/legal/sdk-license-agreement/
+
+// Copyright 2018-2021 Twitter, Inc.
+// Licensed under the MoPub SDK License Agreement
+// https://www.mopub.com/legal/sdk-license-agreement/
+
 (function() {
   var isIOS = (/iphone|ipad|ipod/i).test(window.navigator.userAgent.toLowerCase());
   if (isIOS) {

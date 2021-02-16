@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads
 
@@ -27,9 +27,10 @@ class VastResource(
      * The type of resource ordered according to priority.
      */
     enum class Type {
-        STATIC_RESOURCE,
         HTML_RESOURCE,
-        IFRAME_RESOURCE
+        STATIC_RESOURCE,
+        IFRAME_RESOURCE,
+        BLURRED_LAST_FRAME
     }
 
     /**
@@ -48,24 +49,27 @@ class VastResource(
      */
     fun initializeWebView(webView: VastWebView) {
         webView.run {
-            val data = when {
-                type == Type.HTML_RESOURCE -> resource
-                type == Type.IFRAME_RESOURCE -> "<iframe frameborder=\"0\" scrolling=\"no\" " +
-                        "marginheight=\"0\" marginwidth=\"0\" style=\"border: 0px; margin: 0px;\"" +
-                        " width=\"${this@VastResource.width}\"" +
-                        " height=\"${this@VastResource.height}\"" +
-                        " src=\"$resource\"></iframe>"
-                type == Type.STATIC_RESOURCE && creativeType == CreativeType.IMAGE -> "<html>" +
-                        "<head></head><body style=\"margin:0;padding:0\"><img src=\"$resource\"" +
-                        " width=\"100%\" style=\"max-width:100%;max-height:100%;\" />" +
-                        "</body></html>"
-                type == Type.STATIC_RESOURCE && creativeType == CreativeType.JAVASCRIPT ->
-                    "<script src=\"$resource\"></script>"
-                else -> null
-            }
-            data?.let { loadData(it) }
+            getResourceValue()?.let { loadData(it) }
         }
+    }
 
+    /**
+     * Gets the HTML necessary to show the creative type or the url where it exists.
+     */
+    fun getResourceValue(): String? {
+        return when {
+            type == Type.HTML_RESOURCE -> resource
+            type == Type.IFRAME_RESOURCE -> "<iframe frameborder=\"0\" scrolling=\"no\" " +
+                    "marginheight=\"0\" marginwidth=\"0\" style=\"border: 0px; margin: 0px;\"" +
+                    " width=\"${this@VastResource.width}\"" +
+                    " height=\"${this@VastResource.height}\"" +
+                    " src=\"$resource\"></iframe>"
+            type == Type.STATIC_RESOURCE && creativeType == CreativeType.IMAGE -> resource
+            type == Type.STATIC_RESOURCE && creativeType == CreativeType.JAVASCRIPT ->
+                "<script src=\"$resource\"></script>"
+            type == Type.BLURRED_LAST_FRAME -> resource
+            else -> null
+        }
     }
 
     /**
@@ -86,15 +90,42 @@ class VastResource(
             type == Type.HTML_RESOURCE || type == Type.IFRAME_RESOURCE -> webViewClickThroughUrl
             type == Type.STATIC_RESOURCE && creativeType == CreativeType.IMAGE -> vastClickThroughUrl
             type == Type.STATIC_RESOURCE && creativeType == CreativeType.JAVASCRIPT -> webViewClickThroughUrl
+            type == Type.BLURRED_LAST_FRAME -> vastClickThroughUrl
             else -> null
         }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is VastResource) return false
+
+        if (resource != other.resource) return false
+        if (type != other.type) return false
+        if (creativeType != other.creativeType) return false
+        if (width != other.width) return false
+        if (height != other.height) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = resource.hashCode()
+        result = 31 * result + type.hashCode()
+        result = 31 * result + creativeType.hashCode()
+        result = 31 * result + width
+        result = 31 * result + height
+        return result
+    }
+
+    override fun toString(): String {
+        return "VastResource(resource='$resource', type=$type, creativeType=$creativeType, width=$width, height=$height)"
     }
 
     companion object {
         private const val serialVersionUID: Long = 1L
 
         private val VALID_IMAGE_TYPES = listOf(
-            "image/jpeg", "image/png", "image/bmp", "image/gif"
+            "image/jpeg", "image/png", "image/bmp", "image/gif", "image/jpg"
         )
 
         private val VALID_APPLICATION_TYPES = listOf(

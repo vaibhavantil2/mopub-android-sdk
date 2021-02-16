@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -27,9 +27,9 @@ public class RewardedAdsLoadersTest {
     private static final String AD_UNIT_ID = "ad_unit_id";
 
     @Mock
-    private MoPubRewardedVideoManager mockRewardedVideoManager;
+    private MoPubRewardedAdManager mockRewardedAdManager;
     @Mock
-    private AdLoaderRewardedVideo mockLoaderRewardedVideo;
+    private AdLoaderRewardedAd mockLoaderRewardedAd;
 
     private Activity activity;
     private RewardedAdsLoaders subject;
@@ -37,8 +37,8 @@ public class RewardedAdsLoadersTest {
     @Before
     public void setup() {
         activity = Robolectric.buildActivity(Activity.class).create().get();
-        subject = new RewardedAdsLoaders(mockRewardedVideoManager);
-        subject.getLoadersMap().put(AD_UNIT_ID, mockLoaderRewardedVideo);
+        subject = new RewardedAdsLoaders(mockRewardedAdManager);
+        subject.getLoadersMap().put(AD_UNIT_ID, mockLoaderRewardedAd);
 
     }
 
@@ -46,12 +46,12 @@ public class RewardedAdsLoadersTest {
     public void isLoading_fullTest() {
         // when ad unit loader is present
         subject.isLoading(AD_UNIT_ID);
-        verify(mockLoaderRewardedVideo).isRunning();
+        verify(mockLoaderRewardedAd).isRunning();
 
         // when ad unit loader is not present
-        reset(mockLoaderRewardedVideo);
+        reset(mockLoaderRewardedAd);
         subject.isLoading("invalid_ad_unit_id");
-        verify(mockLoaderRewardedVideo, never()).isRunning();
+        verify(mockLoaderRewardedAd, never()).isRunning();
     }
 
     @Test
@@ -77,46 +77,46 @@ public class RewardedAdsLoadersTest {
     }
 
     @Test
-    public void onRewardedVideoStarted_fullTest() {
+    public void onRewardedAdStarted_fullTest() {
         // when ad unit is not present
-        subject.onRewardedVideoStarted("invalid_ad_unit_id", activity);
-        verify(mockLoaderRewardedVideo, never()).trackImpression(any(Context.class));
+        subject.onRewardedAdStarted("invalid_ad_unit_id", activity);
+        verify(mockLoaderRewardedAd, never()).trackImpression(any(Context.class));
 
         // when ad unit is present
-        subject.onRewardedVideoStarted(AD_UNIT_ID, activity);
-        verify(mockLoaderRewardedVideo).trackImpression(eq(activity));
+        subject.onRewardedAdStarted(AD_UNIT_ID, activity);
+        verify(mockLoaderRewardedAd).trackImpression(eq(activity));
     }
 
     @Test
-    public void onRewardedVideoClicked_fullTest() {
+    public void onRewardedAdClicked_fullTest() {
         // when ad unit is not present
-        subject.onRewardedVideoClicked("invalid_ad_unit_id", activity);
-        verify(mockLoaderRewardedVideo, never()).trackClick(any(Context.class));
+        subject.onRewardedAdClicked("invalid_ad_unit_id", activity);
+        verify(mockLoaderRewardedAd, never()).trackClick(any(Context.class));
 
         // when ad unit is present
-        subject.onRewardedVideoClicked(AD_UNIT_ID, activity);
-        verify(mockLoaderRewardedVideo).trackClick(eq(activity));
+        subject.onRewardedAdClicked(AD_UNIT_ID, activity);
+        verify(mockLoaderRewardedAd).trackClick(eq(activity));
     }
 
     @Test
     public void canPlay_fullTest() {
         // when ad unit is not present
         subject.canPlay("invalid_ad_unit_id");
-        verify(mockLoaderRewardedVideo, never()).getLastDeliveredResponse();
+        verify(mockLoaderRewardedAd, never()).getLastDeliveredResponse();
 
         // when ad unit is present
         subject.canPlay(AD_UNIT_ID);
-        verify(mockLoaderRewardedVideo).getLastDeliveredResponse();
+        verify(mockLoaderRewardedAd).getLastDeliveredResponse();
     }
 
     @Test
     public void creativeDownloadSuccess_fullTest(){
         // when ad unit is not present
         subject.creativeDownloadSuccess("invalid_ad_unit_id");
-        verify(mockLoaderRewardedVideo, never()).creativeDownloadSuccess();
+        verify(mockLoaderRewardedAd, never()).creativeDownloadSuccess();
 
         // when ad unit is present
         subject.creativeDownloadSuccess(AD_UNIT_ID);
-        verify(mockLoaderRewardedVideo).creativeDownloadSuccess();
+        verify(mockLoaderRewardedAd).creativeDownloadSuccess();
     }
 }

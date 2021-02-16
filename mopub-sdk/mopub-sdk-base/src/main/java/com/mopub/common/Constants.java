@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common;
 
@@ -80,12 +80,12 @@ public class Constants {
     public static final String VAST_SKIP_OFFSET = "skip_offset";
     public static final String VAST_SKIP_OFFSET_MS = "skip_offset_ms";
     public static final String VAST_DURATION_MS = "duration_ms";
-    public static final String VAST_COMPANION_AD_LANDSCAPE = "landscape_companion_ad";
-    public static final String VAST_COMPANION_AD_PORTRAIT = "portrait_companion_ad";
+    public static final String VAST_COMPANION_ADS = "companion_ads";
     public static final String VAST_ICON_CONFIG = "icon_config";
     public static final String VAST_IS_SKIPPABLE = "is_skippable";
     public static final String VAST_IS_REWARDED = "is_rewarded";
     public static final String VAST_ENABLE_CLICK_EXP = "enable_click_exp";
+    public static final String VAST_COUNTDOWN_TIMER_DURATION = "countdown_timer_duration";
 
     public static final String VAST_CUSTOM_TEXT_CTA = "custom_cta_text";
     public static final String VAST_CUSTOM_TEXT_SKIP = "custom_skip_text";

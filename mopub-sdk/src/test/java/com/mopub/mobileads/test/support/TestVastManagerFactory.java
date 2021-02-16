@@ -1,13 +1,16 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads.test.support;
 
 import android.content.Context;
 
-import com.mopub.mobileads.factories.VastManagerFactory;
+import androidx.annotation.NonNull;
+
+import com.mopub.common.Preconditions;
 import com.mopub.mobileads.VastManager;
+import com.mopub.mobileads.factories.VastManagerFactory;
 
 import static org.mockito.Mockito.mock;
 
@@ -23,7 +26,8 @@ public class TestVastManagerFactory extends VastManagerFactory {
     }
 
     @Override
-    public VastManager internalCreate(final Context context, final boolean preCacheVideo) {
+    public VastManager internalCreate(@NonNull final Context context, final boolean preCacheVideo) {
+        Preconditions.checkNotNull(context, "context cannot be null");
         return getTestFactory().mockVastManager;
     }
 }

@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.nativeads;
 
@@ -411,7 +411,7 @@ public final class MoPubRecyclerAdapter extends RecyclerView.Adapter<RecyclerVie
                 return null;
             }
             return new MoPubRecyclerViewHolder(
-                    adRenderer.createAdView((Activity) parent.getContext(), parent));
+                    adRenderer.createAdView(parent.getContext(), parent));
         }
 
         return mOriginalAdapter.onCreateViewHolder(parent, viewType);

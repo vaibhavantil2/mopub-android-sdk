@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.network;
 
@@ -39,16 +39,15 @@ public class AdResponse implements Serializable {
     private final String mNetworkType;
 
     @Nullable
-    private final String mRewardedVideoCurrencyName;
+    private final String mRewardedAdCurrencyName;
     @Nullable
-    private final String mRewardedVideoCurrencyAmount;
+    private final String mRewardedAdCurrencyAmount;
     @Nullable
     private final String mRewardedCurrencies;
     @Nullable
-    private final String mRewardedVideoCompletionUrl;
+    private final String mRewardedAdCompletionUrl;
     @Nullable
     private final Integer mRewardedDuration;
-    private final boolean mShouldRewardOnClick;
 
     @Nullable
     private final ImpressionData mImpressionData;
@@ -111,12 +110,11 @@ public class AdResponse implements Serializable {
         mFullAdType = builder.fullAdType;
         mNetworkType = builder.networkType;
 
-        mRewardedVideoCurrencyName = builder.rewardedVideoCurrencyName;
-        mRewardedVideoCurrencyAmount = builder.rewardedVideoCurrencyAmount;
+        mRewardedAdCurrencyName = builder.rewardedAdCurrencyName;
+        mRewardedAdCurrencyAmount = builder.rewardedAdCurrencyAmount;
         mRewardedCurrencies = builder.rewardedCurrencies;
-        mRewardedVideoCompletionUrl = builder.rewardedVideoCompletionUrl;
+        mRewardedAdCompletionUrl = builder.rewardedAdCompletionUrl;
         mRewardedDuration = builder.rewardedDuration;
-        mShouldRewardOnClick = builder.shouldRewardOnClick;
 
         mImpressionData = builder.impressionData;
         mClickTrackingUrls = builder.clickTrackingUrls;
@@ -184,13 +182,13 @@ public class AdResponse implements Serializable {
     }
 
     @Nullable
-    public String getRewardedVideoCurrencyName() {
-        return mRewardedVideoCurrencyName;
+    public String getRewardedAdCurrencyName() {
+        return mRewardedAdCurrencyName;
     }
 
     @Nullable
-    public String getRewardedVideoCurrencyAmount() {
-        return mRewardedVideoCurrencyAmount;
+    public String getRewardedAdCurrencyAmount() {
+        return mRewardedAdCurrencyAmount;
     }
 
     @Nullable
@@ -199,17 +197,13 @@ public class AdResponse implements Serializable {
     }
 
     @Nullable
-    public String getRewardedVideoCompletionUrl() {
-        return mRewardedVideoCompletionUrl;
+    public String getRewardedAdCompletionUrl() {
+        return mRewardedAdCompletionUrl;
     }
 
     @Nullable
     public Integer getRewardedDuration() {
         return mRewardedDuration;
-    }
-
-    public boolean shouldRewardOnClick() {
-        return mShouldRewardOnClick;
     }
 
     @Nullable
@@ -334,12 +328,11 @@ public class AdResponse implements Serializable {
                 .setAdType(mAdType)
                 .setAdGroupId(mAdGroupId)
                 .setNetworkType(mNetworkType)
-                .setRewardedVideoCurrencyName(mRewardedVideoCurrencyName)
-                .setRewardedVideoCurrencyAmount(mRewardedVideoCurrencyAmount)
+                .setRewardedAdCurrencyName(mRewardedAdCurrencyName)
+                .setRewardedAdCurrencyAmount(mRewardedAdCurrencyAmount)
                 .setRewardedCurrencies(mRewardedCurrencies)
-                .setRewardedVideoCompletionUrl(mRewardedVideoCompletionUrl)
+                .setRewardedAdCompletionUrl(mRewardedAdCompletionUrl)
                 .setRewardedDuration(mRewardedDuration)
-                .setShouldRewardOnClick(mShouldRewardOnClick)
                 .setAllowCustomClose(mAllowCustomClose)
                 .setImpressionData(mImpressionData)
                 .setClickTrackingUrls(mClickTrackingUrls)
@@ -371,12 +364,11 @@ public class AdResponse implements Serializable {
         private String fullAdType;
         private String networkType;
 
-        private String rewardedVideoCurrencyName;
-        private String rewardedVideoCurrencyAmount;
+        private String rewardedAdCurrencyName;
+        private String rewardedAdCurrencyAmount;
         private String rewardedCurrencies;
-        private String rewardedVideoCompletionUrl;
+        private String rewardedAdCompletionUrl;
         private Integer rewardedDuration;
-        private boolean shouldRewardOnClick;
 
         private ImpressionData impressionData;
         private List<String> clickTrackingUrls = new ArrayList<>();
@@ -433,15 +425,15 @@ public class AdResponse implements Serializable {
             return this;
         }
 
-        public Builder setRewardedVideoCurrencyName(
-                @Nullable final String rewardedVideoCurrencyName) {
-            this.rewardedVideoCurrencyName = rewardedVideoCurrencyName;
+        public Builder setRewardedAdCurrencyName(
+                @Nullable final String rewardedAdCurrencyName) {
+            this.rewardedAdCurrencyName = rewardedAdCurrencyName;
             return this;
         }
 
-        public Builder setRewardedVideoCurrencyAmount(
-                @Nullable final String rewardedVideoCurrencyAmount) {
-            this.rewardedVideoCurrencyAmount = rewardedVideoCurrencyAmount;
+        public Builder setRewardedAdCurrencyAmount(
+                @Nullable final String rewardedAdCurrencyAmount) {
+            this.rewardedAdCurrencyAmount = rewardedAdCurrencyAmount;
             return this;
         }
 
@@ -450,19 +442,14 @@ public class AdResponse implements Serializable {
             return this;
         }
 
-        public Builder setRewardedVideoCompletionUrl(
-                @Nullable final String rewardedVideoCompletionUrl) {
-            this.rewardedVideoCompletionUrl = rewardedVideoCompletionUrl;
+        public Builder setRewardedAdCompletionUrl(
+                @Nullable final String rewardedAdCompletionUrl) {
+            this.rewardedAdCompletionUrl = rewardedAdCompletionUrl;
             return this;
         }
 
         public Builder setRewardedDuration(@Nullable final Integer rewardedDuration) {
             this.rewardedDuration = rewardedDuration;
-            return this;
-        }
-
-        public Builder setShouldRewardOnClick(final boolean shouldRewardOnClick) {
-            this.shouldRewardOnClick = shouldRewardOnClick;
             return this;
         }
 

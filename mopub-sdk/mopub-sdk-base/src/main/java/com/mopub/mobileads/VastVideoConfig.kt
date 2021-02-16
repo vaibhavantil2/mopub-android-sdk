@@ -1,13 +1,12 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.res.Configuration
 import android.os.Bundle
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -151,11 +150,8 @@ class VastVideoConfig : Serializable {
     var skipOffset: String? = null
 
     @Expose
-    @SerializedName(Constants.VAST_COMPANION_AD_LANDSCAPE)
-    private var landscapeVastCompanionAdConfig: VastCompanionAdConfig? = null
-    @Expose
-    @SerializedName(Constants.VAST_COMPANION_AD_PORTRAIT)
-    private var portraitVastCompanionAdConfig: VastCompanionAdConfig? = null
+    @SerializedName(Constants.VAST_COMPANION_ADS)
+    val vastCompanionAdConfigs: MutableSet<VastCompanionAdConfig> = HashSet()
 
     @Expose
     @SerializedName(Constants.VAST_ICON_CONFIG)
@@ -164,6 +160,10 @@ class VastVideoConfig : Serializable {
     @Expose
     @SerializedName(Constants.VAST_IS_REWARDED)
     var isRewarded: Boolean = false
+
+    @Expose
+    @SerializedName(Constants.VAST_COUNTDOWN_TIMER_DURATION)
+    var countdownTimerDuration: Int = 0;
 
     @Expose
     @SerializedName(Constants.VAST_ENABLE_CLICK_EXP)
@@ -314,31 +314,12 @@ class VastVideoConfig : Serializable {
         }
     }
 
-    fun setVastCompanionAd(
-        landscapeVastCompanionAdConfig: VastCompanionAdConfig?,
-        portraitVastCompanionAdConfig: VastCompanionAdConfig?
-    ) {
-        this.landscapeVastCompanionAdConfig = landscapeVastCompanionAdConfig
-        this.portraitVastCompanionAdConfig = portraitVastCompanionAdConfig
-    }
-
-    fun getVastCompanionAd(orientation: Int): VastCompanionAdConfig? {
-        return when (orientation) {
-            Configuration.ORIENTATION_PORTRAIT -> portraitVastCompanionAdConfig
-            Configuration.ORIENTATION_LANDSCAPE -> landscapeVastCompanionAdConfig
-            else -> landscapeVastCompanionAdConfig
-        }
-    }
-
     /**
-     * Returns whether or not there is a companion ad set. There must be both a landscape and a
-     * portrait companion ad set for this to be true.
+     * Returns whether or not there is at least one companion ad set.
      *
-     * @return true if both the landscape and portrait companion ads are set, false otherwise.
+     * @return true if at least one companion ad is available, false otherwise.
      */
-    fun hasCompanionAd(): Boolean {
-        return landscapeVastCompanionAdConfig != null && portraitVastCompanionAdConfig != null
-    }
+    fun hasCompanionAd() = vastCompanionAdConfigs.isNotEmpty()
 
     /**
      * Called when the video starts playing.
@@ -680,14 +661,26 @@ class VastVideoConfig : Serializable {
 
     private fun addCompanionAdViewTrackersForUrls(urls: List<String>) {
         val companionAdViewTrackers = createVastTrackersForUrls(urls)
-        landscapeVastCompanionAdConfig?.addCreativeViewTrackers(companionAdViewTrackers)
-        portraitVastCompanionAdConfig?.addCreativeViewTrackers(companionAdViewTrackers)
+        vastCompanionAdConfigs.forEach {
+            it.addCreativeViewTrackers(companionAdViewTrackers)
+        }
     }
 
     private fun addCompanionAdClickTrackersForUrls(urls: List<String>) {
         val companionAdClickTrackers = createVastTrackersForUrls(urls)
-        landscapeVastCompanionAdConfig?.addClickTrackers(companionAdClickTrackers)
-        portraitVastCompanionAdConfig?.addClickTrackers(companionAdClickTrackers)
+        vastCompanionAdConfigs.forEach {
+            it.addClickTrackers(companionAdClickTrackers)
+        }
+    }
+
+    fun addVastCompanionAdConfig(vastCompanionAdConfig: VastCompanionAdConfig) {
+        vastCompanionAdConfigs.add(vastCompanionAdConfig)
+    }
+
+    fun addVastCompanionAdConfigs(vastCompanionAdConfigs: Iterable<VastCompanionAdConfig>) {
+        vastCompanionAdConfigs.forEach {
+            addVastCompanionAdConfig(it)
+        }
     }
 
     private class VastVideoConfigTypeAdapterFactory : TypeAdapterFactory {

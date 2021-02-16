@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.network;
 
@@ -39,6 +39,7 @@ public class ImpressionData implements Serializable {
     public static final String PRECISION = "precision";
     public static final String NETWORK_NAME = "network_name";
     public static final String NETWORK_PLACEMENT_ID = "network_placement_id";
+    public static final String DEMAND_PARTNER_DATA = "demand_partner_data";
 
     @NonNull
     private SerializableJson mJson;
@@ -143,6 +144,11 @@ public class ImpressionData implements Serializable {
     @Nullable
     public String getNetworkPlacementId() {
         return mJson.optString(NETWORK_PLACEMENT_ID, null);
+    }
+
+    @Nullable
+    public JSONObject getDemandPartnerData() {
+        return mJson.optJSONObject(DEMAND_PARTNER_DATA);
     }
 
     /**

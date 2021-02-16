@@ -1,27 +1,32 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads.factories;
 
 import android.content.Context;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
+import com.mopub.common.Preconditions;
 import com.mopub.mobileads.VastManager;
 
 public class VastManagerFactory {
     protected static VastManagerFactory instance = new VastManagerFactory();
 
-    public static VastManager create(final Context context) {
+    public static VastManager create(@NonNull final Context context) {
+        Preconditions.checkNotNull(context, "context cannot be null");
         return instance.internalCreate(context, true);
     }
 
-    public static VastManager create(final Context context, boolean preCacheVideo) {
+    public static VastManager create(@NonNull final Context context, boolean preCacheVideo) {
+        Preconditions.checkNotNull(context, "context cannot be null");
         return instance.internalCreate(context, preCacheVideo);
     }
 
-    public VastManager internalCreate(final Context context, boolean preCacheVideo) {
+    public VastManager internalCreate(@NonNull final Context context, boolean preCacheVideo) {
+        Preconditions.checkNotNull(context, "context cannot be null");
         return new VastManager(context, preCacheVideo);
     }
 

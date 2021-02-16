@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.network;
 
@@ -13,6 +13,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import static org.fest.assertions.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -36,7 +37,7 @@ public class ImpressionDataTest {
     }
 
     @Test
-    public void create_withValidJson_shouldReturnValidImpressionData() {
+    public void create_withValidJson_shouldReturnValidImpressionData() throws JSONException {
         assertTrue(equalsToSampleData(subject));
     }
 
@@ -60,12 +61,54 @@ public class ImpressionDataTest {
         assertNull(subject.getNetworkPlacementId());
         assertNull(subject.getPublisherRevenue());
         assertNull(subject.getPrecision());
+        assertNull(subject.getDemandPartnerData());
         JSONObject jsonObject = subject.getJsonRepresentation();
         assertFalse(jsonObject.keys().hasNext());
     }
 
     @Test
-    public void serialize_desirialize_shouldReturnObjectCopy() {
+    public void create_withInvalidDemandPartnerDataJson_shouldReturnNullDemandPartnerData_shouldReturnEverythingElse() throws JSONException {
+        String invalidDemandPartnerDataJson = "{\n" +
+                "                \"id\": \"test_ID\",\n" +
+                "                \"app_version\": \"test_app_version\",\n" +
+                "                \"adunit_id\": \"test_adunit_id\",\n" +
+                "                \"adunit_name\": \"test_adunit_name\",\n" +
+                "                \"adunit_format\": \"test_adunit_format\",\n" +
+                "                \"adgroup_id\": \"test_adgroup_id\",\n" +
+                "                \"adgroup_name\": \"test_adgroup_name\",\n" +
+                "                \"adgroup_type\": \"test_adgroup_type\",\n" +
+                "                \"adgroup_priority\": 9876,\n" +
+                "                \"currency\": \"test_currency\",\n" +
+                "                \"country\": \"test_country\",\n" +
+                "                \"network_name\": \"test_network_name\",\n" +
+                "                \"network_placement_id\": \"test_network_placement_id\",\n" +
+                "                \"publisher_revenue\": 6789,\n" +
+                "                \"precision\": \"test_precision\"\n" +
+                "            }";
+
+        subject = ImpressionData.create(new JSONObject(invalidDemandPartnerDataJson));
+
+        assertNotNull(subject);
+        assertNotNull(subject.getImpressionId());
+        assertNotNull(subject.getAppVersion());
+        assertNotNull(subject.getAdUnitId());
+        assertNotNull(subject.getAdUnitName());
+        assertNotNull(subject.getAdUnitFormat());
+        assertNotNull(subject.getAdGroupId());
+        assertNotNull(subject.getAdGroupName());
+        assertNotNull(subject.getAdGroupType());
+        assertNotNull(subject.getAdGroupPriority());
+        assertNotNull(subject.getCurrency());
+        assertNotNull(subject.getCountry());
+        assertNotNull(subject.getNetworkName());
+        assertNotNull(subject.getNetworkPlacementId());
+        assertNotNull(subject.getPublisherRevenue());
+        assertNotNull(subject.getPrecision());
+        assertNull(subject.getDemandPartnerData());
+    }
+
+    @Test
+    public void serialize_desirialize_shouldReturnObjectCopy() throws JSONException {
         ImpressionData copy = SerializationUtils.clone(subject);
         equalsToSampleData(copy);
     }
@@ -95,10 +138,13 @@ public class ImpressionDataTest {
             "                \"network_name\": \"test_network_name\",\n" +
             "                \"network_placement_id\": \"test_network_placement_id\",\n" +
             "                \"publisher_revenue\": 6789,\n" +
-            "                \"precision\": \"test_precision\"\n" +
+            "                \"precision\": \"test_precision\",\n" +
+            "                \"demand_partner_data\": {\n" +
+            "                    \"encrypted_cpm\": \"test_cpm\"\n" +
+            "                }\n" +
             "            }";
 
-    private static boolean equalsToSampleData(ImpressionData data) {
+    private static boolean equalsToSampleData(ImpressionData data) throws JSONException {
         assertEquals("test_ID", data.getImpressionId());
         assertEquals("test_app_version", data.getAppVersion());
         assertEquals("test_adunit_id", data.getAdUnitId());
@@ -114,6 +160,9 @@ public class ImpressionDataTest {
         assertEquals("test_network_placement_id", data.getNetworkPlacementId());
         assertEquals(6789d, data.getPublisherRevenue(), 0.001);
         assertEquals("test_precision", data.getPrecision());
+        JSONObject sampleDemandPartnerData = new JSONObject("{\n\"encrypted_cpm\": \"test_cpm\"\n}");
+        assertThat(sampleDemandPartnerData)
+                .isEqualsToByComparingFields(data.getDemandPartnerData());
 
         JSONObject json = data.getJsonRepresentation();
 
@@ -132,6 +181,8 @@ public class ImpressionDataTest {
         assertEquals("test_network_placement_id", json.optString("network_placement_id"));
         assertEquals(6789, json.optDouble("publisher_revenue"), 0.001);
         assertEquals("test_precision", json.optString("precision"));
+        assertThat(sampleDemandPartnerData)
+                .isEqualsToByComparingFields(json.optJSONObject("demand_partner_data"));
 
         return true;
     }

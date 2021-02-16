@@ -1,26 +1,21 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
-import android.media.MediaMetadataRetriever;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.WebView;
-import android.widget.ImageView;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media2.common.SessionPlayer;
@@ -31,7 +26,6 @@ import com.mopub.common.ExternalViewabilitySessionManager;
 import com.mopub.common.MoPubBrowser;
 import com.mopub.common.VideoEvent;
 import com.mopub.common.ViewabilityObstruction;
-import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.mobileads.test.support.GestureUtils;
 import com.mopub.mobileads.test.support.TestMediaPlayerFactory;
@@ -41,14 +35,14 @@ import com.mopub.network.MaxWidthImageLoader;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
 
-import org.apache.http.HttpRequest;
 import org.apache.maven.artifact.ant.shaded.ReflectionUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.api.mockito.verification.PrivateMethodVerification;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowApplication;
@@ -56,9 +50,8 @@ import org.robolectric.shadows.ShadowRelativeLayout;
 import org.robolectric.shadows.ShadowTextView;
 import org.robolectric.shadows.ShadowView;
 import org.robolectric.shadows.httpclient.FakeHttp;
-import org.robolectric.shadows.httpclient.RequestMatcher;
-import org.robolectric.shadows.httpclient.TestHttpResponse;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -79,7 +72,6 @@ import static com.mopub.volley.toolbox.ImageLoader.ImageListener;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.argThat;
@@ -135,8 +127,6 @@ public class VastVideoViewControllerTest {
     @Mock
     MaxWidthImageLoader mockImageLoader;
     @Mock
-    private MediaMetadataRetriever mockMediaMetadataRetriever;
-    @Mock
     private Bitmap mockBitmap;
     @Mock
     private ExternalViewabilitySessionManager mockExternalViewabilityManager;
@@ -189,20 +179,10 @@ public class VastVideoViewControllerTest {
                         VastResource.CreativeType.IMAGE, 300, 250),
                 COMPANION_CLICK_DESTINATION_URL,
                 VastUtils.stringsToVastTrackers(COMPANION_CLICK_TRACKING_URL_1, COMPANION_CLICK_TRACKING_URL_2),
-                VastUtils.stringsToVastTrackers(COMPANION_CREATIVE_VIEW_URL_1, COMPANION_CREATIVE_VIEW_URL_2)
+                VastUtils.stringsToVastTrackers(COMPANION_CREATIVE_VIEW_URL_1, COMPANION_CREATIVE_VIEW_URL_2),
+                null
         );
-        VastCompanionAdConfig portraitVastCompanionAdConfig = new VastCompanionAdConfig(
-                250,
-                300,
-                new VastResource(COMPANION_IMAGE_URL,
-                        VastResource.Type.STATIC_RESOURCE,
-                        VastResource.CreativeType.IMAGE, 250, 300),
-                COMPANION_CLICK_DESTINATION_URL,
-                VastUtils.stringsToVastTrackers(COMPANION_CLICK_TRACKING_URL_3),
-                VastUtils.stringsToVastTrackers(COMPANION_CREATIVE_VIEW_URL_3)
-        );
-        vastVideoConfig.setVastCompanionAd(landscapeVastCompanionAdConfig,
-                portraitVastCompanionAdConfig);
+        vastVideoConfig.addVastCompanionAdConfig(landscapeVastCompanionAdConfig);
 
         final VastResource vastResource = new VastResource("static",
                 VastResource.Type.STATIC_RESOURCE,
@@ -218,8 +198,6 @@ public class VastVideoViewControllerTest {
 
         vastVideoConfig.setVastIconConfig(vastIconConfig);
 
-        when(mockMediaMetadataRetriever.getFrameAtTime(anyLong(), anyInt())).thenReturn(mockBitmap);
-
         final AdData adData = new AdData.Builder()
                 .vastVideoConfig(vastVideoConfig.toJsonString())
                 .build();
@@ -230,14 +208,6 @@ public class VastVideoViewControllerTest {
         Robolectric.getForegroundThreadScheduler().pause();
         Robolectric.getBackgroundThreadScheduler().pause();
         FakeHttp.clearPendingHttpResponses();
-
-        // Used to give responses to Vast Download Tasks.
-        FakeHttp.addHttpResponseRule(new RequestMatcher() {
-            @Override
-            public boolean matches(HttpRequest request) {
-                return true;
-            }
-        }, new TestHttpResponse(200, "body"));
 
         LocalBroadcastManager.getInstance(context).registerReceiver(broadcastReceiver,
                 new EventForwardingBroadcastReceiver(null,
@@ -262,7 +232,6 @@ public class VastVideoViewControllerTest {
         initializeSubject();
 
         verify(mockExternalViewabilityManager).createVideoSession(any(View.class), any());
-        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getBlurredLastVideoFrameImageView(), ViewabilityObstruction.BLUR);
         verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getTopGradientStripWidget(), ViewabilityObstruction.OVERLAY);
         verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getProgressBarWidget(), ViewabilityObstruction.PROGRESS_BAR);
         verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getBottomGradientStripWidget(), ViewabilityObstruction.OVERLAY);
@@ -270,17 +239,15 @@ public class VastVideoViewControllerTest {
         verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getIconView(), ViewabilityObstruction.INDUSTRY_ICON);
         verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getCtaButtonWidget(), ViewabilityObstruction.CTA_BUTTON);
         verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getCloseButtonWidget(), ViewabilityObstruction.CLOSE_BUTTON);
-        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getLandscapeCompanionAdView(), ViewabilityObstruction.OTHER);
-        verify(mockExternalViewabilityManager).registerVideoObstruction(subject.getPortraitCompanionAdView(), ViewabilityObstruction.OTHER);
     }
 
     @Test
-    public void constructor_shouldAddCtaButtonWidgetToLayoutAndSetInvisibleWithOnTouchListeners() throws Exception {
+    public void constructor_shouldAddCtaButtonWidgetToLayoutAndSetVisibleWithOnTouchListeners() throws Exception {
         initializeSubject();
 
-        VastVideoCtaButtonWidget ctaButtonWidget = subject.getCtaButtonWidget();
+        VideoCtaButtonWidget ctaButtonWidget = subject.getCtaButtonWidget();
         assertThat(ctaButtonWidget.getParent()).isEqualTo(subject.getLayout());
-        assertThat(ctaButtonWidget.getVisibility()).isEqualTo(View.INVISIBLE);
+        assertThat(ctaButtonWidget.getVisibility()).isEqualTo(View.VISIBLE);
         ShadowView ctaButtonWidgetShadow = shadowOf(ctaButtonWidget);
         assertThat(ctaButtonWidgetShadow.getOnTouchListener()).isNotNull();
         assertThat(ctaButtonWidgetShadow.getOnTouchListener()).isEqualTo(
@@ -299,14 +266,14 @@ public class VastVideoViewControllerTest {
     }
 
     @Test
-    public void constructor_shouldAddRadialCountdownWidgetToLayoutAndSetInvisibleWithNoListeners() throws Exception {
+    public void constructor_shouldAddRadialCountdownWidgetToLayoutAndSetInvisibleWithListeners() throws Exception {
         initializeSubject();
 
         RadialCountdownWidget radialCountdownWidget = subject.getRadialCountdownWidget();
         assertThat(radialCountdownWidget.getParent()).isEqualTo(subject.getLayout());
         assertThat(radialCountdownWidget.getVisibility()).isEqualTo(View.INVISIBLE);
         ShadowView radialCountdownWidgetShadow = shadowOf(radialCountdownWidget);
-        assertThat(radialCountdownWidgetShadow.getOnTouchListener()).isNull();
+        assertThat(radialCountdownWidgetShadow.getOnTouchListener()).isNotNull();
     }
 
     @Test
@@ -357,18 +324,6 @@ public class VastVideoViewControllerTest {
 
         ShadowView bottomGradientStripWidgetShadow = shadowOf(bottomGradientStripWidget);
         assertThat(bottomGradientStripWidgetShadow.getOnTouchListener()).isNull();
-    }
-
-    @Test
-    public void constructor_shouldAddBlurredLastVideoFrameWidgetToLayoutAndSetInvisibleWithListeners() throws Exception {
-        initializeSubject();
-
-        ImageView blurredLastVideoFrameImageView = subject.getBlurredLastVideoFrameImageView();
-        assertThat(blurredLastVideoFrameImageView.getParent()).isEqualTo(subject.getLayout());
-        assertThat(blurredLastVideoFrameImageView.getVisibility()).isEqualTo(View.INVISIBLE);
-        ShadowView blurredLastVideoFrameImageViewShadow = shadowOf(blurredLastVideoFrameImageView);
-        // This has been changed for the new player which allows a click on the blurred frame
-        assertThat(blurredLastVideoFrameImageViewShadow.getOnTouchListener()).isNotNull();
     }
 
     @Test
@@ -608,58 +563,7 @@ public class VastVideoViewControllerTest {
     }
 
     @Test
-    public void VastWebView_onVastWebViewClick_shouldCallVastCompanionAdHandleClick() throws Exception {
-        initializeSubject();
-
-        final VastCompanionAdConfig spyVastCompanionAdConfig =
-                spy(subject.getVastVideoConfig().getVastCompanionAd(Configuration.ORIENTATION_LANDSCAPE));
-        final VastWebView vastWebView = subject.createWebView(spyVastCompanionAdConfig);
-
-        vastWebView.getVastWebViewClickListener().onVastWebViewClick();
-
-        ArgumentCaptor<Context> contextCaptor = ArgumentCaptor.forClass(Context.class);
-        ArgumentCaptor<Integer> requestCodeCaptor = ArgumentCaptor.forClass(Integer.class);
-        ArgumentCaptor<String> webViewClickThroughUrlCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<String> dspCreativeIdCaptor = ArgumentCaptor.forClass(String.class);
-
-        verify(spyVastCompanionAdConfig).handleClick(contextCaptor.capture(),
-                requestCodeCaptor.capture(),
-                webViewClickThroughUrlCaptor.capture(),
-                dspCreativeIdCaptor.capture());
-
-        assertThat(contextCaptor.getValue()).isEqualTo(subject.getContext());
-        assertThat(requestCodeCaptor.getValue()).isEqualTo(1);
-        assertThat(webViewClickThroughUrlCaptor.getValue()).isNull();
-        assertThat(dspCreativeIdCaptor.getValue()).isEqualTo("dsp_creative_id");
-    }
-
-
-    @Test
-    public void createCompanionAdView_shouldLayoutAndReturnInvisibleVastIconView() throws Exception {
-        initializeSubject();
-
-        final VastVideoConfig vastVideoConfig = subject.getVastVideoConfig();
-
-        final VastWebView view = (VastWebView) subject.createCompanionAdView(vastVideoConfig, Configuration.ORIENTATION_LANDSCAPE, View.INVISIBLE);
-
-        assertThat(view).isNotNull();
-        assertThat(view.getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(view.getVastWebViewClickListener()).isNotNull();
-        assertThat((VastWebView) subject.getLayout().findViewById(view.getId())).isEqualTo(view);
-    }
-
-    @Test
-    public void createCompanionAdView_withNullCompanionAd_shouldReturnEmptyView() throws Exception {
-        initializeSubject();
-
-        final VastVideoConfig vastVideoConfig = subject.getVastVideoConfig();
-
-        assertThat(subject.createCompanionAdView(vastVideoConfig, Configuration.ORIENTATION_LANDSCAPE, View.INVISIBLE))
-                .isNotNull();
-    }
-
-    @Test
-    public void onDestroy_shouldBroadcastInterstitialDismiss() throws Exception {
+    public void onDestroy_shouldNotBroadcastInterstitialDismiss() throws Exception {
         Intent expectedIntent = getIntentForActionAndIdentifier(ACTION_FULLSCREEN_DISMISS,
                 testBroadcastIdentifier);
 
@@ -668,49 +572,8 @@ public class VastVideoViewControllerTest {
         subject.onDestroy();
         Robolectric.getForegroundThreadScheduler().unPause();
 
-        verify(broadcastReceiver).onReceive(any(Context.class),
-                argThat(new IntentIsEqual(expectedIntent)));
+        verifyZeroInteractions(broadcastReceiver);
         verify(mockExternalViewabilityManager).endSession();
-    }
-
-    @Test
-    public void onDestroy_withBlurLastVideoFrameTaskStillRunning_shouldCancelTask() throws Exception {
-        initializeSubject();
-
-        VastVideoBlurLastVideoFrameTask mockBlurLastVideoFrameTask = mock(
-                VastVideoBlurLastVideoFrameTask.class);
-        when(mockBlurLastVideoFrameTask.getStatus()).thenReturn(AsyncTask.Status.RUNNING);
-        subject.setBlurLastVideoFrameTask(mockBlurLastVideoFrameTask);
-
-        subject.onDestroy();
-
-        verify(mockBlurLastVideoFrameTask).cancel(true);
-    }
-
-    @Test
-    public void onDestroy_withBlurLastVideoFrameTaskStillPending_shouldCancelTask() throws Exception {
-        initializeSubject();
-
-        VastVideoBlurLastVideoFrameTask mockBlurLastVideoFrameTask = mock(VastVideoBlurLastVideoFrameTask.class);
-        when(mockBlurLastVideoFrameTask.getStatus()).thenReturn(AsyncTask.Status.PENDING);
-        subject.setBlurLastVideoFrameTask(mockBlurLastVideoFrameTask);
-
-        subject.onDestroy();
-
-        verify(mockBlurLastVideoFrameTask).cancel(true);
-    }
-
-    @Test
-    public void onDestroy_withBlurLastVideoFrameTaskFinished_shouldNotCancelTask() throws Exception {
-        initializeSubject();
-
-        VastVideoBlurLastVideoFrameTask mockBlurLastVideoFrameTask = mock(VastVideoBlurLastVideoFrameTask.class);
-        when(mockBlurLastVideoFrameTask.getStatus()).thenReturn(AsyncTask.Status.FINISHED);
-        subject.setBlurLastVideoFrameTask(mockBlurLastVideoFrameTask);
-
-        subject.onDestroy();
-
-        verify(mockBlurLastVideoFrameTask, never()).cancel(anyBoolean());
     }
 
     @Test
@@ -731,7 +594,7 @@ public class VastVideoViewControllerTest {
         subject.setClosing(false);
         subject.onActivityResult(expectedBrowserRequestCode, Activity.RESULT_OK, null);
 
-        verify(baseVideoViewControllerListener, never()).onFinish();
+        verify(baseVideoViewControllerListener, never()).onVideoFinish(anyInt());
     }
 
     @Test
@@ -740,7 +603,7 @@ public class VastVideoViewControllerTest {
         subject.setClosing(true);
         subject.onActivityResult(expectedBrowserRequestCode, Activity.RESULT_OK, null);
 
-        verify(baseVideoViewControllerListener).onFinish();
+        verify(baseVideoViewControllerListener).onVideoFinish(0);
     }
 
     @Test
@@ -748,7 +611,7 @@ public class VastVideoViewControllerTest {
         initializeSubject();
         subject.onActivityResult(1000, Activity.RESULT_OK, null); // 1000 is the incorrect request code
 
-        verify(baseVideoViewControllerListener, never()).onFinish();
+        verify(baseVideoViewControllerListener, never()).onVideoFinish(anyInt());
     }
 
     @Test
@@ -756,7 +619,7 @@ public class VastVideoViewControllerTest {
         initializeSubject();
         subject.onActivityResult(expectedBrowserRequestCode, Activity.RESULT_CANCELED, null); // Activity.RESULT_CANCELED is an incorrect result code
 
-        verify(baseVideoViewControllerListener, never()).onFinish();
+        verify(baseVideoViewControllerListener, never()).onVideoFinish(anyInt());
     }
 
     @Test
@@ -843,6 +706,7 @@ public class VastVideoViewControllerTest {
         final VastVideoConfig vastVideoConfig = new VastVideoConfig();
         vastVideoConfig.setNetworkMediaFileUrl("video_url");
         vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
+        vastVideoConfig.setClickThroughUrl(CLICKTHROUGH_URL);
         vastVideoConfig.addClickTrackers(
                 VastUtils.stringsToVastTrackers("click_1" + MACRO_TAGS, "click_2" + MACRO_TAGS));
 
@@ -1267,33 +1131,6 @@ public class VastVideoViewControllerTest {
     }
 
     @Test
-    public void onPrepared_shouldSetBlurredLastVideoFrame() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-        Robolectric.getBackgroundThreadScheduler().unPause();
-        Robolectric.getForegroundThreadScheduler().unPause();
-        Thread.sleep(NETWORK_DELAY);
-
-        final ImageView blurredLastVideoFrameImageView = subject.getBlurredLastVideoFrameImageView();
-        assertThat(blurredLastVideoFrameImageView.getDrawable()).isInstanceOf(BitmapDrawable.class);
-        assertThat(
-                ((BitmapDrawable) blurredLastVideoFrameImageView.getDrawable()).getBitmap()).isNotNull();
-
-        assertThat(subject.getBlurredLastVideoFrameImageView().getVisibility()).isEqualTo(View.INVISIBLE);
-    }
-
-    @Test
     public void onCompletion_shouldMarkVideoAsFinished() throws Exception {
         initializeSubject();
 
@@ -1428,35 +1265,65 @@ public class VastVideoViewControllerTest {
     }
 
     @Test
-    public void onCompletion_whenCompanionAdAvailable_shouldShowCompanionAdAndHideBlurredLastVideoFrame() throws Exception {
+    public void onPlaybackCompleted_withCompanionAdAvailable_shouldCallOnFinish() throws Exception {
         final VideoView mockVideoView = TestVideoViewFactory.Companion.getMockVideoView();
         reset(mockVideoView);
-
         initializeSubject();
-
-        final View companionView = subject.getLandscapeCompanionAdView();
-        final ImageView blurredLastVideoFrameImageView = subject.getBlurredLastVideoFrameImageView();
-
-        assertThat(subject.getVideoView().getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(companionView.getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(blurredLastVideoFrameImageView.getVisibility()).isEqualTo(View.INVISIBLE);
-
         final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
         mockMediaPlayer.prepare().isDone();
-        Robolectric.getBackgroundThreadScheduler().unPause();
-        Robolectric.getForegroundThreadScheduler().unPause();
-        Thread.sleep(NETWORK_DELAY);
 
         subject.getPlayerCallback().onPlaybackCompleted(mockMediaPlayer);
-        verify(mockVideoView).setVisibility(eq(View.INVISIBLE));
 
-        assertThat(subject.getBlurLastVideoFrameTask()).isNull();
-        assertThat(companionView.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(blurredLastVideoFrameImageView.getVisibility()).isEqualTo(View.INVISIBLE);
+        verify(baseVideoViewControllerListener).onVideoFinish(10000);
     }
 
     @Test
-    public void onCompletion_whenCompanionAdAvailable_shouldOnlyShowTopGradientStripWidget() throws Exception {
+    public void onPlaybackCompleted_whenCompanionAdAvailable_shouldOnlyShowTopGradientStripWidget() throws Exception {
+        initializeSubject();
+        final VastVideoGradientStripWidget topGradientStripWidget = subject.getTopGradientStripWidget();
+        final VastVideoGradientStripWidget bottomGradientStripWidget = subject.getBottomGradientStripWidget();
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+
+        subject.getPlayerCallback().onPlaybackCompleted(mockMediaPlayer);
+
+        assertThat(topGradientStripWidget.getVisibility()).isEqualTo(View.VISIBLE);
+        assertThat(bottomGradientStripWidget.getVisibility()).isEqualTo(View.GONE);
+    }
+
+    @Test
+    public void onPlaybackCompleted_whenCompanionAdNotAvailable_shouldCallOnFinish() throws Exception {
+        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
+        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
+
+        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
+        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
+                .vastVideoConfig(vastVideoConfig.toJsonString())
+                .build();
+        bundle.putParcelable(AD_DATA_KEY, newAdData);
+
+        final VideoView mockVideoView = TestVideoViewFactory.Companion.getMockVideoView();
+        reset(mockVideoView);
+        initializeSubject();
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+
+        subject.getPlayerCallback().onPlaybackCompleted(mockMediaPlayer);
+
+        verify(baseVideoViewControllerListener).onVideoFinish(10000);
+    }
+
+    @Test
+    public void onCompletion_whenOnlyBlurredLastFrameCompanion_shouldKeepTopGradientStripWidget() throws Exception {
+        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
+        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
+
+        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
+        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
+                .vastVideoConfig(vastVideoConfig.toJsonString())
+                .build();
+        bundle.putParcelable(AD_DATA_KEY, newAdData);
+
         initializeSubject();
 
         final VastVideoGradientStripWidget topGradientStripWidget = subject.getTopGradientStripWidget();
@@ -1472,138 +1339,6 @@ public class VastVideoViewControllerTest {
         subject.getPlayerCallback().onPlaybackCompleted(mockMediaPlayer);
 
         assertThat(topGradientStripWidget.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(bottomGradientStripWidget.getVisibility()).isEqualTo(View.GONE);
-    }
-
-    @Test
-    public void onCompletion_whenCompanionAdNotAvailable_shouldHideCompanionAdAndShowBlurredLastVideoFrame() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setVastCompanionAd(null, null);
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        final VideoView mockVideoView = TestVideoViewFactory.Companion.getMockVideoView();
-        reset(mockVideoView);
-
-        initializeSubject();
-
-        final View companionView = subject.getLandscapeCompanionAdView();
-        final ImageView blurredLastVideoFrameImageView = subject.getBlurredLastVideoFrameImageView();
-
-        assertThat(subject.getVideoView().getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(companionView.getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(blurredLastVideoFrameImageView.getVisibility()).isEqualTo(View.INVISIBLE);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-        Robolectric.getBackgroundThreadScheduler().unPause();
-        Robolectric.getForegroundThreadScheduler().unPause();
-        Thread.sleep(NETWORK_DELAY);
-
-        mockMediaPlayer.prepare().isDone();
-        subject.getPlayerCallback().onPlaybackCompleted(mockMediaPlayer);
-        verify(mockVideoView).setVisibility(eq(View.INVISIBLE));
-
-        assertThat(subject.getBlurLastVideoFrameTask()).isNotNull();
-        assertThat(companionView.getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(blurredLastVideoFrameImageView.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(blurredLastVideoFrameImageView.getDrawable()).isInstanceOf(BitmapDrawable.class);
-        assertThat(
-                ((BitmapDrawable) blurredLastVideoFrameImageView.getDrawable()).getBitmap()).isNotNull();
-    }
-
-    @Test
-    public void onCompletion_whenCompanionAdNotAvailable_shouldHideBothGradientStripWidgets() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setVastCompanionAd(null, null);
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-
-        final VastVideoGradientStripWidget topGradientStripWidget = subject.getTopGradientStripWidget();
-        final VastVideoGradientStripWidget bottomGradientStripWidget = subject.getBottomGradientStripWidget();
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-        Robolectric.getBackgroundThreadScheduler().unPause();
-        Robolectric.getForegroundThreadScheduler().unPause();
-        Thread.sleep(NETWORK_DELAY);
-
-        mockMediaPlayer.prepare().isDone();
-        subject.getPlayerCallback().onPlaybackCompleted(mockMediaPlayer);
-
-        assertThat(topGradientStripWidget.getVisibility()).isEqualTo(View.GONE);
-        assertThat(bottomGradientStripWidget.getVisibility()).isEqualTo(View.GONE);
-    }
-
-    @Test
-    public void onCompletion_whenCompanionAdNotAvailableAndBlurredLastVideoFrameNotPrepared_shouldShowBlackBackground() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setVastCompanionAd(null, null);
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        final VideoView mockVideoView = TestVideoViewFactory.Companion.getMockVideoView();
-        reset(mockVideoView);
-
-        initializeSubject();
-
-        final View companionView = subject.getLandscapeCompanionAdView();
-        final ImageView blurredLastVideoFrameImageView = subject.getBlurredLastVideoFrameImageView();
-
-        assertThat(companionView.getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(blurredLastVideoFrameImageView.getVisibility()).isEqualTo(View.INVISIBLE);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-        subject.getPlayerCallback().onPlaybackCompleted(mockMediaPlayer);
-
-        verify(mockVideoView).setVisibility(eq(View.INVISIBLE));
-        assertThat(companionView.getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(blurredLastVideoFrameImageView.getVisibility()).isEqualTo(View.INVISIBLE);
-
-        Drawable background = subject.getLayout().getBackground();
-        assertThat(((ColorDrawable) background).getColor()).isEqualTo(Color.BLACK);
-    }
-
-    @Test
-    public void onCompletion_whenCompanionAdNotAvailableAndBlurredLastVideoFrameNotPrepared_shouldHideBothGradientStripWidgets() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setVastCompanionAd(null, null);
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-
-        final VastVideoGradientStripWidget topGradientStripWidget = subject.getTopGradientStripWidget();
-        final VastVideoGradientStripWidget bottomGradientStripWidget = subject.getBottomGradientStripWidget();
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-        subject.getPlayerCallback().onPlaybackCompleted(mockMediaPlayer);
-
-        assertThat(topGradientStripWidget.getVisibility()).isEqualTo(View.GONE);
         assertThat(bottomGradientStripWidget.getVisibility()).isEqualTo(View.GONE);
     }
 
@@ -2066,7 +1801,14 @@ public class VastVideoViewControllerTest {
 
         subject.onPause();
 
-        verify(mockMediaPlayer.getAudioFocusHandler()).close();
+        final Field audioFocusHandlerField =
+                MediaPlayer.class.getDeclaredField("mAudioFocusHandler");
+        audioFocusHandlerField.setAccessible(true);
+        final Object audioFocusHandler = audioFocusHandlerField.get(mockMediaPlayer);
+
+        PrivateMethodVerification privateMethodInvocation =
+                PowerMockito.verifyPrivate(audioFocusHandler);
+        privateMethodInvocation.invoke("close");
     }
 
     @Test
@@ -2172,103 +1914,6 @@ public class VastVideoViewControllerTest {
         subject.onResume();
 
         verify(mockRequestQueue, never()).add(argThat(isUrlStartingWith("resume?")));
-    }
-
-    @Test
-    public void onConfigurationChanged_withPortraitCompanionAdVisible_withDeviceLandscape_shouldMakeLandscapeCompanionAdVisible() throws Exception {
-        initializeSubject();
-        context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
-        subject.getPortraitCompanionAdView().setVisibility(View.VISIBLE);
-
-        subject.onConfigurationChanged(context.getResources().getConfiguration());
-
-        assertThat(subject.getPortraitCompanionAdView().getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(subject.getLandscapeCompanionAdView().getVisibility()).isEqualTo(View.VISIBLE);
-        verify(mockRequestQueue).add(argThat(isUrl(COMPANION_CREATIVE_VIEW_URL_1)));
-        verify(mockRequestQueue).add(argThat(isUrl(COMPANION_CREATIVE_VIEW_URL_2)));
-        verifyNoMoreInteractions(mockRequestQueue);
-    }
-
-    @Test
-    public void onConfigurationChanged_withLandscapeCompanionAdVisible_withDevicePortrait_shouldMakePortraitCompanionAdVisible() throws Exception {
-        initializeSubject();
-        context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_PORTRAIT;
-        subject.getLandscapeCompanionAdView().setVisibility(View.VISIBLE);
-
-        subject.onConfigurationChanged(context.getResources().getConfiguration());
-
-        assertThat(subject.getLandscapeCompanionAdView().getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(subject.getPortraitCompanionAdView().getVisibility()).isEqualTo(View.VISIBLE);
-        verify(mockRequestQueue).add(argThat(isUrl(COMPANION_CREATIVE_VIEW_URL_3)));
-        verifyNoMoreInteractions(mockRequestQueue);
-    }
-
-    @Test
-    public void onConfigurationChanged_withPortraitCompanionAdVisible_withDevicePortrait_shouldKeepPortraitCompanionAdVisible() throws Exception {
-        initializeSubject();
-        context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_PORTRAIT;
-        subject.getPortraitCompanionAdView().setVisibility(View.VISIBLE);
-
-        subject.onConfigurationChanged(context.getResources().getConfiguration());
-
-        assertThat(subject.getPortraitCompanionAdView().getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(subject.getLandscapeCompanionAdView().getVisibility()).isEqualTo(View.INVISIBLE);
-        verify(mockRequestQueue).add(argThat(isUrl(COMPANION_CREATIVE_VIEW_URL_3)));
-        verifyNoMoreInteractions(mockRequestQueue);
-    }
-
-    @Test
-    public void onConfigurationChanged_withNoCompanionAdVisible_shouldDoNothing() throws Exception {
-        initializeSubject();
-        context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
-
-        subject.onConfigurationChanged(context.getResources().getConfiguration());
-
-        assertThat(subject.getPortraitCompanionAdView().getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(subject.getLandscapeCompanionAdView().getVisibility()).isEqualTo(View.INVISIBLE);
-        verifyNoMoreInteractions(mockRequestQueue);
-    }
-
-    @Test
-    public void onConfigurationChanged_whenCalledMultipleTimes_shouldOnlyEverFireEachCreativeViewTrackerOnce() throws Exception {
-        initializeSubject();
-        subject.getPortraitCompanionAdView().setVisibility(View.VISIBLE);
-
-        for (int i = 0; i < 10; i++) {
-            context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
-            subject.onConfigurationChanged(context.getResources().getConfiguration());
-            context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_PORTRAIT;
-            subject.onConfigurationChanged(context.getResources().getConfiguration());
-        }
-        verify(mockRequestQueue).add(argThat(isUrl(COMPANION_CREATIVE_VIEW_URL_1)));
-        verify(mockRequestQueue).add(argThat(isUrl(COMPANION_CREATIVE_VIEW_URL_2)));
-        verify(mockRequestQueue).add(argThat(isUrl(COMPANION_CREATIVE_VIEW_URL_3)));
-        verifyNoMoreInteractions(mockRequestQueue);
-    }
-
-    @Test
-    public void onConfigurationChanged_withNoCompanionAd_shouldDoNothing() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setNetworkMediaFileUrl("media_url");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-
-        subject.onConfigurationChanged(context.getResources().getConfiguration());
-
-        verifyNoMoreInteractions(mockRequestQueue);
-        assertThat(subject.getLandscapeCompanionAdView().getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(subject.getLandscapeCompanionAdView().getWidth()).isEqualTo(0);
-        assertThat(subject.getLandscapeCompanionAdView().getHeight()).isEqualTo(0);
-        assertThat(subject.getPortraitCompanionAdView().getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(subject.getPortraitCompanionAdView().getWidth()).isEqualTo(0);
-        assertThat(subject.getPortraitCompanionAdView().getHeight()).isEqualTo(0);
     }
 
     @Test
@@ -2561,7 +2206,6 @@ public class VastVideoViewControllerTest {
         ExternalViewabilitySessionManager.setCreator(() -> mockExternalViewabilityManager);
         subject = new VastVideoViewController((Activity) context, bundle, savedInstanceState,
                 testBroadcastIdentifier, baseVideoViewControllerListener);
-        subject.setMediaMetadataRetriever(mockMediaMetadataRetriever);
         setVideoViewParams(0, 10000);// default to position 0 and duration 10s
         spyOnRunnables();
     }

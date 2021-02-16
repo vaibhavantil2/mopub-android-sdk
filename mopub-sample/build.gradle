@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 repositories {
     google()
@@ -26,7 +26,7 @@ apply plugin: 'kotlin-android-extensions'
 
 project.group = 'com.mopub'
 project.description = '''MoPub Sample App'''
-project.version = '5.15.0'
+project.version = '5.16.0'
 
 android {
     compileSdkVersion 30
@@ -37,8 +37,12 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    testOptions {
+        animationsDisabled true
+    }
+
     defaultConfig {
-        versionCode 83
+        versionCode 84
         versionName version
         minSdkVersion 19
         targetSdkVersion 30
@@ -59,6 +63,17 @@ android {
     }
 
     buildTypes {
+        all {
+            def connectedTestRetryCount = "${System.env.ANDROID_CONNECTED_TEST_RETRY_COUNT}"
+
+            try {
+                connectedTestRetryCount = "" + Integer.parseInt(connectedTestRetryCount)
+            } catch (NumberFormatException nfe) {
+                connectedTestRetryCount = "3"
+            }
+
+            buildConfigField "int", "CONNECTED_TEST_RETRY_COUNT", connectedTestRetryCount
+        }
         release {
             minifyEnabled true
         }
@@ -130,6 +145,7 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-web:3.2.0'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
     androidTestImplementation 'androidx.test.espresso:espresso-intents:3.2.0'
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.2.0'
     implementation "androidx.core:core-ktx:1.5.0-alpha01"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.3.71"
 }

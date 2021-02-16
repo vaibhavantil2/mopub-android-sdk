@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common;
 
@@ -11,8 +11,8 @@ import androidx.annotation.Nullable;
 import com.mopub.common.privacy.PersonalInfoManager;
 
 import java.lang.ref.WeakReference;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * This class handles delegating lifecycle callback events to ads SDKs that require them.
@@ -24,7 +24,7 @@ public class MoPubLifecycleManager implements LifecycleListener {
     @NonNull private final WeakReference<Activity> mMainActivity;
 
     private MoPubLifecycleManager(Activity mainActivity) {
-        mLifecycleListeners = new HashSet<LifecycleListener>();
+        mLifecycleListeners = new CopyOnWriteArraySet<>();
         mMainActivity = new WeakReference<Activity>(mainActivity);
     }
 

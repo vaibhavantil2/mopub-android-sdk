@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -343,12 +343,10 @@ public class FullscreenAdAdapterTest {
     }
 
     @Test
-    public void doInvalidate_withNonNullBaseAd_withNonNullWebViewCacheServiceConfig_shouldCallWebViewCacheServiceConfigGetWebViewDestroy() throws Exception {
+    public void doInvalidate_withNonNullBaseAd_withNonNullWebViewCacheServiceConfig_shouldCallWebViewCacheServiceConfigInvalidate() {
         final long broadcastIdentifier = 2718281828459045235L;
         final WebViewCacheService.Config mockConfig = mock(WebViewCacheService.Config.class);
-        final BaseWebView mockBaseWebView = mock(BaseWebView.class);
 
-        when(mockConfig.getWebView()).thenReturn(mockBaseWebView);
         WebViewCacheService.getWebViewConfigs().put(broadcastIdentifier, mockConfig);
 
         subject.setBroadcastIdentifier(broadcastIdentifier);
@@ -356,16 +354,14 @@ public class FullscreenAdAdapterTest {
 
         subject.doInvalidate();
 
-        verify(mockBaseWebView).destroy();
+        verify(mockConfig).invalidate();
     }
 
     @Test
-    public void doInvalidate_withNullBaseAd_withNonNullWebViewCacheServiceConfig_shouldCallWebViewCacheServiceConfigGetWebViewDestroy() throws Exception {
+    public void doInvalidate_withNullBaseAd_withNonNullWebViewCacheServiceConfig_shouldCallWebViewCacheServiceConfigInvalidate() {
         final long broadcastIdentifier = 2718281828459045235L;
         final WebViewCacheService.Config mockConfig = mock(WebViewCacheService.Config.class);
-        final BaseWebView mockBaseWebView = mock(BaseWebView.class);
 
-        when(mockConfig.getWebView()).thenReturn(mockBaseWebView);
         WebViewCacheService.getWebViewConfigs().put(broadcastIdentifier, mockConfig);
 
         subject.setBroadcastIdentifier(broadcastIdentifier);
@@ -374,6 +370,6 @@ public class FullscreenAdAdapterTest {
 
         subject.doInvalidate();
 
-        verify(mockBaseWebView).destroy();
+        verify(mockConfig).invalidate();
     }
 }

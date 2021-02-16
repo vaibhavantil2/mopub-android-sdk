@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -601,7 +601,7 @@ public class WebViewAdUrlGeneratorTest {
     }
 
     @Test
-    public void generateAdUrl_shouldSetNetworkType() throws Exception {
+    public void generateAdUrl_shouldSetNetworkType() {
         AdUrlBuilder urlBuilder = new AdUrlBuilder(expectedUdid).withCurrentConsentStatus(ConsentStatus.UNKNOWN.getValue());
         String adUrl;
 
@@ -645,6 +645,11 @@ public class WebViewAdUrlGeneratorTest {
                 createNetworkInfo(TYPE_MOBILE, TelephonyManager.NETWORK_TYPE_LTE));
         adUrl = generateMinimumUrlString();
         assertThat(adUrl).isEqualTo(urlBuilder.withNetworkType(MoPubNetworkType.GGGG).build());
+
+        shadowConnectivityManager.setActiveNetworkInfo(
+                createNetworkInfo(TYPE_MOBILE, TelephonyManager.NETWORK_TYPE_NR));
+        adUrl = generateMinimumUrlString();
+        assertThat(adUrl).isEqualTo(urlBuilder.withNetworkType(MoPubNetworkType.GGGGG).build());
     }
 
     @Test

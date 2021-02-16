@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.network;
 
@@ -687,6 +687,8 @@ public class MultiAdResponseTest {
         assertThat(impressionData.getNetworkPlacementId()).isEqualTo(impJson.getString("network_placement_id"));
         assertThat(impressionData.getPublisherRevenue()).isEqualTo(impJson.getDouble("publisher_revenue"));
         assertThat(impressionData.getPrecision()).isEqualTo(impJson.getString("precision"));
+        assertThat(impressionData.getDemandPartnerData())
+                .isEqualsToByComparingFields(impJson.getJSONObject("demand_partner_data"));
     }
 
     @Test
@@ -868,7 +870,6 @@ public class MultiAdResponseTest {
         metadata.put(ResponseHeader.REWARDED_VIDEO_COMPLETION_URL.getKey(),
                 "https://completionUrl");
         metadata.put(ResponseHeader.REWARDED_DURATION.getKey(), "15000");
-        metadata.put(ResponseHeader.SHOULD_REWARD_ON_CLICK.getKey(), "1");
 
         NetworkResponse networkResponse = new NetworkResponse(singleAdResponse.toString().getBytes());
 
@@ -899,10 +900,9 @@ public class MultiAdResponseTest {
         assertThat(subject.getStringBody()).isEqualTo("content_text");
         assertThat(subject.getCustomEventClassName()).isEqualTo(MoPubFullscreen.class.getName());
         assertThat(subject.getRewardedCurrencies()).isEqualTo(rewardedCurrenciesJson);
-        assertThat(subject.getRewardedVideoCompletionUrl()).isEqualTo(
+        assertThat(subject.getRewardedAdCompletionUrl()).isEqualTo(
                 "https://completionUrl");
         assertThat(subject.getRewardedDuration()).isEqualTo(15000);
-        assertThat(subject.shouldRewardOnClick()).isTrue();
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras).isNotEmpty();
@@ -1358,7 +1358,10 @@ public class MultiAdResponseTest {
                         "          \"network_name\": \"networkname\",\n" +
                         "          \"network_placement_id\": \"networkplacementid\",\n" +
                         "          \"publisher_revenue\": 0.0001,\n" +
-                        "          \"precision\": \"exact\"\n" +
+                        "          \"precision\": \"exact\",\n" +
+                        "          \"demand_partner_data\": {\n" +
+                        "              \"encrypted_cpm\": \"test_cpm\"\n" +
+                        "          }\n" +
                         "     }";
         return new JSONObject(jsonString);
     }

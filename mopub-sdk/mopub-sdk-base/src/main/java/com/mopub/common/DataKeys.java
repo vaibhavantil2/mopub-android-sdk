@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common;
 
@@ -30,13 +30,6 @@ public class DataKeys {
     public static final String IMPRESSION_VISIBLE_MS = "impression-visible-ms";
     public static final String IMPRESSION_MIN_VISIBLE_PX = "impression-min-visible-px";
 
-    // Rewarded Ad fields
-    public static final String REWARDED_AD_CURRENCY_NAME_KEY = "rewarded-ad-currency-name";
-    public static final String REWARDED_AD_CURRENCY_AMOUNT_STRING_KEY = "rewarded-ad-currency-value-string";
-    public static final String REWARDED_AD_CUSTOMER_ID_KEY = "rewarded-ad-customer-id";
-    public static final String REWARDED_AD_DURATION_KEY = "rewarded-ad-duration";
-    public static final String SHOULD_REWARD_ON_CLICK_KEY = "should-reward-on-click";
-
     // OM SDK Viewability Vendors
     public static final String VIEWABILITY_VENDORS_KEY = "viewability_vendors";
 
@@ -58,4 +51,16 @@ public class DataKeys {
     @Deprecated
     public static final String REDIRECT_URL_KEY = "redirect-url";
 
+    // These rewarded ad keys are deprecated as of 5.16.0 since they are no longer being passed
+    // through extras. Should reward on click has been removed altogether.
+    @Deprecated
+    public static final String REWARDED_AD_CURRENCY_NAME_KEY = "rewarded-ad-currency-name";
+    @Deprecated
+    public static final String REWARDED_AD_CURRENCY_AMOUNT_STRING_KEY = "rewarded-ad-currency-value-string";
+    @Deprecated
+    public static final String REWARDED_AD_CUSTOMER_ID_KEY = "rewarded-ad-customer-id";
+    @Deprecated
+    public static final String REWARDED_AD_DURATION_KEY = "rewarded-ad-duration";
+    @Deprecated
+    public static final String SHOULD_REWARD_ON_CLICK_KEY = "should-reward-on-click";
 }

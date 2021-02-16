@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common;
 
@@ -31,7 +31,7 @@ import static com.mopub.common.logging.MoPubLog.SdkLogEvent.INIT_FINISHED;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.INIT_STARTED;
 
 public class MoPub {
-    public static final String SDK_VERSION = "5.15.0";
+    public static final String SDK_VERSION = "5.16.0";
 
     public enum LocationAwareness { NORMAL, TRUNCATED, DISABLED }
 
@@ -66,10 +66,10 @@ public class MoPub {
         }
     }
 
-    private static final String MOPUB_REWARDED_VIDEOS =
-            "com.mopub.mobileads.MoPubRewardedVideos";
-    private static final String MOPUB_REWARDED_VIDEO_MANAGER =
-            "com.mopub.mobileads.MoPubRewardedVideoManager";
+    private static final String MOPUB_REWARDED_ADS =
+            "com.mopub.mobileads.MoPubRewardedAds";
+    private static final String MOPUB_REWARDED_AD_MANAGER =
+            "com.mopub.mobileads.MoPubRewardedAdManager";
 
     @NonNull private static volatile BrowserAgent sBrowserAgent = BrowserAgent.IN_APP;
     private static volatile boolean sIsBrowserAgentOverriddenByClient = false;
@@ -163,10 +163,9 @@ public class MoPub {
     }
 
     /**
-     * Initializes the MoPub SDK. Call this before making any rewarded ads or advanced bidding
-     * requests. This will do the rewarded video base ad initialization any number of times,
-     * but the SDK itself can only be initialized once, and the rewarded ads module can only be
-     * initialized once.
+     * Initializes the MoPub SDK. Call this before making any ad requests. This will do the
+     * rewarded base ads initialization any number of times, but the SDK itself can only be
+     * initialized once, and the rewarded subsystem can only be initialized once.
      *
      * @param context                   Recommended to be an activity context.
      *                                  Rewarded ads initialization requires an Activity.
@@ -193,7 +192,7 @@ public class MoPub {
 
         if (context instanceof Activity) {
             final Activity activity = (Activity) context;
-            initializeRewardedVideo(activity, sdkConfiguration);
+            initializeRewardedAd(activity, sdkConfiguration);
         }
 
         if (sSdkInitialized) {
@@ -364,22 +363,22 @@ public class MoPub {
         return null;
     }
 
-    private static void initializeRewardedVideo(@NonNull Activity activity, @NonNull SdkConfiguration sdkConfiguration) {
+    private static void initializeRewardedAd(@NonNull Activity activity, @NonNull SdkConfiguration sdkConfiguration) {
         Preconditions.checkNotNull(activity);
         Preconditions.checkNotNull(sdkConfiguration);
 
         try {
-            new Reflection.MethodBuilder(null, "initializeRewardedVideo")
-                    .setStatic(Class.forName(MOPUB_REWARDED_VIDEOS))
+            new Reflection.MethodBuilder(null, "initializeRewardedAds")
+                    .setStatic(Class.forName(MOPUB_REWARDED_ADS))
                     .setAccessible()
                     .addParam(Activity.class, activity)
                     .addParam(SdkConfiguration.class, sdkConfiguration).execute();
         } catch (ClassNotFoundException e) {
-            MoPubLog.log(CUSTOM, "initializeRewardedVideo was called without the rewarded video module");
+            MoPubLog.log(CUSTOM, "initializeRewardedAds was called without the fullscreen module");
         } catch (NoSuchMethodException e) {
-            MoPubLog.log(CUSTOM, "initializeRewardedVideo was called without the rewarded video module");
+            MoPubLog.log(CUSTOM, "initializeRewardedAds was called without the fullscreen module");
         } catch (Exception e) {
-            MoPubLog.log(ERROR_WITH_THROWABLE, "Error while initializing rewarded video", e);
+            MoPubLog.log(ERROR_WITH_THROWABLE, "Error while initializing rewarded ads", e);
         }
     }
 
@@ -420,14 +419,14 @@ public class MoPub {
         if (!sSearchedForUpdateActivityMethod) {
             sSearchedForUpdateActivityMethod = true;
             try {
-                Class moPubRewardedVideoManagerClass = Class.forName(
-                        MOPUB_REWARDED_VIDEO_MANAGER);
+                Class moPubRewardedAdManagerClass = Class.forName(
+                        MOPUB_REWARDED_AD_MANAGER);
                 sUpdateActivityMethod = Reflection.getDeclaredMethodWithTraversal(
-                        moPubRewardedVideoManagerClass, "updateActivity", Activity.class);
+                        moPubRewardedAdManagerClass, "updateActivity", Activity.class);
             } catch (ClassNotFoundException e) {
-                // rewarded video module not included
+                // fullscreen module not included
             } catch (NoSuchMethodException e) {
-                // rewarded video module not included
+                // fullscreen module not included
             }
         }
 

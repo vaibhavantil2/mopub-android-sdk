@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common;
 
@@ -88,16 +88,16 @@ public class UrlActionTest {
 
     @Test
     public void openAppMarket_shouldBeCaseInsensitive() throws Exception {
-        assertUrlActionMatching(OPEN_APP_MARKET, "https://play.google.com", true);
-        assertUrlActionMatching(OPEN_APP_MARKET, "https://PlAy.GoOgLe.CoM", true);
-        assertUrlActionMatching(OPEN_APP_MARKET, "https://market.android.com", true);
-        assertUrlActionMatching(OPEN_APP_MARKET, "https://MaRkEt.AnDrOiD.CoM", true);
-        assertUrlActionMatching(OPEN_APP_MARKET, "market:", true);
-        assertUrlActionMatching(OPEN_APP_MARKET, "MaRkEt:", true);
-        assertUrlActionMatching(OPEN_APP_MARKET, "play.google.com/", true);
-        assertUrlActionMatching(OPEN_APP_MARKET, "PlAy.GoOgLe.CoM/", true);
-        assertUrlActionMatching(OPEN_APP_MARKET, "market.android.com/", true);
-        assertUrlActionMatching(OPEN_APP_MARKET, "MaRkEt.AnDrOiD.CoM/", true);
+        assertUrlActionMatching(OPEN_APP_MARKET, "https://play.google.com/store/apps/details?id=com.mopub.simpleadsdemo", true);
+        assertUrlActionMatching(OPEN_APP_MARKET, "https://PlAy.GoOgLe.CoM/store/apps/details?id=com.mopub.simpleadsdemo", true);
+        assertUrlActionMatching(OPEN_APP_MARKET, "https://market.android.com/store/apps/details?id=com.mopub.simpleadsdemo", true);
+        assertUrlActionMatching(OPEN_APP_MARKET, "https://MaRkEt.AnDrOiD.CoM/store/apps/details?id=com.mopub.simpleadsdemo", true);
+        assertUrlActionMatching(OPEN_APP_MARKET, "market://details?id=com.mopub.simpleadsdemo", true);
+        assertUrlActionMatching(OPEN_APP_MARKET, "MaRkEt://details?id=com.mopub.simpleadsdemo", true);
+        assertUrlActionMatching(OPEN_APP_MARKET, "play.google.com/store/apps/details?id=com.mopub.simpleadsdemo", true);
+        assertUrlActionMatching(OPEN_APP_MARKET, "PlAy.GoOgLe.CoM/store/apps/details?id=com.mopub.simpleadsdemo", true);
+        assertUrlActionMatching(OPEN_APP_MARKET, "market.android.com/store/apps/details?id=com.mopub.simpleadsdemo", true);
+        assertUrlActionMatching(OPEN_APP_MARKET, "MaRkEt.AnDrOiD.CoM/store/apps/details?id=com.mopub.simpleadsdemo", true);
     }
 
     @Test

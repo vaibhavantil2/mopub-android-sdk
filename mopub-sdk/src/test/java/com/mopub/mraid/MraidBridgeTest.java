@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mraid;
 
@@ -258,30 +258,6 @@ public class MraidBridgeTest {
     }
 
     @Test(expected = MraidCommandException.class)
-    public void runCommand_requiresClick_notClicked_shouldThrowException()
-            throws MraidCommandException {
-        attachWebViews();
-        subjectBanner = new MraidBridge(PlacementType.INLINE, false);
-        subjectBanner.attachView(mockBannerWebView);
-        subjectBanner.setClicked(false);
-        Map<String, String> params = new HashMap<>();
-        params.put("uri", "https://valid-url");
-
-        subjectBanner.runCommand(MraidJavascriptCommand.PLAY_VIDEO, params);
-    }
-
-    @Test
-    public void runCommand_requiresClick_clicked_shouldNotThrowException()
-            throws MraidCommandException {
-        attachWebViews();
-        subjectBanner.setClicked(true);
-        Map<String, String> params = new HashMap<>();
-        params.put("uri", "https://valid-url");
-
-        subjectBanner.runCommand(MraidJavascriptCommand.PLAY_VIDEO, params);
-    }
-
-    @Test(expected = MraidCommandException.class)
     public void runCommand_interstitial_requiresClick_notClicked_shouldThrowException()
             throws MraidCommandException {
         attachWebViews();
@@ -467,8 +443,8 @@ public class MraidBridgeTest {
         assertThat(uriCaptor.getValue().toString()).isEqualTo("https://valid-url");
     }
 
-    @Test
-    public void runCommand_playVideo_shouldCallListener()
+    @Test(expected = MraidCommandException.class)
+    public void runCommand_playVideo_shouldThrowMraidCommandException()
             throws MraidCommandException {
         attachWebViews();
         subjectBanner.setClicked(true);
@@ -476,10 +452,6 @@ public class MraidBridgeTest {
         params.put("uri", "https://valid-url");
 
         subjectBanner.runCommand(MraidJavascriptCommand.PLAY_VIDEO, params);
-
-        ArgumentCaptor<URI> uriCaptor = ArgumentCaptor.forClass(URI.class);
-        verify(mockBridgeListener).onPlayVideo(uriCaptor.capture());
-        assertThat(uriCaptor.getValue().toString()).isEqualTo("https://valid-url");
     }
 
     private void attachWebViews() {

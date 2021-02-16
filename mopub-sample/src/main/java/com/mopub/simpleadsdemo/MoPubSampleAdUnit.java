@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.simpleadsdemo;
 
@@ -26,7 +26,7 @@ class MoPubSampleAdUnit implements Comparable<MoPubSampleAdUnit> {
         BANNER("Banner", BannerDetailFragment.class),
         MEDIUM_RECTANGLE("Medium Rectangle", MediumRectangleDetailFragment.class),
         INTERSTITIAL("Interstitial", InterstitialDetailFragment.class),
-        REWARDED_VIDEO("Rewarded Video", RewardedVideoDetailFragment.class),
+        REWARDED_AD("Rewarded Ad", RewardedAdDetailFragment.class),
         LIST_VIEW("Native List View", NativeListViewFragment.class),
         RECYCLER_VIEW("Native Recycler View", NativeRecyclerViewFragment.class),
         CUSTOM_NATIVE("Native Gallery (Custom Stream)", NativeGalleryFragment.class),
@@ -71,7 +71,7 @@ class MoPubSampleAdUnit implements Comparable<MoPubSampleAdUnit> {
                 case "mediumrectangle":
                     return MEDIUM_RECTANGLE;
                 case "rewarded":
-                    return REWARDED_VIDEO;
+                    return REWARDED_AD;
                 case "native":
                     return LIST_VIEW;
                 case "nativetableplacer":

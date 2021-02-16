@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads
 
@@ -21,6 +21,7 @@ import com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM
 import com.mopub.common.util.Intents
 import com.mopub.network.TrackingRequest.makeVastTrackingHttpRequest
 import java.io.Serializable
+import kotlin.math.abs
 
 @VisibleForTesting
 open class VastCompanionAdConfig(
@@ -35,7 +36,9 @@ open class VastCompanionAdConfig(
     @Expose @SerializedName(Constants.VAST_TRACKERS_CLICK)
     val clickTrackers: MutableList<VastTracker>,
     @Expose @SerializedName(Constants.VAST_TRACKERS_IMPRESSION)
-    val creativeViewTrackers: MutableList<VastTracker>
+    val creativeViewTrackers: MutableList<VastTracker>,
+    @Expose @SerializedName(Constants.VAST_CUSTOM_TEXT_CTA)
+    val customCtaText: String?
 ) : Serializable {
 
     companion object {
@@ -72,6 +75,34 @@ open class VastCompanionAdConfig(
             context
         )
     }
+
+    fun formatScore(): Double {
+        return when (vastResource.type) {
+            VastResource.Type.STATIC_RESOURCE ->
+                if (VastResource.CreativeType.JAVASCRIPT.equals(vastResource.creativeType)) {
+                    1.0
+                } else if (VastResource.CreativeType.IMAGE.equals(vastResource.creativeType)) {
+                    0.8
+                } else {
+                    0.0
+                }
+            VastResource.Type.HTML_RESOURCE -> 1.2
+            VastResource.Type.IFRAME_RESOURCE -> 1.0
+            VastResource.Type.BLURRED_LAST_FRAME -> 0.0
+        }
+    }
+
+    open fun calculateScore(containerWidth: Int, containerHeight: Int): Double {
+        if (containerHeight == 0 || height == 0) {
+            return 0.0
+        }
+
+        val aspectRatioScore = abs(containerWidth.toDouble() / containerHeight - width.toDouble() / height)
+        val widthScore = abs((containerWidth.toDouble() - width) / containerWidth)
+        val fitScore = aspectRatioScore + widthScore
+        return formatScore() / (1 + fitScore)
+    }
+
 
     open fun handleClick(
         context: Context,
@@ -130,5 +161,37 @@ open class VastCompanionAdConfig(
                     .build()
                     .handleUrl(context, url)
             }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is VastCompanionAdConfig) return false
+
+        if (width != other.width) return false
+        if (height != other.height) return false
+        if (vastResource != other.vastResource) return false
+        if (clickThroughUrl != other.clickThroughUrl) return false
+        if (clickTrackers != other.clickTrackers) return false
+        if (creativeViewTrackers != other.creativeViewTrackers) return false
+        if (customCtaText != other.customCtaText) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = width
+        result = 31 * result + height
+        result = 31 * result + vastResource.hashCode()
+        result = 31 * result + (clickThroughUrl?.hashCode() ?: 0)
+        result = 31 * result + clickTrackers.hashCode()
+        result = 31 * result + creativeViewTrackers.hashCode()
+        result = 31 * result + (customCtaText?.hashCode() ?: 0)
+        return result
+    }
+
+    override fun toString(): String {
+        return "VastCompanionAdConfig(width=$width, height=$height, vastResource=$vastResource, " +
+                "clickThroughUrl=$clickThroughUrl, clickTrackers=$clickTrackers, " +
+                "creativeViewTrackers=$creativeViewTrackers, customCtaText=$customCtaText)"
     }
 }

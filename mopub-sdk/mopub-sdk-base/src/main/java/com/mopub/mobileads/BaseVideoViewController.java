@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -9,15 +9,18 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.mopub.common.IntentActions;
 import com.mopub.common.Preconditions;
 import com.mopub.common.logging.MoPubLog;
+
+import java.util.Set;
 
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 
@@ -30,10 +33,12 @@ public abstract class BaseVideoViewController {
     public interface BaseVideoViewControllerListener {
         void onSetContentView(final View view);
         void onSetRequestedOrientation(final int requestedOrientation);
-        void onFinish();
+        void onVideoFinish(final int timeElapsed);
         void onStartActivityForResult(final Class<? extends Activity> clazz,
                 final int requestCode,
                 final Bundle extras);
+        void onCompanionAdsReady(@NonNull final Set<VastCompanionAdConfig> vastCompanionAdConfigs,
+                                 final int videoDurationMs);
     }
 
     protected BaseVideoViewController(final Context context,
@@ -88,13 +93,13 @@ public abstract class BaseVideoViewController {
         MoPubLog.log(CUSTOM, "Video cannot be played.");
         broadcastAction(IntentActions.ACTION_FULLSCREEN_FAIL);
         if (shouldFinish) {
-           mBaseVideoViewControllerListener.onFinish();
+           mBaseVideoViewControllerListener.onVideoFinish(0);
         }
     }
 
-    protected void videoCompleted(boolean shouldFinish) {
+    protected void videoCompleted(boolean shouldFinish, int duration) {
         if (shouldFinish) {
-            mBaseVideoViewControllerListener.onFinish();
+            mBaseVideoViewControllerListener.onVideoFinish(duration);
         }
     }
 

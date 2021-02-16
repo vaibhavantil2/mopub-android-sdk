@@ -1,17 +1,17 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads.test.support
 
 import android.content.Context
 import androidx.media2.common.SessionPlayer
-import androidx.media2.player.AudioFocusHandler
 import androidx.media2.player.MediaPlayer
 import com.google.common.util.concurrent.ListenableFuture
 import com.mopub.mobileads.factories.MediaPlayerFactory
 import org.mockito.Matchers
 import org.mockito.Mockito.*
+import org.mockito.internal.util.reflection.FieldSetter
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 
@@ -32,7 +32,12 @@ class TestMediaPlayerFactory : MediaPlayerFactory() {
 
         `when`(mockMediaPlayer.seekTo(Matchers.anyLong(), Matchers.anyInt())).thenReturn(PrepareFuture())
 
-        `when`(mockMediaPlayer.audioFocusHandler).thenReturn(mock(AudioFocusHandler::class.java))
+        // this is needed because of a visibility change within the media2 library and replaces:
+        // `when`(mockMediaPlayer.audioFocusHandler).thenReturn(mock(AudioFocusHandler::class.java))
+        val audioFocusHandlerField =
+            MediaPlayer::class.java.getDeclaredField("mAudioFocusHandler")
+        val audioFocusHandlerClass = audioFocusHandlerField.type
+        FieldSetter(mockMediaPlayer, audioFocusHandlerField).set(mock(audioFocusHandlerClass))
 
         return mockMediaPlayer
     }

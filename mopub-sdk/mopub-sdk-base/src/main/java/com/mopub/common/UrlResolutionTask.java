@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common;
 
@@ -20,6 +20,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
+import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM_WITH_THROWABLE;
 
 @VisibleForTesting
 public class UrlResolutionTask extends AsyncTask<String, Void, String> {
@@ -75,12 +76,9 @@ public class UrlResolutionTask extends AsyncTask<String, Void, String> {
                 locationUrl = getRedirectLocation(locationUrl);
                 redirectCount++;
             }
+        } catch (IOException | NullPointerException | URISyntaxException e) {
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, "Exception occurred while resolving redirect URL", e);
 
-        } catch (IOException e) {
-            return null;
-        } catch (URISyntaxException e) {
-            return null;
-        } catch (NullPointerException e) {
             return null;
         }
 

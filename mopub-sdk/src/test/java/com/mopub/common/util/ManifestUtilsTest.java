@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common.util;
 
@@ -13,8 +13,6 @@ import android.content.pm.ApplicationInfo;
 import com.mopub.common.MoPubBrowser;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.mobileads.MoPubFullscreenActivity;
-import com.mopub.mobileads.MoPubFullscreenActivity;
-import com.mopub.mobileads.MraidVideoPlayerActivity;
 
 import org.junit.After;
 import org.junit.Before;
@@ -120,7 +118,6 @@ public class ManifestUtilsTest {
     @Test
     public void displayWarningForMissingActivities_withAllActivitiesDeclared_shouldNotShowLogOrToast() throws Exception {
         addActivityToShadowPackageManager(context, MoPubFullscreenActivity.class.getName());
-        addActivityToShadowPackageManager(context, MraidVideoPlayerActivity.class.getName());
         addActivityToShadowPackageManager(context, MoPubBrowser.class.getName());
 
         ShadowLog.setupLogging();
@@ -135,7 +132,6 @@ public class ManifestUtilsTest {
     @Test
     public void displayWarningForMissingActivities_withoutInterstitialModule_withoutInterstitialActivitiesDeclared_shouldNotShowLogOrToast() throws Exception {
         removeInterstitialModule();
-        addActivityToShadowPackageManager(context, MraidVideoPlayerActivity.class.getName());
         addActivityToShadowPackageManager(context, MoPubBrowser.class.getName());
 
         ShadowLog.setupLogging();
@@ -150,7 +146,6 @@ public class ManifestUtilsTest {
     @Test
      public void displayWarningForMissingActivities_withOneMissingActivity_shouldNotLogMessage() throws Exception {
         addActivityToShadowPackageManager(context, MoPubFullscreenActivity.class.getName());
-        addActivityToShadowPackageManager(context, MraidVideoPlayerActivity.class.getName());
         // Here, we leave out MoPubBrowser on purpose
 
         ShadowLog.setupLogging();
@@ -212,7 +207,6 @@ public class ManifestUtilsTest {
         ManifestUtils.setFlagCheckUtil(mockActivitiyConfigCheck);
 
         addActivityToShadowPackageManager(context, MoPubFullscreenActivity.class.getName());
-        addActivityToShadowPackageManager(context, MraidVideoPlayerActivity.class.getName());
         addActivityToShadowPackageManager(context, MoPubBrowser.class.getName());
 
         ShadowLog.setupLogging();
@@ -244,7 +238,6 @@ public class ManifestUtilsTest {
         ManifestUtils.setFlagCheckUtil(mockActivitiyConfigCheck);
 
         addActivityToShadowPackageManager(context, MoPubFullscreenActivity.class.getName());
-        addActivityToShadowPackageManager(context, MraidVideoPlayerActivity.class.getName());
         addActivityToShadowPackageManager(context, MoPubBrowser.class.getName());
 
         ShadowLog.setupLogging();

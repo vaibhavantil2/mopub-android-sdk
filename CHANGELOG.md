@@ -1,3 +1,18 @@
+## Version 5.16.0 (February 16, 2021)
+- **Features**
+  - Add support for rewarded display ads and rewarded ads with rich media end cards. See [Integration Steps](https://developers.mopub.com/publishers/android/rewarded-ad/).
+  - Rename `MoPubRewardedVideos` to `MoPubRewardedAds` and `MoPubRewardedVideoListener` to `MoPubRewardedAdListener`. See the [API Reference](https://developers.mopub.com/publishers/reference/android/MoPub/) for more details.
+  - Add 5G cellular support.
+  - Update AndroidX Media2 dependencies from version 1.0.1 to 1.1.1.
+
+- **Bug Fixes**
+  - Fix crash when adding a theme to native recycler view layout.
+  - Fix memory leak when destroy is called on a fullscreen ad.
+  - Fix rotation for ads without an orientation specified.
+  - Fix rewarded ads being playable after they have expired.
+  - Address clickability issues with image and rewarded ads.
+  - Address `MoPubRewardedVideos.hasRewardedVideo()` returning the wrong value in certain instances.
+
 ## Version 5.15.0 (November 18, 2020)
 - **Features**
   - Update countdown animation background color to black for better visibility.

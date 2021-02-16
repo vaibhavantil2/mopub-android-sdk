@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mraid;
 
@@ -45,7 +45,6 @@ import com.mopub.mobileads.BaseWebView;
 import com.mopub.mobileads.BaseWebViewViewability;
 import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.mobileads.MoPubWebViewController;
-import com.mopub.mobileads.MraidVideoPlayerActivity;
 import com.mopub.mobileads.util.WebViews;
 import com.mopub.mraid.MraidBridge.MraidBridgeListener;
 import com.mopub.mraid.MraidBridge.MraidWebView;
@@ -253,11 +252,6 @@ public class MraidController extends MoPubWebViewController {
         public void onOpen(@NonNull final URI uri) {
             handleOpen(uri.toString());
         }
-
-        @Override
-        public void onPlayVideo(@NonNull final URI uri) {
-            handleShowVideo(uri.toString());
-        }
     };
 
     @SuppressWarnings("FieldCanBeLocal")
@@ -325,11 +319,6 @@ public class MraidController extends MoPubWebViewController {
         @Override
         public void onOpen(final URI uri) {
             handleOpen(uri.toString());
-        }
-
-        @Override
-        public void onPlayVideo(@NonNull final URI uri) {
-            handleShowVideo(uri.toString());
         }
     };
 
@@ -823,11 +812,6 @@ public class MraidController extends MoPubWebViewController {
         }
 
         return mRootView;
-    }
-
-    @VisibleForTesting
-    void handleShowVideo(@NonNull String videoUrl) {
-        MraidVideoPlayerActivity.startMraid(mContext, videoUrl);
     }
 
     @VisibleForTesting

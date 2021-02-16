@@ -1,11 +1,10 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
 import android.content.Context;
-import android.content.res.Configuration;
 import android.graphics.Point;
 import android.os.AsyncTask;
 import android.text.TextUtils;
@@ -35,6 +34,7 @@ import java.net.HttpURLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -251,27 +251,17 @@ public class VastXmlManagerAggregator extends AsyncTask<String, Void, VastVideoC
                 // Only populate a companion ad if we don't already have one from one of the
                 // redirects
                 if (!vastVideoConfig.hasCompanionAd()) {
-                    vastVideoConfig.setVastCompanionAd(
-                            getBestCompanionAd(companionAdXmlManagers,
-                                    CompanionOrientation.LANDSCAPE),
-                            getBestCompanionAd(companionAdXmlManagers,
-                                    CompanionOrientation.PORTRAIT));
+                    vastVideoConfig.addVastCompanionAdConfigs(
+                            getAllCompanionAds(companionAdXmlManagers));
                 } else {
                     // Otherwise append the companion trackers if it doesn't have resources
-                    final VastCompanionAdConfig landscapeCompanionAd = vastVideoConfig.getVastCompanionAd(
-                            Configuration.ORIENTATION_LANDSCAPE);
-                    final VastCompanionAdConfig portraitCompanionAd = vastVideoConfig.getVastCompanionAd(
-                            Configuration.ORIENTATION_PORTRAIT);
-                    if (landscapeCompanionAd != null && portraitCompanionAd != null) {
+                    final Set<VastCompanionAdConfig> companionAds = vastVideoConfig.getVastCompanionAdConfigs();
+                    for (VastCompanionAdConfig vastCompanionAdConfig : companionAds) {
                         for (final VastCompanionAdXmlManager companionAdXmlManager : companionAdXmlManagers) {
                             if (!companionAdXmlManager.hasResources()) {
-                                landscapeCompanionAd.addClickTrackers(
+                                vastCompanionAdConfig.addClickTrackers(
                                         companionAdXmlManager.getClickTrackers());
-                                landscapeCompanionAd.addCreativeViewTrackers(
-                                        companionAdXmlManager.getCompanionCreativeViewTrackers());
-                                portraitCompanionAd.addClickTrackers(
-                                        companionAdXmlManager.getClickTrackers());
-                                portraitCompanionAd.addCreativeViewTrackers(
+                                vastCompanionAdConfig.addCreativeViewTrackers(
                                         companionAdXmlManager.getCompanionCreativeViewTrackers());
                             }
                         }
@@ -324,11 +314,8 @@ public class VastXmlManagerAggregator extends AsyncTask<String, Void, VastVideoC
 
                 final List<VastCompanionAdXmlManager> companionAdXmlManagers =
                         vastInLineXmlManager.getCompanionAdXmlManagers();
-                vastVideoConfig.setVastCompanionAd(
-                        getBestCompanionAd(companionAdXmlManagers,
-                                CompanionOrientation.LANDSCAPE),
-                        getBestCompanionAd(companionAdXmlManagers,
-                                CompanionOrientation.PORTRAIT));
+
+                vastVideoConfig.addVastCompanionAdConfigs(getAllCompanionAds(companionAdXmlManagers));
                 errorTrackers.addAll(vastInLineXmlManager.getErrorTrackers());
                 vastVideoConfig.addErrorTrackers(errorTrackers);
                 populateVideoViewabilityTracker(vastInLineXmlManager, vastVideoConfig);
@@ -550,27 +537,16 @@ public class VastXmlManagerAggregator extends AsyncTask<String, Void, VastVideoC
     }
 
     @VisibleForTesting
-    @Nullable
-    VastCompanionAdConfig getBestCompanionAd(
-            @NonNull final List<VastCompanionAdXmlManager> managers,
-            @NonNull final CompanionOrientation orientation) {
+    @NonNull
+    Set<VastCompanionAdConfig> getAllCompanionAds(
+            @NonNull final List<VastCompanionAdXmlManager> managers) {
         Preconditions.checkNotNull(managers, "managers cannot be null");
-        Preconditions.checkNotNull(orientation, "orientation cannot be null");
 
-        final List<VastCompanionAdXmlManager> companionXmlManagers =
-                new ArrayList<VastCompanionAdXmlManager>(managers);
-        double bestCompanionFitness = Double.NEGATIVE_INFINITY;
-        VastCompanionAdXmlManager bestCompanionXmlManager = null;
-        VastResource bestVastResource = null;
-        Point bestVastScaledDimensions = null;
+        final Set<VastCompanionAdConfig> vastCompanionAdConfigs = new HashSet<>();
+        final List<VastCompanionAdXmlManager> companionXmlManagers = new ArrayList<>(managers);
 
-        // Look for the best companion ad in order of prioritized resource types
         for (VastResource.Type type : VastResource.Type.values()) {
-            final Iterator<VastCompanionAdXmlManager> xmlManagerIterator =
-                    companionXmlManagers.iterator();
-            while (xmlManagerIterator.hasNext()) {
-                final VastCompanionAdXmlManager companionXmlManager = xmlManagerIterator.next();
-
+            for (VastCompanionAdXmlManager companionXmlManager : companionXmlManagers) {
                 final Integer width = companionXmlManager.getWidth();
                 final Integer height = companionXmlManager.getHeight();
                 if (width == null || width < MINIMUM_COMPANION_AD_WIDTH ||
@@ -578,7 +554,7 @@ public class VastXmlManagerAggregator extends AsyncTask<String, Void, VastVideoC
                     continue;
                 }
 
-                Point vastScaledDimensions = getScaledDimensions(width, height, type, orientation);
+                Point vastScaledDimensions = getScaledDimensions(width, height, type);
                 VastResource vastResource = VastResource.fromVastResourceXmlManager(
                         companionXmlManager.getResourceXmlManager(), type,
                         vastScaledDimensions.x, vastScaledDimensions.y);
@@ -586,37 +562,20 @@ public class VastXmlManagerAggregator extends AsyncTask<String, Void, VastVideoC
                     continue;
                 }
 
-                final double companionFitness;
-                // pass null for companion fitness because images don't have bitrates.
-                if ((CompanionOrientation.LANDSCAPE == orientation) && (mScreenAspectRatio < 1)
-                        || (CompanionOrientation.PORTRAIT == orientation) && (mScreenAspectRatio > 1)) {
-                    companionFitness = calculateFitness(height, width, null, null);
-                } else {
-                    companionFitness = calculateFitness(width, height, null, null);
-                }
-                if (companionFitness > bestCompanionFitness) {
-                    bestCompanionFitness = companionFitness;
-                    bestCompanionXmlManager = companionXmlManager;
-                    bestVastResource = vastResource;
-                    bestVastScaledDimensions = vastScaledDimensions;
-                }
-            }
-            if (bestCompanionXmlManager != null) {
-                break;
+                VastCompanionAdConfig vastCompanionAdConfig = new VastCompanionAdConfig(
+                        vastScaledDimensions.x,
+                        vastScaledDimensions.y,
+                        vastResource,
+                        companionXmlManager.getClickThroughUrl(),
+                        companionXmlManager.getClickTrackers(),
+                        companionXmlManager.getCompanionCreativeViewTrackers(),
+                        null
+                );
+                vastCompanionAdConfigs.add(vastCompanionAdConfig);
             }
         }
 
-        if (bestCompanionXmlManager != null) {
-            return new VastCompanionAdConfig(
-                    bestVastScaledDimensions.x,
-                    bestVastScaledDimensions.y,
-                    bestVastResource,
-                    bestCompanionXmlManager.getClickThroughUrl(),
-                    bestCompanionXmlManager.getClickTrackers(),
-                    bestCompanionXmlManager.getCompanionCreativeViewTrackers()
-            );
-        }
-        return null;
+       return vastCompanionAdConfigs;
     }
 
     /**
@@ -629,30 +588,19 @@ public class VastXmlManagerAggregator extends AsyncTask<String, Void, VastVideoC
      * @param widthDp     width of the resource in dips
      * @param heightDp    height of the resource in dips
      * @param type        The type of the resource. HTMLResource uses special scaling.
-     * @param orientation Expected orientation of the resource
      * @return the new scaled dimensions that honor the aspect ratio
      */
     @VisibleForTesting
     @NonNull
-    Point getScaledDimensions(int widthDp, int heightDp, final VastResource.Type type,
-            final CompanionOrientation orientation) {
+    Point getScaledDimensions(int widthDp, int heightDp, final VastResource.Type type) {
         final Point defaultPoint = new Point(widthDp, heightDp);
         final Display display = ((WindowManager) mContext.getSystemService(
                 Context.WINDOW_SERVICE)).getDefaultDisplay();
-        int x = display.getWidth();
-        int y = display.getHeight();
+        int screenWidthPx = display.getWidth();
+        int screenHeightPx = display.getHeight();
 
         int widthPx = Dips.dipsToIntPixels(widthDp, mContext);
         int heightPx = Dips.dipsToIntPixels(heightDp, mContext);
-
-        final int screenWidthPx, screenHeightPx;
-        if (CompanionOrientation.LANDSCAPE == orientation) {
-            screenWidthPx = Math.max(x, y);
-            screenHeightPx = Math.min(x, y);
-        } else {
-            screenWidthPx = Math.min(x, y);
-            screenHeightPx = Math.max(x, y);
-        }
 
         // Return if the width and height already fit in the screen
         if (widthPx <= (screenWidthPx - VastVideoViewController.WEBVIEW_PADDING) &&

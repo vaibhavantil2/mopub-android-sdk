@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -47,7 +47,11 @@ public enum MoPubErrorCode implements MoPubError {
     REWARDED_CURRENCIES_PARSING_ERROR("Error parsing rewarded currencies JSON header."),
     REWARD_NOT_SELECTED("Reward not selected for rewarded ad."),
 
+    AD_NOT_AVAILABLE("No ad loaded for ad unit."),
+    AD_SHOW_ERROR("Error showing an ad."),
+    @Deprecated
     VIDEO_NOT_AVAILABLE("No video loaded for ad unit."),
+    @Deprecated
     VIDEO_PLAYBACK_ERROR("Error playing a video.");
 
     private final String message;

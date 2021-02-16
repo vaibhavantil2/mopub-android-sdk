@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common.util;
 
@@ -133,10 +133,28 @@ public class DeviceUtilsTest {
     @Test
     public void lockOrientation_toPortraitWhenLandscape_shouldBeLandscape() {
         testResources.getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
-        MoPubShadowDisplay.setStaticRotation(Surface.ROTATION_0);  // Reverse landscape
+        MoPubShadowDisplay.setStaticRotation(Surface.ROTATION_0);
 
         DeviceUtils.lockOrientation(testActivity, CreativeOrientation.PORTRAIT);
         assertThat(testActivity.getRequestedOrientation()).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+    }
+
+    @Test
+    public void lockOrientation_toDeviceWhenLandscape_shouldBeSensor() {
+        testResources.getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
+        MoPubShadowDisplay.setStaticRotation(Surface.ROTATION_0);
+
+        DeviceUtils.lockOrientation(testActivity, CreativeOrientation.DEVICE);
+        assertThat(testActivity.getRequestedOrientation()).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
+    }
+
+    @Test
+    public void lockOrientation_toDeviceWhenPortrait_shouldBeSensor() {
+        testResources.getConfiguration().orientation = Configuration.ORIENTATION_PORTRAIT;
+        MoPubShadowDisplay.setStaticRotation(Surface.ROTATION_0);
+
+        DeviceUtils.lockOrientation(testActivity, CreativeOrientation.DEVICE);
+        assertThat(testActivity.getRequestedOrientation()).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
     }
 
     @Test

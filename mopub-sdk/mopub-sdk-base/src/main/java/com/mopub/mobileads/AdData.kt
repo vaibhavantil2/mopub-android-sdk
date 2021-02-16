@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads
 
@@ -41,11 +41,13 @@ data class AdData(
 
         /**
          * If a duration is not specified, this duration is used. 30 seconds is also the maximum
-         * amount of time that we currently allow rewarded ads to be not closeable.
+         * amount of time that we currently allow rewarded ads to be not closeable. Rewarded image
+         * ads are default limited to 5 seconds.
          */
         const val DEFAULT_DURATION_FOR_CLOSE_BUTTON_SECONDS: Int = 30
         const val DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS: Int =
             DEFAULT_DURATION_FOR_CLOSE_BUTTON_SECONDS * MILLIS_IN_SECOND
+        const val DEFAULT_DURATION_FOR_REWARDED_IMAGE_CLOSE_BUTTON_MILLIS: Int = 5 * MILLIS_IN_SECOND
         const val COUNTDOWN_UPDATE_INTERVAL_MILLIS: Long = 250L
         const val DEFAULT_INLINE_TIMEOUT_DELAY = Constants.TEN_SECONDS_MILLIS
         const val DEFAULT_FULLSCREEN_TIMEOUT_DELAY = Constants.THIRTY_SECONDS_MILLIS

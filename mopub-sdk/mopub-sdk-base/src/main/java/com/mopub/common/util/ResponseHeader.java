@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.common.util;
 
@@ -54,7 +54,6 @@ public enum ResponseHeader {
     REWARDED_CURRENCIES("x-rewarded-currencies"),
     REWARDED_VIDEO_COMPLETION_URL("x-rewarded-video-completion-url"),
     REWARDED_DURATION("x-rewarded-duration"),
-    SHOULD_REWARD_ON_CLICK("x-should-reward-on-click"),
 
     // Internal Video Trackers
     VIDEO_TRACKERS("x-video-trackers"),

@@ -1,6 +1,6 @@
-// Copyright 2018-2020 Twitter, Inc.
+// Copyright 2018-2021 Twitter, Inc.
 // Licensed under the MoPub SDK License Agreement
-// http://www.mopub.com/legal/sdk-license-agreement/
+// https://www.mopub.com/legal/sdk-license-agreement/
 
 package com.mopub.mobileads;
 
@@ -8,45 +8,80 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.media.MediaMetadataRetriever;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
+import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.RelativeLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.mopub.common.CloseableLayout;
+import com.mopub.common.CreativeOrientation;
 import com.mopub.common.FullAdType;
 import com.mopub.common.Preconditions;
+import com.mopub.common.UrlAction;
+import com.mopub.common.UrlHandler;
 import com.mopub.common.logging.MoPubLog;
+import com.mopub.common.util.AsyncTasks;
+import com.mopub.common.util.DeviceUtils;
 import com.mopub.common.util.Dips;
 import com.mopub.common.util.Intents;
 import com.mopub.mobileads.factories.HtmlControllerFactory;
 import com.mopub.mobileads.resource.DrawableConstants;
 import com.mopub.mraid.MraidController;
-import com.mopub.mraid.MraidVideoViewController;
 import com.mopub.mraid.PlacementType;
 import com.mopub.mraid.WebViewDebugListener;
+import com.mopub.network.Networking;
+import com.mopub.network.TrackingRequest;
+import com.mopub.volley.VolleyError;
+import com.mopub.volley.toolbox.ImageLoader;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.EnumSet;
+import java.util.Set;
 
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_CLICK;
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_DISMISS;
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_FAIL;
 import static com.mopub.common.IntentActions.ACTION_REWARDED_AD_COMPLETE;
+import static com.mopub.common.MoPubBrowser.MOPUB_BROWSER_REQUEST_CODE;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 import static com.mopub.common.util.JavaScriptWebViewCallbacks.WEB_VIEW_DID_APPEAR;
 import static com.mopub.common.util.JavaScriptWebViewCallbacks.WEB_VIEW_DID_CLOSE;
 import static com.mopub.mobileads.AdData.DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS;
+import static com.mopub.mobileads.AdData.DEFAULT_DURATION_FOR_REWARDED_IMAGE_CLOSE_BUTTON_MILLIS;
 import static com.mopub.mobileads.AdData.MILLIS_IN_SECOND;
 import static com.mopub.mobileads.BaseBroadcastReceiver.broadcastAction;
 
 public class FullscreenAdController implements BaseVideoViewController.BaseVideoViewControllerListener,
         MraidController.UseCustomCloseListener {
+
+    static final String IMAGE_KEY = "image";
+    private static final String CLICK_DESTINATION_KEY = "clk";
+    private static final String WIDTH_KEY = "w";
+    private static final String HEIGHT_KEY = "h";
+    private final static EnumSet<UrlAction> SUPPORTED_URL_ACTIONS = EnumSet.of(
+            UrlAction.IGNORE_ABOUT_SCHEME,
+            UrlAction.HANDLE_PHONE_SCHEME,
+            UrlAction.OPEN_APP_MARKET,
+            UrlAction.OPEN_NATIVE_BROWSER,
+            UrlAction.OPEN_IN_APP_BROWSER,
+            UrlAction.HANDLE_SHARE_TWEET,
+            UrlAction.FOLLOW_DEEP_LINK_WITH_FALLBACK,
+            UrlAction.FOLLOW_DEEP_LINK);
 
     @NonNull
     private final Activity mActivity;
@@ -66,11 +101,22 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     private RadialCountdownWidget mRadialCountdownWidget;
     @Nullable
     private CloseButtonCountdownRunnable mCountdownRunnable;
+    @Nullable
+    private VastCompanionAdConfig mSelectedVastCompanionAdConfig;
+    @Nullable
+    private ImageView mImageView;
+    @Nullable
+    private VideoCtaButtonWidget mVideoCtaButtonWidget;
+    @Nullable
+    private VastVideoBlurLastVideoFrameTask mBlurLastVideoFrameTask;
+    @Nullable
+    private String mImageClickDestinationUrl;
     private int mCurrentElapsedTimeMillis;
     private int mShowCloseButtonDelayMillis;
     private boolean mShowCloseButtonEventFired;
     private boolean mIsCalibrationDone;
-    private boolean mIsRewarded;
+    private boolean mRewardedCompletionFired;
+    private int mVideoTimeElapsed;
 
     private enum ControllerState {
         VIDEO,
@@ -86,10 +132,8 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
         mActivity = activity;
         mAdData = adData;
 
-        boolean preloaded = false;
         final WebViewCacheService.Config config = WebViewCacheService.popWebViewConfig(adData.getBroadcastIdentifier());
         if (config != null && config.getController() != null) {
-            preloaded = true;
             mMoPubWebViewController = config.getController();
         } else if ("html".equals(adData.getAdType())) {
             mMoPubWebViewController = HtmlControllerFactory.create(activity,
@@ -127,20 +171,20 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             @Override
             public void onFailed() {
                 MoPubLog.log(CUSTOM, "FullscreenAdController failed to load. Finishing MoPubFullscreenActivity.");
-                broadcastAction(activity, adData.getBroadcastIdentifier(),
-                        ACTION_FULLSCREEN_FAIL);
+                broadcastAction(activity, adData.getBroadcastIdentifier(), ACTION_FULLSCREEN_FAIL);
                 activity.finish();
             }
 
             @Override
             public void onRenderProcessGone(@NonNull final MoPubErrorCode errorCode) {
-                MoPubLog.log(CUSTOM, "Finishing the activity due to a problem: " + errorCode);
+                MoPubLog.log(CUSTOM, "Finishing the activity due to a render process gone problem: " + errorCode);
+                broadcastAction(activity, adData.getBroadcastIdentifier(), ACTION_FULLSCREEN_FAIL);
                 activity.finish();
             }
 
             @Override
             public void onClicked() {
-                broadcastAction(activity, adData.getBroadcastIdentifier(), ACTION_FULLSCREEN_CLICK);
+                onAdClicked(activity, adData);
             }
 
             public void onClose() {
@@ -157,18 +201,8 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             @Override
             public void onResize(final boolean toOriginalSize) {
                 // No-op. The interstitial is always expanded.
-                int i = 0;
             }
         });
-
-        if (preloaded) {
-        } else {
-            mMoPubWebViewController.fillContent(htmlData, adData.getViewabilityVendors(), new MoPubWebViewController.WebViewCacheListener() {
-                @Override
-                public void onReady(final @NonNull BaseWebView webView) {
-                }
-            });
-        }
 
         mCloseableLayout = new CloseableLayout(mActivity);
 
@@ -176,20 +210,76 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             mVideoViewController = createVideoViewController(activity, savedInstanceState, intent, adData.getBroadcastIdentifier());
             mState = ControllerState.VIDEO;
             mVideoViewController.onCreate();
+            return;
+        } else if (FullAdType.JSON.equals(mAdData.getFullAdType())) {
+            mState = ControllerState.IMAGE;
+            final JSONObject imageData;
+            final String imageUrl;
+            final int imageWidth, imageHeight;
+            try {
+                imageData = new JSONObject(mAdData.getAdPayload());
+                imageUrl = imageData.getString(IMAGE_KEY);
+                imageWidth = imageData.getInt(WIDTH_KEY);
+                imageHeight = imageData.getInt(HEIGHT_KEY);
+                mImageClickDestinationUrl = imageData.optString(CLICK_DESTINATION_KEY);
+            } catch (JSONException e) {
+                MoPubLog.log(CUSTOM, "Unable to load image into fullscreen container.");
+                broadcastAction(activity, adData.getBroadcastIdentifier(), ACTION_FULLSCREEN_FAIL);
+                mActivity.finish();
+                return;
+            }
+            mImageView = new ImageView(mActivity);
+            Networking.getImageLoader(mActivity).get(imageUrl, new ImageLoader.ImageListener() {
+                @Override
+                public void onResponse(ImageLoader.ImageContainer imageContainer, boolean b) {
+                    Bitmap bitmap = imageContainer.getBitmap();
+                    if (mImageView != null && bitmap != null) {
+                        mImageView.setAdjustViewBounds(true);
+                        mImageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+                        // Scale up the image as if the device had a DPI of 160
+                        bitmap.setDensity(DisplayMetrics.DENSITY_MEDIUM);
+                        mImageView.setImageBitmap(bitmap);
+                    } else {
+                        MoPubLog.log(CUSTOM, String.format("%s returned null bitmap", imageUrl));
+                    }
+                }
+
+                @Override
+                public void onErrorResponse(VolleyError volleyError) {
+                    MoPubLog.log(CUSTOM, String.format("Failed to retrieve image at %s", imageUrl));
+                }
+            }, imageWidth, imageHeight, ImageView.ScaleType.CENTER_INSIDE);
+
+            final FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            layoutParams.gravity = Gravity.CENTER;
+            mImageView.setLayoutParams(layoutParams);
+            mCloseableLayout.addView(mImageView);
+            mCloseableLayout.setOnCloseListener(() -> {
+                destroy();
+                mActivity.finish();
+            });
+            if (mAdData.isRewarded()) {
+                mCloseableLayout.setCloseAlwaysInteractable(false);
+                mCloseableLayout.setCloseVisible(false);
+            }
+            mActivity.setContentView(mCloseableLayout);
         } else {
+            if (config == null || config.getController() == null) {
+                mMoPubWebViewController.fillContent(htmlData,
+                        adData.getViewabilityVendors(),
+                        webView -> { });
+            }
+
             if ("html".equals(mAdData.getAdType())) {
                 mState = ControllerState.HTML;
             } else {
                 mState = ControllerState.MRAID;
             }
 
-            final int blackColor = mActivity.getResources().getColor(android.R.color.black);
-            mCloseableLayout.setBackgroundColor(blackColor);
-            mCloseableLayout.setOnCloseListener(new CloseableLayout.OnCloseListener() {
-                @Override
-                public void onClose() {
-                    mActivity.finish();
-                }
+            mCloseableLayout.setOnCloseListener(() -> {
+                destroy();
+                mActivity.finish();
             });
             mCloseableLayout.addView(mMoPubWebViewController.getAdContainer(),
                     new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
@@ -199,30 +289,43 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             }
             mActivity.setContentView(mCloseableLayout);
             mMoPubWebViewController.onShow(mActivity);
+        }
 
-            if (mAdData.isRewarded()) {
-                addRadialCountdownWidget(activity, View.INVISIBLE);
+        if (ControllerState.HTML.equals(mState) || ControllerState.IMAGE.equals(mState)) {
+            // Default to device orientation
+            CreativeOrientation requestedOrientation = CreativeOrientation.DEVICE;
+            if (adData.getOrientation() != null) {
+                requestedOrientation = adData.getOrientation();
+            }
+            DeviceUtils.lockOrientation(activity, requestedOrientation);
+        }
+
+        if (mAdData.isRewarded()) {
+            addRadialCountdownWidget(activity, View.INVISIBLE);
+            if (ControllerState.IMAGE.equals(mState)) {
+                mShowCloseButtonDelayMillis = adData.getRewardedDurationSeconds() >= 0 ?
+                        adData.getRewardedDurationSeconds() * MILLIS_IN_SECOND :
+                        DEFAULT_DURATION_FOR_REWARDED_IMAGE_CLOSE_BUTTON_MILLIS;
+            } else {
                 mShowCloseButtonDelayMillis = adData.getRewardedDurationSeconds() >= 0 ?
                         adData.getRewardedDurationSeconds() * MILLIS_IN_SECOND :
                         DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS;
-                mRadialCountdownWidget.calibrateAndMakeVisible(mShowCloseButtonDelayMillis);
-                mIsCalibrationDone = true;
-                final Handler mainHandler = new Handler(Looper.getMainLooper());
-                mCountdownRunnable = new CloseButtonCountdownRunnable(this, mainHandler);
-            } else {
-                mShowCloseButtonEventFired = true;
             }
+            mRadialCountdownWidget.calibrateAndMakeVisible(mShowCloseButtonDelayMillis);
+            mIsCalibrationDone = true;
+            final Handler mainHandler = new Handler(Looper.getMainLooper());
+            mCountdownRunnable = new CloseButtonCountdownRunnable(this, mainHandler);
+        } else {
+            showCloseButton();
         }
     }
 
     @VisibleForTesting
     BaseVideoViewController createVideoViewController(Activity activity, Bundle savedInstanceState, Intent intent, Long broadcastIdentifier) throws IllegalStateException {
-        if (FullAdType.VAST.equals(mAdData.getFullAdType())) {
-            return new VastVideoViewController(activity, intent.getExtras(), savedInstanceState, broadcastIdentifier, this);
-        } else {
-            return new MraidVideoViewController(activity, intent.getExtras(), savedInstanceState, this);
-        }
+        return new VastVideoViewController(activity, intent.getExtras(), savedInstanceState, broadcastIdentifier, this);
     }
+
+    // Start BaseVideoViewControllerListener implementation
 
     @Override
     public void onSetContentView(View view) {
@@ -235,8 +338,85 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     }
 
     @Override
-    public void onFinish() {
-        mActivity.finish();
+    public void onVideoFinish(final int timeElapsed) {
+        if (mCloseableLayout == null || mSelectedVastCompanionAdConfig == null) {
+            destroy();
+            mActivity.finish();
+            return;
+        }
+
+        mVideoTimeElapsed = timeElapsed;
+
+        if (mVideoViewController != null) {
+            mVideoViewController.onPause();
+            mVideoViewController.onDestroy();
+            mVideoViewController = null;
+        }
+
+        mCloseableLayout.removeAllViews();
+        mCloseableLayout.setOnCloseListener(() -> {
+            destroy();
+            mActivity.finish();
+        });
+        final VastResource vastResource = mSelectedVastCompanionAdConfig.getVastResource();
+        if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
+                VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType()) ||
+                VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType())) {
+            mState = ControllerState.IMAGE;
+            if (mImageView == null) {
+                MoPubLog.log(CUSTOM, "Companion image null. Skipping.");
+                destroy();
+                mActivity.finish();
+                return;
+            }
+            final RelativeLayout relativeLayout = new RelativeLayout(mActivity);
+            RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(
+                    RelativeLayout.LayoutParams.MATCH_PARENT,
+                    RelativeLayout.LayoutParams.MATCH_PARENT);
+            mImageView.setLayoutParams(layoutParams);
+            relativeLayout.addView(mImageView);
+            if (mVideoCtaButtonWidget != null) {
+                relativeLayout.addView(mVideoCtaButtonWidget);
+            }
+            mCloseableLayout.addView(relativeLayout);
+        } else {
+            mState = ControllerState.MRAID;
+            mCloseableLayout.addView(mMoPubWebViewController.getAdContainer(),
+                    new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        }
+
+        if (mAdData.isRewarded()) {
+            mCloseableLayout.setCloseAlwaysInteractable(false);
+            mCloseableLayout.setCloseVisible(false);
+        }
+        mActivity.setContentView(mCloseableLayout);
+        mMoPubWebViewController.onShow(mActivity);
+
+        if (mAdData.isRewarded()) {
+            mShowCloseButtonDelayMillis = mAdData.getRewardedDurationSeconds() >= 0 ?
+                    mAdData.getRewardedDurationSeconds() * MILLIS_IN_SECOND :
+                    DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS;
+            if (timeElapsed >= mShowCloseButtonDelayMillis ||
+                    VastResource.Type.BLURRED_LAST_FRAME.equals(
+                            mSelectedVastCompanionAdConfig.getVastResource().getType())) {
+                mCloseableLayout.setCloseAlwaysInteractable(true);
+                showCloseButton();
+            } else {
+                addRadialCountdownWidget(mActivity, View.INVISIBLE);
+                mRadialCountdownWidget.calibrateAndMakeVisible(mShowCloseButtonDelayMillis);
+                mRadialCountdownWidget.updateCountdownProgress(mShowCloseButtonDelayMillis, timeElapsed);
+                mIsCalibrationDone = true;
+                final Handler mainHandler = new Handler(Looper.getMainLooper());
+                mCountdownRunnable = new CloseButtonCountdownRunnable(this, mainHandler);
+                mCountdownRunnable.mCurrentElapsedTimeMillis = timeElapsed;
+                startRunnables();
+            }
+        } else {
+            mCloseableLayout.setCloseAlwaysInteractable(true);
+            showCloseButton();
+        }
+
+        mSelectedVastCompanionAdConfig.handleImpression(mActivity, timeElapsed);
     }
 
     @Override
@@ -253,6 +433,90 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             MoPubLog.log(CUSTOM, "Activity " + clazz.getName() + " not found. Did you declare it in your AndroidManifest.xml?");
         }
     }
+
+    @Override
+    public void onCompanionAdsReady(@NonNull final Set<VastCompanionAdConfig> vastCompanionAdConfigs,
+                                   final int videoDurationMs) {
+        Preconditions.checkNotNull(vastCompanionAdConfigs);
+
+        if (mCloseableLayout == null) {
+            MoPubLog.log(CUSTOM, "CloseableLayout is null. This should not happen.");
+        }
+
+        final DisplayMetrics displayMetrics = mActivity.getResources().getDisplayMetrics();
+        final int widthPixels = displayMetrics.widthPixels;
+        final int heightPixels = displayMetrics.heightPixels;
+        final int widthDp = (int) (widthPixels / displayMetrics.density);
+        final int heightDp = (int) (heightPixels / displayMetrics.density);
+        VastCompanionAdConfig bestCompanionAdConfig = null;
+        for (final VastCompanionAdConfig vastCompanionAdConfig : vastCompanionAdConfigs) {
+            if (vastCompanionAdConfig == null) {
+                continue;
+            }
+            if (bestCompanionAdConfig == null ||
+                    vastCompanionAdConfig.calculateScore(widthDp, heightDp) >
+                            bestCompanionAdConfig.calculateScore(widthDp, heightDp)) {
+                bestCompanionAdConfig = vastCompanionAdConfig;
+            }
+        }
+        mSelectedVastCompanionAdConfig = bestCompanionAdConfig;
+        if (mSelectedVastCompanionAdConfig == null) {
+            return;
+        }
+        final VastResource vastResource = mSelectedVastCompanionAdConfig.getVastResource();
+        final String resourceValue = vastResource.getResourceValue();
+        if (TextUtils.isEmpty(resourceValue)) {
+            return;
+        }
+        if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
+                VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType())) {
+            mImageView = new ImageView(mActivity);
+            Networking.getImageLoader(mActivity).get(vastResource.getResource(), new ImageLoader.ImageListener() {
+                @Override
+                public void onResponse(ImageLoader.ImageContainer imageContainer, boolean b) {
+                    Bitmap bitmap = imageContainer.getBitmap();
+                    if (mImageView != null && bitmap != null) {
+                        mImageView.setAdjustViewBounds(true);
+                        mImageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+                        // Scale up the image as if the device had a DPI of 160
+                        bitmap.setDensity(DisplayMetrics.DENSITY_MEDIUM);
+                        mImageView.setImageBitmap(bitmap);
+                    } else {
+                        MoPubLog.log(CUSTOM, String.format("%s returned null bitmap", vastResource.getResource()));
+                    }
+                }
+
+                @Override
+                public void onErrorResponse(VolleyError volleyError) {
+                    MoPubLog.log(CUSTOM, String.format("Failed to retrieve image at %s",
+                            vastResource.getResource()));
+                }
+            }, mSelectedVastCompanionAdConfig.getWidth(), mSelectedVastCompanionAdConfig.getHeight(), ImageView.ScaleType.CENTER_INSIDE);
+            mImageView.setOnClickListener(view -> onAdClicked(mActivity, mAdData));
+        } else if (VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType())) {
+            mImageView = new ImageView(mActivity);
+            mImageView.setOnClickListener(view -> onAdClicked(mActivity, mAdData));
+            mBlurLastVideoFrameTask = new VastVideoBlurLastVideoFrameTask(
+                    new MediaMetadataRetriever(),
+                    mImageView,
+                    videoDurationMs);
+            AsyncTasks.safeExecuteOnExecutor(mBlurLastVideoFrameTask, resourceValue);
+            if (!TextUtils.isEmpty(mSelectedVastCompanionAdConfig.getClickThroughUrl())) {
+                mVideoCtaButtonWidget = new VideoCtaButtonWidget(mActivity, false, true);
+                final String customCtaText = mSelectedVastCompanionAdConfig.getCustomCtaText();
+                if (!TextUtils.isEmpty(customCtaText)) {
+                    mVideoCtaButtonWidget.updateCtaText(customCtaText);
+                }
+                mVideoCtaButtonWidget.notifyVideoComplete();
+                mVideoCtaButtonWidget.setOnClickListener(view -> onAdClicked(mActivity, mAdData));
+            }
+        } else {
+            mMoPubWebViewController.fillContent(resourceValue, null, null);
+        }
+
+    }
+
+    // End BaseVideoViewControllerListener implementation
 
     // MraidController.UseCustomCloseListener
     @Override
@@ -272,18 +536,20 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     // End MraidController.UseCustomCloseListener implementation
 
     public void pause() {
-        if (ControllerState.VIDEO.equals(mState) && mVideoViewController != null) {
+        if (mVideoViewController != null) {
             mVideoViewController.onPause();
-        } else if (ControllerState.MRAID.equals(mState) || ControllerState.HTML.equals(mState)) {
+        }
+        if (ControllerState.HTML.equals(mState) || ControllerState.MRAID.equals(mState)) {
             mMoPubWebViewController.pause(false);
         }
         stopRunnables();
     }
 
     public void resume() {
-        if (ControllerState.VIDEO.equals(mState) && mVideoViewController != null) {
+        if (mVideoViewController != null) {
             mVideoViewController.onResume();
-        } else if (ControllerState.MRAID.equals(mState) || ControllerState.HTML.equals(mState)) {
+        }
+        if (ControllerState.HTML.equals(mState) || ControllerState.MRAID.equals(mState)) {
             mMoPubWebViewController.resume();
         }
         startRunnables();
@@ -299,15 +565,19 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
         mMoPubWebViewController.destroy();
         if (mVideoViewController != null) {
             mVideoViewController.onDestroy();
+            mVideoViewController = null;
         }
         stopRunnables();
+        if (mBlurLastVideoFrameTask != null) {
+            mBlurLastVideoFrameTask.cancel(true);
+        }
         broadcastAction(mActivity, mAdData.getBroadcastIdentifier(), ACTION_FULLSCREEN_DISMISS);
     }
 
     boolean backButtonEnabled() {
         if (ControllerState.VIDEO.equals(mState) && mVideoViewController != null) {
             return mVideoViewController.backButtonEnabled();
-        } else if (ControllerState.MRAID.equals(mState)) {
+        } else if (ControllerState.MRAID.equals(mState) || ControllerState.IMAGE.equals(mState)) {
             return mShowCloseButtonEventFired;
         }
         return true;
@@ -328,9 +598,15 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             mCloseableLayout.setCloseVisible(true);
         }
 
-        if (!mIsRewarded) {
+        if (!mRewardedCompletionFired && mAdData.isRewarded()) {
             broadcastAction(mActivity, mAdData.getBroadcastIdentifier(), ACTION_REWARDED_AD_COMPLETE);
-            mIsRewarded = true;
+            mRewardedCompletionFired = true;
+        }
+
+        if (mImageView != null) {
+            mImageView.setOnClickListener(view -> {
+                onAdClicked(mActivity, mAdData);
+            });
         }
     }
 
@@ -371,6 +647,49 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
                 Dips.dipsToIntPixels(DrawableConstants.CloseButton.EDGE_MARGIN, context);
         widgetLayoutParams.gravity = Gravity.TOP | Gravity.RIGHT;
         mCloseableLayout.addView(mRadialCountdownWidget, widgetLayoutParams);
+    }
+
+    private void onAdClicked(@NonNull final Activity activity,
+                             @NonNull final AdData adData) {
+        if (mSelectedVastCompanionAdConfig != null &&
+                !TextUtils.isEmpty(mSelectedVastCompanionAdConfig.getClickThroughUrl()) &&
+                ControllerState.IMAGE.equals(mState)) {
+            broadcastAction(activity, adData.getBroadcastIdentifier(), ACTION_FULLSCREEN_CLICK);
+            TrackingRequest.makeVastTrackingHttpRequest(
+                    mSelectedVastCompanionAdConfig.getClickTrackers(),
+                    null,
+                    mVideoTimeElapsed,
+                    null,
+                    activity
+            );
+            mSelectedVastCompanionAdConfig.handleClick(
+                    activity,
+                    MOPUB_BROWSER_REQUEST_CODE,
+                    null,
+                    adData.getDspCreativeId()
+            );
+        } else if (mSelectedVastCompanionAdConfig != null && ControllerState.MRAID.equals(mState)) {
+            broadcastAction(activity, adData.getBroadcastIdentifier(), ACTION_FULLSCREEN_CLICK);
+            TrackingRequest.makeVastTrackingHttpRequest(
+                    mSelectedVastCompanionAdConfig.getClickTrackers(),
+                    null,
+                    mVideoTimeElapsed,
+                    null,
+                    activity
+            );
+        } else if (mSelectedVastCompanionAdConfig == null &&
+                ControllerState.IMAGE.equals(mState) &&
+                mImageClickDestinationUrl != null &&
+                !TextUtils.isEmpty(mImageClickDestinationUrl)) {
+            broadcastAction(activity, adData.getBroadcastIdentifier(), ACTION_FULLSCREEN_CLICK);
+            new UrlHandler.Builder()
+                    .withDspCreativeId(mAdData.getDspCreativeId())
+                    .withSupportedUrlActions(SUPPORTED_URL_ACTIONS)
+                    .build().handleUrl(mActivity, mImageClickDestinationUrl);
+        } else if (mSelectedVastCompanionAdConfig == null &&
+                (ControllerState.MRAID.equals(mState) || ControllerState.HTML.equals(mState))) {
+            broadcastAction(activity, adData.getBroadcastIdentifier(), ACTION_FULLSCREEN_CLICK);
+        }
     }
 
     static class CloseButtonCountdownRunnable extends RepeatingHandlerRunnable {
@@ -453,12 +772,25 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     @Deprecated
     @VisibleForTesting
     boolean isRewarded() {
-        return mIsRewarded;
+        return mRewardedCompletionFired;
     }
 
     @Deprecated
     @VisibleForTesting
     boolean isShowCloseButtonEventFired() {
         return mShowCloseButtonEventFired;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    @Nullable
+    ImageView getImageView() {
+        return mImageView;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    void setBlurLastVideoFrameTask(@Nullable final VastVideoBlurLastVideoFrameTask blurLastVideoFrameTask) {
+        mBlurLastVideoFrameTask = blurLastVideoFrameTask;
     }
 }
