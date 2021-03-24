@@ -30,7 +30,7 @@ The MoPub SDK is available via:
     }
 
     dependencies {
-        implementation('com.mopub:mopub-sdk:5.16.2@aar') {
+        implementation('com.mopub:mopub-sdk:5.16.3@aar') {
             transitive = true
         }
     }
@@ -51,17 +51,17 @@ The MoPub SDK is available via:
         // ... other project dependencies
 
         // For banners
-        implementation('com.mopub:mopub-sdk-banner:5.16.2@aar') {
+        implementation('com.mopub:mopub-sdk-banner:5.16.3@aar') {
             transitive = true
         }
         
         // For interstitials and rewarded ads
-        implementation('com.mopub:mopub-sdk-fullscreen:5.16.2@aar') {
+        implementation('com.mopub:mopub-sdk-fullscreen:5.16.3@aar') {
             transitive = true
         }
 
         // For native static (images).
-        implementation('com.mopub:mopub-sdk-native-static:5.16.2@aar') {
+        implementation('com.mopub:mopub-sdk-native-static:5.16.3@aar') {
             transitive = true
         }
     }
@@ -96,6 +96,7 @@ Please view the [changelog](https://github.com/mopub/mopub-android-sdk/blob/mast
   - Fix rewarded video duration calculation.
   - Fix rare `InvalidStateException` when finishing a VAST video with a companion image.
   - Fix `UnsupportedOperationException` caused by non-hierarchical URIs.
+  - Fix release issues from 5.16.2.
 
 ## Requirements
 
