@@ -52,6 +52,7 @@ import com.mopub.mobileads.resource.DrawableConstants.PrivacyInfoIcon.LEFT_MARGI
 import com.mopub.mobileads.resource.DrawableConstants.PrivacyInfoIcon.TOP_MARGIN_DIPS
 import com.mopub.network.TrackingRequest.makeVastTrackingHttpRequest
 import java.util.Collections
+import java.util.concurrent.ExecutorService
 
 @Mockable
 class VastVideoViewController(
@@ -283,14 +284,16 @@ class VastVideoViewController(
 
                 isClosing = isComplete
                 handleExitTrackers()
-                baseVideoViewControllerListener.onVideoFinish(getCurrentPosition())
+                Handler(Looper.getMainLooper()).post {
+                    baseVideoViewControllerListener.onVideoFinish(getCurrentPosition())
+                }
                 return@OnTouchListener true
             })
             vastVideoConfig.customSkipText?.let { skipText ->
                 it.updateCloseButtonText(skipText)
             }
             vastVideoConfig.customCloseIconUrl?.let { closeIcon ->
-                it.updateCloseButtonIcon(closeIcon)
+                it.updateCloseButtonIcon(closeIcon, context)
             }
         }
 
@@ -413,19 +416,39 @@ class VastVideoViewController(
     override fun onPause() {
         stopRunnables()
         seekerPositionOnPause = getCurrentPosition()
-        mediaPlayer.pause()
+        val pauseFuture = mediaPlayer.pause()
+
         // To address a bug where a video may resume after a transient audio loss, we close the
         // focus handler here in onPause() as we manage play and pause manually
-        try {
-            val audioFocusHandlerField =
-                MediaPlayer::class.java.getDeclaredField("mAudioFocusHandler")
-            audioFocusHandlerField.isAccessible = true
-            val audioFocusHandler = audioFocusHandlerField.get(mediaPlayer)
+        val pauseRunnable = Runnable {
+            try {
+                val audioFocusHandlerField =
+                    MediaPlayer::class.java.getDeclaredField("mAudioFocusHandler")
+                audioFocusHandlerField.isAccessible = true
+                val audioFocusHandler = audioFocusHandlerField.get(mediaPlayer)
 
-            val audioFocusHandlerCloseMethod = audioFocusHandler.javaClass.getMethod("close")
-            audioFocusHandlerCloseMethod.invoke(audioFocusHandler)
-        } catch(e: Exception) {
-            MoPubLog.log(CUSTOM_WITH_THROWABLE, "Unable to call close() on the AudioFocusHandler due to an exception.", e)
+                val audioFocusHandlerCloseMethod =
+                    audioFocusHandler.javaClass.getMethod("close")
+                audioFocusHandlerCloseMethod.invoke(audioFocusHandler)
+            } catch (e: Exception) {
+                MoPubLog.log(
+                    CUSTOM_WITH_THROWABLE,
+                    "Unable to call close() on the AudioFocusHandler due to an exception.",
+                    e
+                )
+            }
+        }
+        try {
+            val executorField = MediaPlayer::class.java.getDeclaredField("mExecutor")
+            executorField.isAccessible = true
+            val executor = executorField.get(mediaPlayer) as ExecutorService
+            pauseFuture.addListener(pauseRunnable, executor)
+        } catch (e: Exception) {
+            MoPubLog.log(
+                CUSTOM_WITH_THROWABLE,
+                "Unable to get the executor from mediaPlayer due to an exception.",
+                e
+            )
         }
 
         if (!isComplete) {

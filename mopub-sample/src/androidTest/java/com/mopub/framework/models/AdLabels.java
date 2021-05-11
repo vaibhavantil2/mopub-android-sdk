@@ -44,4 +44,18 @@ public class AdLabels {
     public static final String BANNER_MRAID_LANDSCAPE = "RT - Banner Mraid Expanding Landscape";
     public static final String BANNER_MRAID_PORTRAIT = "RT - Banner Mraid Expanding Portrait";
 
+    // Rewarded Ads Labels
+    public static final String REWARDED_MRAID_END_CARD = "RT - MoPub Rewarded MRAID End Card";
+    public static final String REWARDED_HTML_END_CARD =  "RT - MoPub Rewarded HTML End Card";
+    public static final String REWARDED_MRAID_END_CARD_FUNCTION = "RT - MoPub Rewarded MRAID End Card Function";
+    public static final String REWARDED_NO_END_CARD_DURATION_LESS = "RT - MoPub Rewarded No End Card Duration Less";
+    public static final String REWARDED_NO_END_CARD_DURATION_EQUAL = "RT - MoPub Rewarded No End Card Duration Equal";
+    public static final String REWARDED_NO_END_CARD_DURATION_MORE = "RT - MoPub Rewarded No End Card Duration More";
+    public static final String REWARDED_END_CARD_DURATION_LESS = "RT - MoPub Rewarded End Card Duration Less";
+    public static final String REWARDED_END_CARD_DURATION_EQUAL = "RT - MoPub Rewarded End Card Duration Equal";
+    public static final String REWARDED_END_CARD_DURATION_MORE = "RT - MoPub Rewarded End Card Duration More";
+    public static final String REWARDED_NO_END_CARD_NO_CLICKTHROUGH = "RT - MoPub Rewarded No End Card No Clickthrough";
+    public static final String REWARDED_END_CARD_NO_CLICKTHROUGH = "RT - MoPub Rewarded End Card No Clickthrough";
+    public static final String REWARDED_STATIC_IMAGE = "RT - MoPub Rewarded Static Image";
+    public static final String REWARDED_HTML_VIDEO = "RT - MoPub Rewarded HTML Video";
 }

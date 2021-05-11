@@ -5,16 +5,19 @@
 package com.mopub.nativeads;
 
 import android.content.Context;
+
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.mopub.common.VisibleForTesting;
 import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubNetworkResponse;
+import com.mopub.network.MoPubNetworkUtils;
+import com.mopub.network.MoPubRequest;
 import com.mopub.network.MoPubRequestUtils;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Response;
-import com.mopub.volley.VolleyError;
-import com.mopub.volley.toolbox.HttpHeaderParser;
-import com.mopub.volley.toolbox.JsonRequest;
+import com.mopub.network.MoPubResponse;
+import com.mopub.network.MoPubUrlRewriter;
+import com.mopub.network.Networking;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -26,7 +29,7 @@ import java.util.Map;
 
 import static com.mopub.nativeads.MoPubNativeAdPositioning.MoPubClientPositioning;
 
-public class PositioningRequest extends JsonRequest<MoPubClientPositioning> {
+public class PositioningRequest extends MoPubRequest<MoPubClientPositioning> {
     private static final String FIXED_KEY = "fixed";
     private static final String SECTION_KEY = "section";
     private static final String POSITION_KEY = "position";
@@ -35,51 +38,50 @@ public class PositioningRequest extends JsonRequest<MoPubClientPositioning> {
 
     // Max value to avoid bad integer math calculations. This is 2 ^ 16.
     private static final int MAX_VALUE = 1 << 16;
-
-    @NonNull private final String mOriginalUrl;
-    @NonNull private final Context mContext;
+    private MoPubResponse.Listener<MoPubClientPositioning> mListener;
 
     public PositioningRequest(@NonNull final Context context,
             final String url,
-            final Response.Listener<MoPubClientPositioning> listener,
-            final Response.ErrorListener errorListener) {
-        super(MoPubRequestUtils.chooseMethod(url),
+            final MoPubResponse.Listener<MoPubClientPositioning> listener) {
+
+        super(context,
+                url,
                 MoPubRequestUtils.truncateQueryParamsIfPost(url),
-                null,
-                listener,
-                errorListener);
+                MoPubRequestUtils.chooseMethod(url),
+                listener);
 
-        mOriginalUrl = url;
-        mContext = context.getApplicationContext();
-    }
-
-    // This is done just for unit testing visibility.
-    @Override
-    protected void deliverResponse(final MoPubClientPositioning response) {
-        super.deliverResponse(response);
+        mListener = listener;
     }
 
     @Override
-    protected Response<MoPubClientPositioning> parseNetworkResponse(final NetworkResponse response) {
-        if (response.statusCode != HttpURLConnection.HTTP_OK) {
-            return Response.error(new VolleyError(response));
+    protected void deliverResponse(@NonNull final MoPubClientPositioning response) {
+        mListener.onResponse(response);
+    }
+
+    @Override
+    protected MoPubResponse<MoPubClientPositioning> parseNetworkResponse(final MoPubNetworkResponse response) {
+        if (response.getStatusCode() != HttpURLConnection.HTTP_OK) {
+            return MoPubResponse.error(new MoPubNetworkError.Builder().networkResponse(response).build());
         }
 
-        if (response.data.length == 0) {
-            return Response.error(new VolleyError("Empty positioning response", new JSONException("Empty response")));
+        if (response.getData() == null || response.getData().length == 0) {
+            return MoPubResponse.error(new MoPubNetworkError
+                    .Builder("Empty positioning response", new JSONException("Empty response"))
+                    .build());
         }
 
         try {
-            String jsonString = new String(response.data,
-                    HttpHeaderParser.parseCharset(response.headers));
+            String jsonString = new String(response.getData(),
+                    MoPubNetworkUtils.parseCharsetFromContentType(response.getHeaders()));
 
-            return Response.success(parseJson(jsonString), HttpHeaderParser.parseCacheHeaders(response));
+            return MoPubResponse.success(parseJson(jsonString), response);
         } catch (UnsupportedEncodingException e) {
-            return Response.error(new VolleyError("Couldn't parse JSON from Charset", e));
+            return MoPubResponse.error(new MoPubNetworkError.Builder("Couldn't parse JSON from Charset", e)
+                    .build());
         } catch (JSONException e) {
-            return Response.error(new VolleyError("JSON Parsing Error", e));
+            return MoPubResponse.error(new MoPubNetworkError.Builder("JSON Parsing Error", e).build());
         } catch (MoPubNetworkError e) {
-            return Response.error(e);
+            return MoPubResponse.error(e);
         }
     }
 
@@ -92,7 +94,7 @@ public class PositioningRequest extends JsonRequest<MoPubClientPositioning> {
         String error = jsonObject.optString("error", null);
         if (error != null) {
             if (error.equalsIgnoreCase("WARMING_UP")) {
-                throw new MoPubNetworkError(MoPubNetworkError.Reason.WARMING_UP);
+                throw new MoPubNetworkError.Builder().reason(MoPubNetworkError.Reason.WARMING_UP).build();
             }
             throw new JSONException(error);
         }
@@ -115,7 +117,7 @@ public class PositioningRequest extends JsonRequest<MoPubClientPositioning> {
     }
 
     private void parseFixedJson(@NonNull final JSONArray fixed,
-            @NonNull final MoPubClientPositioning positioning) throws JSONException {
+                                @NonNull final MoPubClientPositioning positioning) throws JSONException {
         for (int i = 0; i < fixed.length(); ++i) {
             JSONObject positionObject = fixed.getJSONObject(i);
             int section = positionObject.optInt(SECTION_KEY, 0);
@@ -135,7 +137,7 @@ public class PositioningRequest extends JsonRequest<MoPubClientPositioning> {
     }
 
     private void parseRepeatingJson(@NonNull final JSONObject repeatingObject,
-            @NonNull final MoPubClientPositioning positioning) throws JSONException {
+                                    @NonNull final MoPubClientPositioning positioning) throws JSONException {
         int interval = repeatingObject.getInt(INTERVAL_KEY);
         if (interval < 2 || interval > MAX_VALUE) {
             throw new JSONException("Invalid interval " + interval + " in JSON response");
@@ -149,12 +151,23 @@ public class PositioningRequest extends JsonRequest<MoPubClientPositioning> {
             return null;
         }
 
-        return MoPubRequestUtils.convertQueryToMap(mContext, mOriginalUrl);
+        MoPubUrlRewriter rewriter = Networking.getUrlRewriter();
+        return MoPubNetworkUtils.convertQueryToMap(rewriter.rewriteUrl(getOriginalUrl()));
+    }
+
+    @NonNull
+    @Override
+    protected String getBodyContentType() {
+        if (MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return JSON_CONTENT_TYPE;
+        }
+        return super.getBodyContentType();
     }
 
     @Override
     public byte[] getBody() {
-        final String body = MoPubRequestUtils.generateBodyFromParams(getParams(), getUrl());
+        final String body = !MoPubRequestUtils.isMoPubRequest(getUrl()) ? null
+                : MoPubNetworkUtils.generateBodyFromParams(getParams());
         if (body == null) {
             return null;
         }

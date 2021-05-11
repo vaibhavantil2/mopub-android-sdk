@@ -17,19 +17,15 @@ import com.mopub.common.util.test.support.TestMethodBuilderFactory;
 import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.nativeads.MoPubNative.MoPubNativeNetworkListener;
 import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubRequest;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
-import com.mopub.volley.NoConnectionError;
-import com.mopub.volley.Request;
-import com.mopub.volley.VolleyError;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
 import org.robolectric.android.util.concurrent.RoboExecutorService;
@@ -41,17 +37,17 @@ import java.util.List;
 
 import static android.Manifest.permission.ACCESS_NETWORK_STATE;
 import static android.Manifest.permission.INTERNET;
-import static com.mopub.common.VolleyRequestMatcher.isUrl;
+import static com.mopub.common.MoPubRequestMatcher.isUrl;
 import static com.mopub.common.util.Reflection.MethodBuilder;
 import static com.mopub.nativeads.MoPubNative.EMPTY_NETWORK_LISTENER;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @RunWith(SdkTestRunner.class)
 public class MoPubNativeTest {
@@ -132,14 +128,12 @@ public class MoPubNativeTest {
     @Test
     public void requestNativeAd_whenRequestQueueDeliversUnknownError_shouldFireNativeFail() {
         reset(mockRequestQueue);
-        when(mockRequestQueue.add(any(Request.class)))
-                .then(new Answer<Void>() {
-                    @Override
-                    public Void answer(final InvocationOnMock invocationOnMock) throws Throwable {
-                        ((Request) invocationOnMock.getArguments()[0]).deliverError(new VolleyError(new MalformedURLException()));
-                        return null;
-                    }
-                });
+        doAnswer(invocation -> {
+            MoPubNetworkError error = new MoPubNetworkError.Builder(null, new MalformedURLException()).build();
+            ((MoPubRequest<?>) invocation.getArguments()[0]).getMoPubListener().onErrorResponse(error);
+            return null;
+        }).when(mockRequestQueue).add(any(MoPubRequest.class));
+
         subject.requestNativeAd("//\\//\\::::", null);
 
         verify(mockNetworkListener).onNativeFail(any(NativeErrorCode.class));
@@ -152,36 +146,40 @@ public class MoPubNativeTest {
         subject.requestNativeAd(null, null);
 
         verify(mockNetworkListener).onNativeFail(any(NativeErrorCode.class));
-        verify(mockRequestQueue, never()).add(any(Request.class));
+        verify(mockRequestQueue, never()).add(any(MoPubRequest.class));
     }
 
     @Test
     public void onAdError_shouldNotifyListener() {
-        subject.onAdError(new MoPubNetworkError(MoPubNetworkError.Reason.BAD_BODY));
+        subject.onAdError(new MoPubNetworkError.Builder()
+                .reason(MoPubNetworkError.Reason.BAD_BODY)
+                .build());
 
         verify(mockNetworkListener).onNativeFail(eq(NativeErrorCode.INVALID_RESPONSE));
     }
 
     @Test
     public void onAdError_whenNotMoPubError_shouldNotifyListener() {
-        subject.onAdError(new VolleyError("generic"));
+        subject.onAdError(new MoPubNetworkError.Builder("generic").build());
 
         verify(mockNetworkListener).onNativeFail(eq(NativeErrorCode.UNSPECIFIED));
     }
 
     @Test
-    public void onAdError_withVolleyErrorWarmingUp_shouldLogMoPubErrorCodeWarmup_shouldNotifyListener() {
+    public void onAdError_withWarmingUpError_shouldLogMoPubErrorCodeWarmup_shouldNotifyListener() {
         MoPubLog.setLogLevel(MoPubLog.LogLevel.DEBUG);
 
-        subject.onAdError(new MoPubNetworkError(MoPubNetworkError.Reason.WARMING_UP));
+        subject.onAdError(new MoPubNetworkError.Builder()
+                .reason(MoPubNetworkError.Reason.WARMING_UP)
+                .build());
 
         final List<ShadowLog.LogItem> allLogMessages = ShadowLog.getLogs();
         final ShadowLog.LogItem latestLogMessage = allLogMessages.get(allLogMessages.size() - 1);
 
         // All log messages end with a newline character.
         assertThat(latestLogMessage.msg.trim()).isEqualTo(
-                "[com.mopub.nativeads.MoPubNativeTest][onAdError_withVolleyErrorWarmingUp_shouldLogMoPubErrorCodeWarmup_shouldNotifyListener] Ad Log - "
-                + MoPubErrorCode.WARMUP.toString());
+                "[com.mopub.nativeads.MoPubNativeTest][onAdError_withWarmingUpError_shouldLogMoPubErrorCodeWarmup_" +
+                        "shouldNotifyListener] Ad Log - " + MoPubErrorCode.WARMUP.toString());
         verify(mockNetworkListener).onNativeFail(eq(NativeErrorCode.EMPTY_AD_RESPONSE));
     }
 
@@ -190,15 +188,15 @@ public class MoPubNativeTest {
         MoPubLog.setLogLevel(MoPubLog.LogLevel.DEBUG);
         Shadows.shadowOf(context).denyPermissions(INTERNET);
 
-        subject.onAdError(new NoConnectionError());
+        subject.onAdError(new MoPubNetworkError.Builder().build());
 
         final List<ShadowLog.LogItem> allLogMessages = ShadowLog.getLogs();
         final ShadowLog.LogItem latestLogMessage = allLogMessages.get(allLogMessages.size() - 1);
 
         // All log messages end with a newline character.
         assertThat(latestLogMessage.msg.trim()).isEqualTo(
-                "[com.mopub.nativeads.MoPubNativeTest][onAdError_withNoConnection_shouldLogMoPubErrorCodeNoConnection_shouldNotifyListener] Ad Log - "
-                + MoPubErrorCode.NO_CONNECTION.toString());
+                "[com.mopub.nativeads.MoPubNativeTest][onAdError_withNoConnection_shouldLogMoPubErrorCodeNoConnection" +
+                        "_shouldNotifyListener] Ad Log - " + MoPubErrorCode.NO_CONNECTION.toString());
         verify(mockNetworkListener).onNativeFail(eq(NativeErrorCode.CONNECTION_ERROR));
     }
 
@@ -206,7 +204,7 @@ public class MoPubNativeTest {
     public void onAdError_withRateLimiting_shouldLogMoPubErrorCodeTooManyRequests_shouldNotifyListener() {
         MoPubLog.setLogLevel(MoPubLog.LogLevel.DEBUG);
 
-        subject.onAdError(new MoPubNetworkError(MoPubNetworkError.Reason.TOO_MANY_REQUESTS));
+        subject.onAdError(new MoPubNetworkError.Builder().reason(MoPubNetworkError.Reason.TOO_MANY_REQUESTS).build());
 
         verify(mockNetworkListener).onNativeFail(eq(NativeErrorCode.TOO_MANY_REQUESTS));
     }

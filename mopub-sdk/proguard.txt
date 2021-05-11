@@ -37,3 +37,7 @@
 -keepnames class * implements android.os.Parcelable {
     public static final ** CREATOR;
 }
+
+# For a bug in AudioFocusHandler where we have a workaround via reflection
+-keep class androidx.media2.player.AudioFocusHandler {*;}
+-keepnames class androidx.media2.player.MediaPlayer {*;}

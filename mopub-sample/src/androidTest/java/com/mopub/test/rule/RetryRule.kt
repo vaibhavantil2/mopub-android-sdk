@@ -4,6 +4,7 @@
 
 package com.mopub.test.rule
 
+import android.os.SystemClock
 import org.junit.rules.TestRule
 import org.junit.runner.Description
 import org.junit.runners.model.Statement
@@ -19,6 +20,7 @@ class RetryRule(private val retryCount: Int) : TestRule {
                         base.evaluate()
                         return
                     } catch (t: Throwable) {
+                        SystemClock.sleep(6000)
                         caughtThrowable = t
                     }
                 }

@@ -5,44 +5,56 @@
 package com.mopub.common.privacy;
 
 import android.content.Context;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubNetworkResponse;
 import com.mopub.network.MoPubRequest;
-import com.mopub.volley.DefaultRetryPolicy;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Response;
-import com.mopub.volley.toolbox.HttpHeaderParser;
+import com.mopub.network.MoPubRequestUtils;
+import com.mopub.network.MoPubResponse;
+import com.mopub.network.MoPubRetryPolicy;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 public class SyncRequest extends MoPubRequest<SyncResponse> {
 
-    public interface Listener extends Response.ErrorListener {
-        void onSuccess(SyncResponse response);
-    }
+    public interface Listener extends MoPubResponse.Listener<SyncResponse> {}
 
     @Nullable private Listener mListener;
 
     public SyncRequest(@NonNull final Context context,
             @NonNull final String url,
             @Nullable final Listener listener) {
-        super(context, url, listener);
+        super(context,
+                url,
+                MoPubRequestUtils.truncateQueryParamsIfPost(url),
+                MoPubRequestUtils.chooseMethod(url),
+                listener);
 
         mListener = listener;
 
-        DefaultRetryPolicy retryPolicy = new DefaultRetryPolicy(
-                DefaultRetryPolicy.DEFAULT_TIMEOUT_MS,
+        MoPubRetryPolicy retryPolicy = new MoPubRetryPolicy(
+                MoPubRetryPolicy.DEFAULT_TIMEOUT_MS,
                 0,
-                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT);
+                MoPubRetryPolicy.DEFAULT_BACKOFF_MULT);
         setRetryPolicy(retryPolicy);
         setShouldCache(false);
     }
 
+    @NonNull
     @Override
-    protected Response<SyncResponse> parseNetworkResponse(final NetworkResponse networkResponse) {
+    protected String getBodyContentType() {
+        if (MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return JSON_CONTENT_TYPE;
+        }
+        return super.getBodyContentType();
+    }
+
+    @Override
+    protected MoPubResponse<SyncResponse> parseNetworkResponse(final MoPubNetworkResponse networkResponse) {
         final SyncResponse.Builder builder = new SyncResponse.Builder();
         final String responseBody = parseStringBody(networkResponse);
 
@@ -73,23 +85,20 @@ public class SyncRequest extends MoPubRequest<SyncResponse> {
                     .setConsentChangeReason(
                             jsonBody.optString(PrivacyKey.CONSENT_CHANGE_REASON.getKey()));
         } catch (JSONException e) {
-            return Response.error(
-                    new MoPubNetworkError(
-                            "Unable to parse sync request network response.",
-                            MoPubNetworkError.Reason.BAD_BODY,
-                            null
-                    )
+            return MoPubResponse.error(
+                    new MoPubNetworkError.Builder("Unable to parse sync request network response.")
+                            .reason(MoPubNetworkError.Reason.BAD_BODY)
+                            .build()
             );
         }
 
-        return Response.success(builder.build(),
-                HttpHeaderParser.parseCacheHeaders(networkResponse));
+        return MoPubResponse.success(builder.build(), networkResponse);
     }
 
     @Override
-    protected void deliverResponse(final SyncResponse syncResponse) {
+    protected void deliverResponse(@NonNull final SyncResponse syncResponse) {
         if (mListener != null) {
-            mListener.onSuccess(syncResponse);
+            mListener.onResponse(syncResponse);
         }
     }
 }

@@ -6,11 +6,11 @@ package com.mopub.nativeads;
 
 import android.app.Activity;
 
+import com.mopub.common.Constants;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.network.MoPubNetworkError;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Response;
-import com.mopub.volley.VolleyError;
+import com.mopub.network.MoPubNetworkResponse;
+import com.mopub.network.MoPubResponse;
 
 import org.json.JSONException;
 import org.junit.Before;
@@ -19,41 +19,54 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.robolectric.Robolectric;
 
-import java.util.TreeMap;
+import java.util.Collections;
 
+import static com.mopub.network.MoPubRequest.DEFAULT_CONTENT_TYPE;
+import static com.mopub.network.MoPubRequest.JSON_CONTENT_TYPE;
 import static junit.framework.Assert.fail;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
 
 @RunWith(SdkTestRunner.class)
 public class PositioningRequestTest {
+    private static final String URL = Constants.HTTPS + "://" + Constants.HOST;
 
-    String url = "https://example.com";
     @Mock
-    Response.Listener<MoPubNativeAdPositioning.MoPubClientPositioning> mockListener;
-    @Mock
-    Response.ErrorListener mockErrorListener;
-
-    NetworkResponse mockNetworkResponse;
-    PositioningRequest subject;
+    private MoPubResponse.Listener<MoPubNativeAdPositioning.MoPubClientPositioning> mockListener;
+    private MoPubNetworkResponse mockNetworkResponse;
+    private PositioningRequest subject;
 
     @Before
     public void setup() {
-        subject = new PositioningRequest(Robolectric.buildActivity(Activity.class).get(),
-                url, mockListener, mockErrorListener);
+        subject = new PositioningRequest(Robolectric.buildActivity(Activity.class).get(), URL, mockListener);
+    }
+
+    @Test
+    public void getBodyContentType_withMoPubRequest_shouldReturnJsonContentType() {
+        assertEquals(JSON_CONTENT_TYPE, subject.getBodyContentType());
+    }
+
+    @Test
+    public void getBodyContentType_withNonMoPubRequest_shouldReturnDefaultContentType() {
+        String nonMoPubUrl = "https://www.abcdefg.com/xyz";
+        subject = new PositioningRequest(Robolectric.buildActivity(Activity.class).get(), nonMoPubUrl, mockListener);
+
+        assertEquals(DEFAULT_CONTENT_TYPE, subject.getBodyContentType());
     }
 
     @Test
     public void parseNetworkResponse_shouldReturnPositioning() {
-        mockNetworkResponse = new NetworkResponse(200, "{fixed: []}".getBytes(), new TreeMap<String, String>(), false);
-        assertThat(subject.parseNetworkResponse(mockNetworkResponse).result)
+        mockNetworkResponse = new MoPubNetworkResponse(200, "{fixed: []}".getBytes(), Collections.emptyMap());
+
+        assertThat(subject.parseNetworkResponse(mockNetworkResponse).getMoPubResult())
                 .isExactlyInstanceOf(MoPubNativeAdPositioning.MoPubClientPositioning.class);
     }
     
     @Test
     public void parseNetworkResponse_shouldReturnError() {
-        mockNetworkResponse = new NetworkResponse(200, "garbage".getBytes(), new TreeMap<String, String>(), false);
-        assertThat(subject.parseNetworkResponse(mockNetworkResponse).error)
-                .isExactlyInstanceOf(VolleyError.class);
+        mockNetworkResponse = new MoPubNetworkResponse(200, "garbage".getBytes(), Collections.emptyMap());
+
+        assertThat(subject.parseNetworkResponse(mockNetworkResponse).getMoPubNetworkError()).isNotNull();
     }
     
     @Test
@@ -89,7 +102,7 @@ public class PositioningRequestTest {
     }
 
     @Test
-    public void parseJson_invalidFixedPosition_shouldThrowException() throws Exception {
+    public void parseJson_invalidFixedPosition_shouldThrowException() {
         // Must have either fixed or repeating positions.
         checkException("", "Empty response");
         checkException("{}", "Must contain fixed or repeating positions");
@@ -119,7 +132,7 @@ public class PositioningRequestTest {
     }
 
     @Test
-    public void parseJson_invalidRepeating_shouldThrowException() throws Exception {
+    public void parseJson_invalidRepeating_shouldThrowException() {
         checkException("{repeating: }", "Missing value at character 12");
         checkException("{repeating: {}}", "JSONObject[\"interval\"] not found.");
 
@@ -139,12 +152,10 @@ public class PositioningRequestTest {
         assertThat(positioning.getRepeatingInterval()).isEqualTo(2);
     }
 
-    private void checkException(String json, String expectedMessage) throws Exception {
+    private void checkException(String json, String expectedMessage) {
         try {
             subject.parseJson(json);
-        } catch (JSONException e) {
-            return;
-        } catch (MoPubNetworkError e) {
+        } catch (JSONException | MoPubNetworkError e) {
             return;
         }
         fail("Should have received an exception");

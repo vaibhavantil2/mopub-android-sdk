@@ -11,7 +11,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import android.text.TextUtils;
 
-import com.mopub.common.MoPub.BrowserAgent;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.util.Intents;
 import com.mopub.exceptions.IntentNotResolvableException;
@@ -20,8 +19,9 @@ import com.mopub.exceptions.UrlParseException;
 import java.net.URISyntaxException;
 import java.util.List;
 
+import static com.mopub.common.BrowserAgentManager.BrowserAgent.NATIVE;
+import static com.mopub.common.BrowserAgentManager.getBrowserAgent;
 import static com.mopub.common.Constants.HTTPS;
-import static com.mopub.common.MoPub.getBrowserAgent;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 import static com.mopub.common.util.Intents.canLaunchApplicationUrl;
 import static com.mopub.network.TrackingRequest.makeTrackingHttpRequest;
@@ -113,7 +113,7 @@ public enum UrlAction {
             final String scheme = uri.getScheme();
 
             if (HTTPS.equalsIgnoreCase(scheme)) {
-                return getBrowserAgent() == BrowserAgent.NATIVE;
+                return getBrowserAgent() == NATIVE;
             }
 
             return "mopubnativebrowser".equalsIgnoreCase(scheme);

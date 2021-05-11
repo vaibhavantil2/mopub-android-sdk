@@ -13,8 +13,8 @@ import com.mopub.common.Preconditions;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.network.AdLoader;
 import com.mopub.network.AdResponse;
-import com.mopub.volley.Request;
-import com.mopub.volley.VolleyError;
+import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubRequest;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,13 +31,13 @@ class RewardedAdsLoaders {
         }
 
         @Override
-        public void onSuccess(final AdResponse response) {
+        public void onResponse(@NonNull final AdResponse response) {
             moPubRewardedAdManager.onAdSuccess(response);
         }
 
         @Override
-        public void onErrorResponse(final VolleyError volleyError) {
-            moPubRewardedAdManager.onAdError(volleyError, adUnitId);
+        public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
+            moPubRewardedAdManager.onAdError(networkError, adUnitId);
         }
     }
 
@@ -47,10 +47,10 @@ class RewardedAdsLoaders {
     }
 
     @Nullable
-    Request<?> loadNextAd(@NonNull Context context,
-                          @NonNull String adUnitId,
-                          @NonNull String adUrlString,
-                          @Nullable MoPubErrorCode errorCode) {
+    MoPubRequest<?> loadNextAd(@NonNull Context context,
+                               @NonNull String adUnitId,
+                               @NonNull String adUrlString,
+                               @Nullable MoPubErrorCode errorCode) {
         Preconditions.checkNotNull(adUnitId);
         Preconditions.checkNotNull(context);
 

@@ -17,12 +17,10 @@ import androidx.annotation.Nullable;
 import android.text.TextUtils;
 
 import com.mopub.common.Constants;
-import com.mopub.common.MoPub.BrowserAgent;
 import com.mopub.common.MoPubBrowser;
 import com.mopub.common.Preconditions;
 import com.mopub.common.UrlAction;
 import com.mopub.common.logging.MoPubLog;
-
 import com.mopub.exceptions.IntentNotResolvableException;
 import com.mopub.exceptions.UrlParseException;
 
@@ -32,7 +30,8 @@ import java.util.List;
 import java.util.Map;
 
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-import static com.mopub.common.MoPub.getBrowserAgent;
+import static com.mopub.common.BrowserAgentManager.BrowserAgent.NATIVE;
+import static com.mopub.common.BrowserAgentManager.getBrowserAgent;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 
 public class Intents {
@@ -109,7 +108,7 @@ public class Intents {
 
         if (!UrlAction.OPEN_NATIVE_BROWSER.shouldTryHandlingUrl(uri)) {
             String supportedSchemes = "mopubnativebrowser://";
-            if (getBrowserAgent() == BrowserAgent.NATIVE) {
+            if (getBrowserAgent() == NATIVE) {
                 supportedSchemes += ", https://";
             }
             throw new UrlParseException("URI does not have " + supportedSchemes + " scheme.");
@@ -120,7 +119,7 @@ public class Intents {
             return new Intent(Intent.ACTION_VIEW, intentUri);
         }
 
-        if (getBrowserAgent() == BrowserAgent.NATIVE) {
+        if (getBrowserAgent() == NATIVE) {
             return new Intent(Intent.ACTION_VIEW, uri);
         }
 

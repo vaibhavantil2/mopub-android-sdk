@@ -9,6 +9,7 @@ import android.os.Bundle
 import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
 import com.mopub.common.Constants
+import com.mopub.common.Mockable
 import com.mopub.common.MoPubBrowser
 import com.mopub.common.UrlAction
 import com.mopub.common.UrlHandler

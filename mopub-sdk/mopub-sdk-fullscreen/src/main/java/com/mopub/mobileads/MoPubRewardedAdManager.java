@@ -30,13 +30,13 @@ import com.mopub.common.Preconditions;
 import com.mopub.common.SharedPreferencesHelper;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.logging.MoPubLog;
+import com.mopub.common.util.DeviceUtils;
 import com.mopub.common.util.Json;
 import com.mopub.common.util.MoPubCollections;
 import com.mopub.common.util.ReflectionTarget;
 import com.mopub.common.util.Utils;
 import com.mopub.network.AdResponse;
 import com.mopub.network.MoPubNetworkError;
-import com.mopub.volley.VolleyError;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -338,9 +338,6 @@ public class MoPubRewardedAdManager {
             return;
         }
 
-        // Issue MoPub request
-        MoPubLog.log(CUSTOM, String.format(Locale.US,
-                "Loading rewarded ad request for ad unit %s with URL %s", adUnitId, adUrlString));
         rewardedAdsLoaders.loadNextAd(mContext, adUnitId, adUrlString, errorCode);
     }
 
@@ -628,11 +625,10 @@ public class MoPubRewardedAdManager {
         }
     }
 
-    void onAdError(@NonNull VolleyError volleyError, @NonNull String adUnitId) {
+    void onAdError(@NonNull MoPubNetworkError networkError, @NonNull String adUnitId) {
         MoPubErrorCode errorCode = MoPubErrorCode.INTERNAL_ERROR;
-        if (volleyError instanceof MoPubNetworkError) {
-            MoPubNetworkError err = (MoPubNetworkError) volleyError;
-            switch (err.getReason()) {
+        if (networkError.getReason() != null) {
+            switch (networkError.getReason()) {
                 case NO_FILL:
                 case WARMING_UP:
                     errorCode = MoPubErrorCode.NO_FILL;
@@ -640,15 +636,20 @@ public class MoPubRewardedAdManager {
                 case TOO_MANY_REQUESTS:
                     errorCode = MoPubErrorCode.TOO_MANY_REQUESTS;
                     break;
+                case NO_CONNECTION:
+                    errorCode = MoPubErrorCode.NO_CONNECTION;
+                    break;
                 case BAD_BODY:
                 case BAD_HEADER_DATA:
                 default:
                     errorCode = MoPubErrorCode.INTERNAL_ERROR;
             }
         }
-        if (volleyError instanceof com.mopub.volley.NoConnectionError) {
+
+        if (networkError.getNetworkResponse() == null && !DeviceUtils.isNetworkAvailable(mContext)) {
             errorCode = MoPubErrorCode.NO_CONNECTION;
         }
+
         failover(adUnitId, errorCode);
     }
 

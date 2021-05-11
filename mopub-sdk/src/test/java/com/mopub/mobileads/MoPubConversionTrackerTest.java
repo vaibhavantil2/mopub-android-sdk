@@ -14,10 +14,10 @@ import com.mopub.common.privacy.ConsentStatus;
 import com.mopub.common.privacy.PersonalInfoManager;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.Reflection;
+import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
 import com.mopub.network.TrackingRequest;
-import com.mopub.volley.VolleyError;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -76,7 +76,7 @@ public class MoPubConversionTrackerTest {
         verify(mockRequestQueue).add(requestCaptor.capture());
 
         reset(mockRequestQueue);
-        requestCaptor.getValue().deliverResponse(null);
+        requestCaptor.getValue().getMoPubListener().onResponse(null);
 
         subject.reportAppOpen(false);
         verify(mockRequestQueue, never()).add(any(TrackingRequest.class));
@@ -93,7 +93,8 @@ public class MoPubConversionTrackerTest {
         verify(mockRequestQueue).add(requestCaptor.capture());
 
         reset(mockRequestQueue);
-        requestCaptor.getValue().deliverError(new VolleyError());
+        MoPubNetworkError error = new MoPubNetworkError.Builder().build();
+        requestCaptor.getValue().getMoPubListener().onErrorResponse(error);
 
         subject.reportAppOpen(true);
         verify(mockRequestQueue).add(any(TrackingRequest.class));

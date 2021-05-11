@@ -14,11 +14,10 @@ import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.nativeads.MoPubNativeAdPositioning.MoPubClientPositioning;
 import com.mopub.nativeads.PositioningSource.PositioningListener;
+import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubRequest;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
-import com.mopub.volley.NoConnectionError;
-import com.mopub.volley.Request;
-import com.mopub.volley.VolleyError;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -31,7 +30,6 @@ import org.robolectric.shadows.ShadowLog;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.logging.Level;
 
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
@@ -52,8 +50,6 @@ public class ServerPositioningSourceTest {
     @Mock ClientMetadata mockClientMetaData;
     @Mock MoPubRequestQueue mockRequestQueue;
 
-    @Captor ArgumentCaptor<MoPubClientPositioning> positioningCaptor;
-
     ServerPositioningSource subject;
     private Activity spyActivity;
 
@@ -65,7 +61,7 @@ public class ServerPositioningSourceTest {
         subject = new ServerPositioningSource(spyActivity);
         setupClientMetadata();
         Networking.setRequestQueueForTesting(mockRequestQueue);
-//        MoPubLog.setLogLevel(MoPubLog.LogLevel.DEBUG);
+        MoPubLog.setLogLevel(MoPubLog.LogLevel.DEBUG);
     }
 
     private void setupClientMetadata() {
@@ -92,14 +88,14 @@ public class ServerPositioningSourceTest {
     @Test
     public void loadPositions_shouldAddToRequestQueue() {
         subject.loadPositions("test_ad_unit", mockPositioningListener);
-        verify(mockRequestQueue).add(any(Request.class));
+        verify(mockRequestQueue).add(any(MoPubRequest.class));
     }
 
     @Test
     public void loadPositionsTwice_shouldCancelPreviousRequest_shouldNotCallListener() {
         subject.loadPositions("test_ad_unit", mockPositioningListener);
         subject.loadPositions("test_ad_unit", mockPositioningListener);
-        verify(mockRequestQueue, times(2)).add(any(Request.class));
+        verify(mockRequestQueue, times(2)).add(any(MoPubRequest.class));
 
         verify(mockPositioningListener, never()).onFailed();
         verify(mockPositioningListener, never()).onLoad(any(MoPubClientPositioning.class));
@@ -112,7 +108,7 @@ public class ServerPositioningSourceTest {
         reset(mockRequestQueue);
 
         subject.loadPositions("test_ad_unit", mockPositioningListener);
-        verify(mockRequestQueue).add(any(Request.class));
+        verify(mockRequestQueue).add(any(MoPubRequest.class));
     }
 
     @Test
@@ -129,17 +125,18 @@ public class ServerPositioningSourceTest {
     }
 
     @Test
-    public void loadPositions_thenComplete_withErrorResponse_shouldRetry() throws Exception {
+    public void loadPositions_thenComplete_withErrorResponse_shouldRetry() {
         subject.loadPositions("test_ad_unit", mockPositioningListener);
 
         verify(mockRequestQueue).add(positionRequestCaptor.capture());
         reset(mockRequestQueue);
 
         // We get VolleyErrors for invalid JSON, 404s, 5xx, and {"error": "WARMING_UP"}
-        positionRequestCaptor.getValue().deliverError(new VolleyError("Some test error"));
+        MoPubNetworkError error = new MoPubNetworkError.Builder().build();
+        positionRequestCaptor.getValue().getMoPubListener().onErrorResponse(error);
 
         Robolectric.getForegroundThreadScheduler().advanceToLastPostedRunnable();
-        verify(mockRequestQueue).add(any(Request.class));
+        verify(mockRequestQueue).add(any(MoPubRequest.class));
     }
 
 
@@ -149,12 +146,14 @@ public class ServerPositioningSourceTest {
 
         verify(mockRequestQueue).add(positionRequestCaptor.capture());
         reset(mockRequestQueue);
-        positionRequestCaptor.getValue().deliverError(new VolleyError("testError"));
+
+        MoPubNetworkError error = new MoPubNetworkError.Builder("testError").build();
+        positionRequestCaptor.getValue().getMoPubListener().onErrorResponse(error);
 
         subject.loadPositions("test_ad_unit", mockPositioningListener);
         Robolectric.getForegroundThreadScheduler().advanceToLastPostedRunnable();
         // If a retry happened, we'd have two here.
-        verify(mockRequestQueue).add(any(Request.class));
+        verify(mockRequestQueue).add(any(MoPubRequest.class));
     }
 
     @Test
@@ -164,7 +163,8 @@ public class ServerPositioningSourceTest {
         subject.setMaximumRetryTimeMilliseconds(999);
 
         verify(mockRequestQueue).add(positionRequestCaptor.capture());
-        positionRequestCaptor.getValue().deliverError(new VolleyError("test error"));
+        MoPubNetworkError error = new MoPubNetworkError.Builder("test error", null).build();
+        positionRequestCaptor.getValue().getMoPubListener().onErrorResponse(error);
         verify(mockPositioningListener).onFailed();
     }
 
@@ -183,7 +183,8 @@ public class ServerPositioningSourceTest {
         subject.loadPositions("test_ad_unit", mockPositioningListener);
 
         verify(mockRequestQueue).add(positionRequestCaptor.capture());
-        positionRequestCaptor.getValue().deliverError(new NoConnectionError());
+        MoPubNetworkError error = new MoPubNetworkError.Builder().build();
+        positionRequestCaptor.getValue().getMoPubListener().onErrorResponse(error);
 
         verify(mockPositioningListener).onFailed();
 
@@ -194,6 +195,9 @@ public class ServerPositioningSourceTest {
             allLogMessages.add(logItem.msg.trim());
         }
 
+        assertThat(allLogMessages).contains("[com.mopub.nativeads.ServerPositioningSourceTest][loadPositions_withNo" +
+                "Connection_shouldLogMoPubErrorCodeNoConnection_shouldCallFailureHandler] SDK Log - " +
+                        MoPubErrorCode.NO_CONNECTION.toString());
         assertThat(allLogMessages).contains("[com.mopub.nativeads.ServerPositioningSource]" +
                 "[access$300] SDK Log - Error downloading positioning information");
     }

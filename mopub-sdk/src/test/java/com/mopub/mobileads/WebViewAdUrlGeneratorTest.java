@@ -152,7 +152,7 @@ public class WebViewAdUrlGeneratorTest {
         when(spyApplicationContext.getPackageName()).thenReturn("testBundle");
         PackageManager mockPackageManager = mock(PackageManager.class);
         PackageInfo mockPackageInfo = mock(PackageInfo.class);
-        mockPackageInfo.versionName = BuildConfig.VERSION_NAME;
+        mockPackageInfo.versionName = MoPub.SDK_VERSION;
         when(mockPackageManager.getPackageInfo(any(String.class), anyInt())).thenReturn(mockPackageInfo);
         when(spyApplicationContext.getPackageManager()).thenReturn(mockPackageManager);
         when(spyApplicationContext.getSystemService(Context.WINDOW_SERVICE)).thenReturn(mockWindowManager);
@@ -222,7 +222,7 @@ public class WebViewAdUrlGeneratorTest {
         String url = subject.generateUrlString("server.com");
 
         assertThat(getParameterFromRequestUrl(url, "vv")).isEqualTo("4");
-        assertThat(getParameterFromRequestUrl(url, "vver")).isEqualTo("1.3.4-Mopub");
+        assertThat(getParameterFromRequestUrl(url, "vver")).isEqualTo("1.3.16-Mopub");
     }
 
     @Test
@@ -232,7 +232,7 @@ public class WebViewAdUrlGeneratorTest {
         String url = subject.generateUrlString("server.com");
 
         assertThat(getParameterFromRequestUrl(url, "vv")).isEqualTo("0");
-        assertThat(getParameterFromRequestUrl(url, "vver")).isEqualTo("1.3.4-Mopub");
+        assertThat(getParameterFromRequestUrl(url, "vver")).isEqualTo("1.3.16-Mopub");
     }
 
 
@@ -866,7 +866,7 @@ public class WebViewAdUrlGeneratorTest {
                     paramIfNotEmpty("iso", countryIso) +
                     paramIfNotEmpty("cn", carrierName) +
                     "&ct=" + networkType +
-                    "&av=" + Uri.encode(BuildConfig.VERSION_NAME) +
+                    "&av=" + Uri.encode(MoPub.SDK_VERSION) +
                     (TextUtils.isEmpty(abt) ? "" : "&abt=" + Uri.encode(abt)) +
                     "&ifa=" + PlayServicesUrlRewriter.IFA_TEMPLATE +
                     "&dnt=" + PlayServicesUrlRewriter.DO_NOT_TRACK_TEMPLATE +
@@ -880,7 +880,7 @@ public class WebViewAdUrlGeneratorTest {
                     paramIfNotEmpty("backoff_ms", backoffMs) +
                     paramIfNotEmpty("backoff_reason", backoffReason) +
                     "&vv=4" +
-                    "&vver=1.3.4-Mopub" +
+                    "&vver=1.3.16-Mopub" +
                     "&mr=1";
         }
 

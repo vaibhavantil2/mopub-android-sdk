@@ -38,11 +38,10 @@ import com.mopub.common.util.Utils;
 import com.mopub.network.AdLoader;
 import com.mopub.network.AdResponse;
 import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubNetworkResponse;
+import com.mopub.network.MoPubRequest;
 import com.mopub.network.SingleImpression;
 import com.mopub.network.TrackingRequest;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Request;
-import com.mopub.volley.VolleyError;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -90,7 +89,7 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
     private WebViewAdUrlGenerator mUrlGenerator;
 
     @Nullable
-    private Request mActiveRequest;
+    private MoPubRequest<?> mActiveRequest;
     @Nullable
     AdLoader mAdLoader;
     @NonNull
@@ -159,13 +158,13 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
 
         mAdListener = new AdLoader.Listener() {
             @Override
-            public void onSuccess(final AdResponse response) {
+            public void onResponse(@NonNull final AdResponse response) {
                 onAdLoadSuccess(response);
             }
 
             @Override
-            public void onErrorResponse(final VolleyError volleyError) {
-                onAdLoadError(volleyError);
+            public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
+                onAdLoadError(networkError);
             }
         };
 
@@ -199,21 +198,20 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
     }
 
     @VisibleForTesting
-    void onAdLoadError(final VolleyError error) {
-        if (error instanceof MoPubNetworkError) {
+    void onAdLoadError(final MoPubNetworkError networkError) {
+        if (networkError.getReason() != null) {
             // If provided, the MoPubNetworkError's refresh time takes precedence over the
             // previously set refresh time.
             // The only types of NetworkErrors that can possibly modify
             // an ad's refresh time are CLEAR requests. For CLEAR requests that (erroneously) omit a
             // refresh time header and for all other non-CLEAR types of NetworkErrors, we simply
             // maintain the previous refresh time value.
-            final MoPubNetworkError moPubNetworkError = (MoPubNetworkError) error;
-            if (moPubNetworkError.getRefreshTimeMillis() != null) {
-                mRefreshTimeMillis = moPubNetworkError.getRefreshTimeMillis();
+            if (networkError.getRefreshTimeMillis() != null) {
+                mRefreshTimeMillis = networkError.getRefreshTimeMillis();
             }
         }
 
-        final MoPubErrorCode errorCode = getErrorCodeFromVolleyError(error, mContext);
+        final MoPubErrorCode errorCode = getErrorCodeFromNetworkError(networkError, mContext);
         if (errorCode == MoPubErrorCode.SERVER_ERROR) {
             mBackoffPower++;
         }
@@ -223,19 +221,20 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
 
     @VisibleForTesting
     @NonNull
-    static MoPubErrorCode getErrorCodeFromVolleyError(@NonNull final VolleyError error,
-                                                      @Nullable final Context context) {
-        final NetworkResponse networkResponse = error.networkResponse;
+    static MoPubErrorCode getErrorCodeFromNetworkError(@NonNull final MoPubNetworkError networkError,
+                                                       @Nullable final Context context) {
+        final MoPubNetworkResponse networkResponse = networkError.getNetworkResponse();
 
-        // For MoPubNetworkErrors, networkResponse is null.
-        if (error instanceof MoPubNetworkError) {
-            switch (((MoPubNetworkError) error).getReason()) {
+        if (networkError.getReason() != null) {
+            switch (networkError.getReason()) {
                 case WARMING_UP:
                     return MoPubErrorCode.WARMUP;
                 case NO_FILL:
                     return MoPubErrorCode.NO_FILL;
                 case TOO_MANY_REQUESTS:
                     return MoPubErrorCode.TOO_MANY_REQUESTS;
+                case NO_CONNECTION:
+                    return MoPubErrorCode.NO_CONNECTION;
                 default:
                     return UNSPECIFIED;
             }
@@ -248,7 +247,7 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
             return UNSPECIFIED;
         }
 
-        if (error.networkResponse.statusCode >= 400) {
+        if (networkResponse.getStatusCode() >= 400) {
             return MoPubErrorCode.SERVER_ERROR;
         }
 
@@ -298,10 +297,6 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
         if (url == null) {
             adDidFail(MoPubErrorCode.NO_FILL);
             return;
-        }
-
-        if (!url.startsWith("javascript:")) {
-            MoPubLog.log(CUSTOM, "Loading url: " + url);
         }
 
         if (mActiveRequest != null) {

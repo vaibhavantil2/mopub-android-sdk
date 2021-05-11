@@ -13,10 +13,11 @@ import androidx.annotation.Nullable;
 
 import com.mopub.common.Preconditions;
 import com.mopub.common.logging.MoPubLog;
+import com.mopub.common.util.ImageUtils;
 import com.mopub.nativeads.CustomEventNative.CustomEventNativeListener;
+import com.mopub.network.MoPubImageLoader;
+import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.Networking;
-import com.mopub.volley.VolleyError;
-import com.mopub.volley.toolbox.ImageLoader;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -54,14 +55,16 @@ public class NativeImageHelper {
     public static void preCacheImages(@NonNull final Context context,
             @NonNull final List<String> imageUrls,
             @NonNull final ImageListener imageListener) {
-        final ImageLoader imageLoader = Networking.getImageLoader(context);
+        final MoPubImageLoader imageLoader = Networking.getImageLoader(context);
         // These Atomics are only accessed on the main thread.
         // We use Atomics here so we can change their values while keeping a reference for the inner class.
         final AtomicInteger imageCounter = new AtomicInteger(imageUrls.size());
         final AtomicBoolean anyFailures = new AtomicBoolean(false);
-        ImageLoader.ImageListener volleyImageListener = new ImageLoader.ImageListener() {
+        MoPubImageLoader.ImageListener moPubImageListener = new MoPubImageLoader.ImageListener() {
+
             @Override
-            public void onResponse(final ImageLoader.ImageContainer imageContainer, final boolean isImmediate) {
+            public void onResponse(@NonNull final MoPubImageLoader.ImageContainer imageContainer,
+                                   final boolean isImmediate) {
                 // Image Loader returns a "default" response immediately. We want to ignore this
                 // unless the image is already cached.
                 if (imageContainer.getBitmap() != null) {
@@ -73,9 +76,8 @@ public class NativeImageHelper {
             }
 
             @Override
-            public void onErrorResponse(final VolleyError volleyError) {
-                MoPubLog.log(ERROR_WITH_THROWABLE, "Failed to download a native ads image:",
-                        volleyError);
+            public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
+                MoPubLog.log(ERROR_WITH_THROWABLE, "Failed to download a native ads image:", networkError);
                 boolean anyPreviousErrors = anyFailures.getAndSet(true);
                 imageCounter.decrementAndGet();
                 if (!anyPreviousErrors) {
@@ -90,7 +92,7 @@ public class NativeImageHelper {
                 imageListener.onImagesFailedToCache(NativeErrorCode.IMAGE_DOWNLOAD_FAILURE);
                 return;
             }
-            imageLoader.get(url, volleyImageListener);
+            imageLoader.fetch(url, moPubImageListener, ImageUtils.getMaxImageWidth(context));
         }
     }
 
@@ -115,22 +117,23 @@ public class NativeImageHelper {
             return;
         }
 
-        final ImageLoader mImageLoader = Networking.getImageLoader(imageView.getContext());
-        mImageLoader.get(url, new ImageLoader.ImageListener() {
+        final MoPubImageLoader mImageLoader = Networking.getImageLoader(imageView.getContext());
+        mImageLoader.fetch(url, new MoPubImageLoader.ImageListener() {
             @Override
-            public void onResponse(final ImageLoader.ImageContainer imageContainer,
-                    final boolean isImmediate) {
+            public void onResponse(@NonNull final MoPubImageLoader.ImageContainer imageContainer,
+                                   final boolean isImmediate) {
                 if (!isImmediate) {
-                    MoPubLog.log(CUSTOM, "Image was not loaded immediately into your ad view. You should call preCacheImages as part of your custom event loading process.");
+                    MoPubLog.log(CUSTOM, "Image was not loaded immediately into your ad view. You should call " +
+                            "preCacheImages as part of your custom event loading process.");
                 }
                 imageView.setImageBitmap(imageContainer.getBitmap());
             }
 
             @Override
-            public void onErrorResponse(final VolleyError volleyError) {
-                MoPubLog.log(CUSTOM, "Failed to load image.", volleyError);
+            public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
+                MoPubLog.log(CUSTOM, "Failed to load image.", networkError);
                 imageView.setImageDrawable(null);
             }
-        });
+        }, ImageUtils.getMaxImageWidth(imageView.getContext()));
     }
 }

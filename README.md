@@ -18,19 +18,19 @@ Thank you for submitting pull requests to the MoPub Android GitHub repository. O
 
 The MoPub SDK is available via:
 
-1. **JCenter AAR**
+1. **Maven Central Repository**
     
-    [ ![Download](https://api.bintray.com/packages/mopub/mopub-android-sdk/mopub-android-sdk/images/download.svg)](https://bintray.com/mopub/mopub-android-sdk/mopub-android-sdk/_latestVersion)  
-    The MoPub SDK is available as an AAR via JCenter; to use it, add the following to your `build.gradle`.
+    [ ![Download](https://api.bintray.com/packages/mopub/mopub-android-sdk/mopub-android-sdk/images/download.svg)](https://search.maven.org/search?q=MoPub-sdk)  
+    The MoPub SDK is available as an AAR via Maven Central; to use it, add the following to your `build.gradle`.
     
     ```
     repositories {
-        jcenter() // includes the MoPub SDK
+        mavenCentral() // includes the MoPub SDK
         google() // necessary for Android API
     }
 
     dependencies {
-        implementation('com.mopub:mopub-sdk:5.16.4@aar') {
+        implementation('com.mopub:mopub-sdk:5.17.0@aar') {
             transitive = true
         }
     }
@@ -43,7 +43,7 @@ The MoPub SDK is available via:
     ```groovy
     repositories {
         // ... other project repositories
-        jcenter() // includes the MoPub SDK
+        mavenCentral() // includes the MoPub SDK
         google() // necessary for Android API
     }
 
@@ -51,17 +51,17 @@ The MoPub SDK is available via:
         // ... other project dependencies
 
         // For banners
-        implementation('com.mopub:mopub-sdk-banner:5.16.4@aar') {
+        implementation('com.mopub:mopub-sdk-banner:5.17.0@aar') {
             transitive = true
         }
         
         // For interstitials and rewarded ads
-        implementation('com.mopub:mopub-sdk-fullscreen:5.16.4@aar') {
+        implementation('com.mopub:mopub-sdk-fullscreen:5.17.0@aar') {
             transitive = true
         }
 
         // For native static (images).
-        implementation('com.mopub:mopub-sdk-native-static:5.16.4@aar') {
+        implementation('com.mopub:mopub-sdk-native-static:5.17.0@aar') {
             transitive = true
         }
     }
@@ -89,8 +89,14 @@ The MoPub SDK is available via:
 ## New in this Version
 Please view the [changelog](https://github.com/mopub/mopub-android-sdk/blob/master/CHANGELOG.md) for a complete list of additions, fixes, and enhancements in the latest release.
 
+- **Features**
+  - SDK binary artifacts are uploaded to Maven Central Repository. 
+  - Update AndroidX Media2 dependencies from version 1.1.1 to 1.1.3.
+  - Improve MoPub SDK modularization with 'mopub-sdk-networking' and 'mopub-sdk-util' libraries.
+  - Add ProGuard rules for AudioFocusHandler and MediaPlayer.
+
 - **Bug Fixes**
-  - Fix `InvalidStateException` when finishing VAST videos on some devices.
+  - Fix rare audio focus handling issue when application is in the background.
 
 ## Requirements
 
@@ -101,11 +107,11 @@ Please view the [changelog](https://github.com/mopub/mopub-android-sdk/blob/mast
 - androidx.recyclerview:recyclerview:1.0.0 (**Updated in 5.9.0**)
 - androidx.core:core-ktx:1.1.0 (**Added in 5.11.0**)
 - com.google.code.gson:gson:2.8.6 (**Added in 5.11.0**)
-- androidx.media2:media2-session:1.1.1 (**Updated in 5.16.0**)
-- androidx.media2:media2-widget:1.1.1 (**Updated in 5.16.0**)
-- androidx.media2:media2-player:1.1.1 (**Updated in 5.16.0**)
-- com.mopub:omsdk-android:1.3.4 (**Added in 5.14.0**)
-- MoPub Volley Library (mopub-volley-2.1.0.jar - available on JCenter) (**Updated in 5.6.0**)
+- androidx.media2:media2-session:1.1.3 (**Updated in 5.17.0**)
+- androidx.media2:media2-widget:1.1.3 (**Updated in 5.17.0**)
+- androidx.media2:media2-player:1.1.3 (**Updated in 5.17.0**)
+- com.mopub:omsdk-android:1.3.16 (**Updated in 5.15.0**)
+- MoPub Volley Library (mopub-volley-2.1.0.jar - available on Maven Central) (**Updated in 5.17.0**)
 - **Recommended** Google Play Services (com.google.android.gms:play-services-ads-identifier:17.0.0 and com.google.android.gms:play-services-base:17.5.0) (**Updated in 5.15.0**)
 - If you are integrating with v5.6.0 or later of the MoPub SDK, specify the `sourceCompatibility` and `targetCompatibility` as below to prevent compilation errors with ExoPlayer 2.9.5 and later:
 

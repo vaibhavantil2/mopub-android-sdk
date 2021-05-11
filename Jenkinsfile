@@ -1,156 +1,47 @@
 #!/usr/bin/env groovy
-def androidAutomationProjectName = "mopub-android-automation"
-
 pipeline {
     agent any
     environment {
         ANDROID_HOME = '/Users/jenkins/Library/Android/sdk'
-        ANDROID_BUILD_TOOLS_VERSION = '30.0.2'
-
-        APK_INTERNAL_RELEASE_SIGNED = 'mopub-sample/build/outputs/apk/internal/release/mopub-sample-internal-release-signed.apk'
-        APK_INTERNAL_RELEASE_UNSIGNED = 'mopub-sample/build/outputs/apk/internal/release/mopub-sample-internal-release-unsigned.apk'
-        APK_INTERNAL_RELEASE_UNSIGNED_ALIGNED = 'mopub-sample/build/outputs/apk/internal/release/mopub-sample-internal-release-unsigned-aligned.apk'
-
-        APK_EXTERNAL_RELEASE_SIGNED = 'mopub-sample/build/outputs/apk/external/release/mopub-sample-external-release-signed.apk'
-        APK_EXTERNAL_RELEASE_UNSIGNED = 'mopub-sample/build/outputs/apk/external/release/mopub-sample-external-release-unsigned.apk'
-        APK_EXTERNAL_RELEASE_UNSIGNED_ALIGNED = 'mopub-sample/build/outputs/apk/external/release/mopub-sample-external-release-unsigned-aligned.apk'
-
+        ANDROID_BUILD_TOOLS_VERSION = '30.0.3'
         projectName = """${
             sh(script: 'IFS="/" read -ra TOKENS <<< "${JOB_NAME}"; echo ${TOKENS[0]}', returnStdout: true).trim()
         }"""
         PARSED_JOB_NAME = URLDecoder.decode(env.JOB_NAME, 'UTF-8')
     }
     stages {
-        stage('Build AARs') {
+        stage('Unit Tests') {
             steps {
-                echo "Building the MoPub SDK AARs"
+                echo "Smoke Tests are running - ${PARSED_JOB_NAME}"
                 sh '''
-                    #!/bin/bash
-                    ./gradlew clean
-                    ./gradlew :mopub-sdk:build -x test
-                    ./gradlew :mopub-sdk:mopub-sdk-base:build -x test
-                    ./gradlew :mopub-sdk:mopub-sdk-banner:build -x test
-                    ./gradlew :mopub-sdk:mopub-sdk-fullscreen:build -x test
-                    ./gradlew :mopub-sdk:mopub-sdk-native-static:build -x test
-                '''
+                        #!/bin/bash
+                        ./gradlew clean build
+                   '''
             }
         }
-        stage('Build APKs') {
-            steps {
-                echo "Building the MoPub Sample App"
-                sh '''
-                    #!/bin/bash
-                    ./gradlew :mopub-sample:build -x test
-                '''
-            }
-        }
-        stage('Test') {
-            parallel {
-                stage('Running the MoPub SDK Unit Tests') {
-                    steps {
-                        echo "Running the MoPub SDK Unit Tests"
-                        sh '''
-                            #!/bin/bash
-                            ./gradlew :mopub-sdk:test -x build
-                        '''
-                    }
-                }
-                stage('External Android automation tests') {
-                    steps {
-                        echo "External Automation Tests are running - ${PARSED_JOB_NAME}"
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                            sh '''
-                                #!/bin/bash
-                                chmod +x scripts/private/android.sh
-                                scripts/private/android.sh
-                            '''
-                        }
-                    }
-                }
-                stage('Internal Android automation tests') {
-                    steps {
-                        echo "Internal Automation Tests are running - ${PARSED_JOB_NAME}"
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                            sh '''
-                                #!/bin/bash
-                                chmod +x scripts/private/androidRT.sh
-                                scripts/private/androidRT.sh
-                            '''
-                        }
-                    }
-                }
-            }
-        }
-        stage('Publish Test Results') {
+
+        stage('Sign apk') {
             steps {
                 script {
-                    publishHTML (target : [allowMissing: true,
-                        alwaysLinkToLastBuild: false,
-                        keepAll: true,
-                        reportDir: 'mopub-sample/build/reports/androidTests/connected/flavors/EXTERNAL',
-                        reportFiles: '**/*',
-                        reportName: 'Android EXTERNAL Automation Test Results'])
-                    publishHTML (target : [allowMissing: true,
-                        alwaysLinkToLastBuild: false,
-                        keepAll: true,
-                        reportDir: 'mopub-sample/build/reports/androidTests/connected/flavors/INTERNAL',
-                        reportFiles: '**/*',
-                        reportName: 'Android INTERNAL Automation Test Results'])
-                    junit 'mopub-sdk/build/test-results/**/*.xml'
-                }
-            }
-        }
-        stage('Sign apk') {
-            parallel {
-                stage('Internal') {
-                    steps {
-                        script {
-                            // Remove old APKs generated by this step
-                            sh 'rm -f $APK_INTERNAL_RELEASE_SIGNED'
-                            sh 'rm -f $APK_INTERNAL_RELEASE_UNSIGNED_ALIGNED'
-
-                            // If something in this step fails, allow the pipeline to continue
-                            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                                // Create unsigned and aligned APK from unsigned APK
-                                sh '$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION/zipalign -v -p 4 $APK_INTERNAL_RELEASE_UNSIGNED $APK_INTERNAL_RELEASE_UNSIGNED_ALIGNED'
-
-                                // Use credentials to create signed APK from unsigned and aligned APK
-                                withCredentials([string(credentialsId: 'android_store_key_pass', variable: 'JKS_PASS')]) {
-                                    sh '$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION/apksigner sign --ks ~/google_play_key.jks --ks-pass pass:$JKS_PASS --out $APK_INTERNAL_RELEASE_SIGNED $APK_INTERNAL_RELEASE_UNSIGNED_ALIGNED'
-                                }
-                            }
-                        }
+                    sh '$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION/zipalign -v -p 4 mopub-sample/build/outputs/apk/external/release/mopub-sample-external-release-unsigned.apk mopub-sample/build/outputs/apk/external/release/mopub-sample-external-release-unsigned-aligned.apk'
+                    if (fileExists('mopub-sample/build/outputs/apk/internal/release/mopub-sample-internal-release-unsigned.apk')) {
+                        sh '$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION/zipalign -v -p 4 mopub-sample/build/outputs/apk/internal/release/mopub-sample-internal-release-unsigned.apk mopub-sample/build/outputs/apk/internal/release/mopub-sample-internal-release-unsigned-aligned.apk'
                     }
-                }
-                stage('External') {
-                    steps {
-                        script {
-                            // Remove old APKs generated by this step
-                            sh 'rm -f $APK_EXTERNAL_RELEASE_SIGNED'
-                            sh 'rm -f $APK_EXTERNAL_RELEASE_UNSIGNED_ALIGNED'
-
-                            // If something in this step fails, allow the pipeline to continue
-                            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                                // Create unsigned and aligned APK from unsigned APK
-                                sh '$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION/zipalign -v -p 4 $APK_EXTERNAL_RELEASE_UNSIGNED $APK_EXTERNAL_RELEASE_UNSIGNED_ALIGNED'
-
-                                // Use credentials to create signed APK from unsigned and aligned APK
-                                withCredentials([string(credentialsId: 'android_store_key_pass', variable: 'JKS_PASS')]) {
-                                    sh '$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION/apksigner sign --ks ~/google_play_key.jks --ks-pass pass:$JKS_PASS --out $APK_EXTERNAL_RELEASE_SIGNED $APK_EXTERNAL_RELEASE_UNSIGNED_ALIGNED'
-                                }
-                            }
+                    withCredentials([string(credentialsId: 'android_store_key_pass', variable: 'JKS_PASS')]) {
+                        sh '$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION/apksigner sign --ks ~/google_play_key.jks --ks-pass pass:$JKS_PASS --out mopub-sample/build/outputs/apk/external/release/mopub-sample-external-release-signed.apk mopub-sample/build/outputs/apk/external/release/mopub-sample-external-release-unsigned-aligned.apk'
+                        if (fileExists('mopub-sample/build/outputs/apk/internal/release/mopub-sample-internal-release-unsigned-aligned.apk')) {
+                            sh '$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION/apksigner sign --ks ~/google_play_key.jks --ks-pass pass:$JKS_PASS --out mopub-sample/build/outputs/apk/internal/release/mopub-sample-internal-release-signed.apk mopub-sample/build/outputs/apk/internal/release/mopub-sample-internal-release-unsigned-aligned.apk'
                         }
                     }
                 }
             }
         }
+
         stage('Archive') {
             steps {
-                script {
-                    archiveArtifacts artifacts: 'mopub-sample/build/outputs/**/*.apk', excludes: 'mopub-sample/build/outputs/**/*unsigned.apk, mopub-sample/build/outputs/**/*aligned.apk', onlyIfSuccessful: true
-                    archiveArtifacts artifacts: 'mopub-sdk/build/outputs/aar/mopub-sdk-*.aar', onlyIfSuccessful: true
-                    archiveArtifacts artifacts: 'mopub-sdk/mopub-sdk-*/build/outputs/aar/mopub-sdk-*.aar', onlyIfSuccessful: true
-                }
+                archiveArtifacts artifacts: 'mopub-sample/build/outputs/**/*.apk', excludes: 'mopub-sample/build/outputs/**/*unsigned.apk, mopub-sample/build/outputs/**/*aligned.apk', onlyIfSuccessful: true
+                archiveArtifacts artifacts: 'mopub-sdk/build/outputs/aar/mopub-sdk-*.aar', onlyIfSuccessful: true
+                archiveArtifacts artifacts: 'mopub-sdk/mopub-sdk-*/build/outputs/aar/mopub-sdk-*.aar', onlyIfSuccessful: true
             }
         }
     }

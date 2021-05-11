@@ -16,9 +16,7 @@ import com.mopub.common.logging.MoPubLog;
 import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.Networking;
-import com.mopub.volley.VolleyError;
 
-import static com.mopub.common.logging.MoPubLog.ConsentLogEvent.LOAD_ATTEMPTED;
 import static com.mopub.common.logging.MoPubLog.ConsentLogEvent.LOAD_FAILED;
 import static com.mopub.common.logging.MoPubLog.ConsentLogEvent.LOAD_SUCCESS;
 import static com.mopub.common.logging.MoPubLog.ConsentLogEvent.SHOW_ATTEMPTED;
@@ -43,7 +41,7 @@ public class ConsentDialogController implements ConsentDialogRequest.Listener {
     }
 
     @Override
-    public void onSuccess(final ConsentDialogResponse response) {
+    public void onResponse(@NonNull final ConsentDialogResponse response) {
         mRequestInFlight = false;
         mHtmlBody = response.getHtml();
         if (TextUtils.isEmpty(mHtmlBody)) {
@@ -65,7 +63,7 @@ public class ConsentDialogController implements ConsentDialogRequest.Listener {
     }
 
     @Override
-    public void onErrorResponse(final VolleyError volleyError) {
+    public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
         final ConsentDialogListener loadListener = mExtListener;
         resetState();
 
@@ -73,17 +71,13 @@ public class ConsentDialogController implements ConsentDialogRequest.Listener {
             return;
         }
 
-        if (volleyError instanceof MoPubNetworkError) {
-            switch(((MoPubNetworkError) volleyError).getReason()) {
-                case BAD_BODY:
-                    MoPubLog.log(LOAD_FAILED, MoPubErrorCode.INTERNAL_ERROR.getIntCode(),
-                            MoPubErrorCode.INTERNAL_ERROR);
-                    loadListener.onConsentDialogLoadFailed(MoPubErrorCode.INTERNAL_ERROR);
-                    return;
-                default:
-                    MoPubLog.log(LOAD_FAILED, MoPubErrorCode.UNSPECIFIED.getIntCode(),
-                            MoPubErrorCode.UNSPECIFIED);
-                    break;
+        if (networkError.getReason() != null) {
+            if (networkError.getReason() == MoPubNetworkError.Reason.BAD_BODY) {
+                MoPubLog.log(LOAD_FAILED, MoPubErrorCode.INTERNAL_ERROR.getIntCode(), MoPubErrorCode.INTERNAL_ERROR);
+                loadListener.onConsentDialogLoadFailed(MoPubErrorCode.INTERNAL_ERROR);
+                return;
+            } else {
+                MoPubLog.log(LOAD_FAILED, MoPubErrorCode.UNSPECIFIED.getIntCode(), MoPubErrorCode.UNSPECIFIED);
             }
         }
 

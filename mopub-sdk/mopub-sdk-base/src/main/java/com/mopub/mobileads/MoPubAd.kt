@@ -9,8 +9,6 @@ import android.location.Location
 import android.view.View
 import com.mopub.common.AdFormat
 import com.mopub.common.MoPub
-import com.mopub.common.logging.MoPubLog
-import com.mopub.common.logging.MoPubLog.AdLogEvent
 import com.mopub.mobileads.AdLifecycleListener.LoadListener
 import com.mopub.mobileads.AdLifecycleListener.InteractionListener
 import java.util.*

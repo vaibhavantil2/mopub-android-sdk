@@ -19,11 +19,12 @@ import androidx.core.content.ContextCompat;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.util.Dips;
+import com.mopub.common.util.ImageUtils;
 import com.mopub.mobileads.base.R;
 import com.mopub.mobileads.resource.DrawableConstants;
+import com.mopub.network.MoPubImageLoader;
+import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.Networking;
-import com.mopub.volley.VolleyError;
-import com.mopub.volley.toolbox.ImageLoader;
 
 import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
@@ -32,7 +33,7 @@ import static com.mopub.common.logging.MoPubLog.SdkLogEvent.ERROR_WITH_THROWABLE
 public class VastVideoCloseButtonWidget extends RelativeLayout {
     @NonNull private TextView mTextView;
     @NonNull private ImageView mImageView;
-    @NonNull private final ImageLoader mImageLoader;
+    @NonNull private final MoPubImageLoader mImageLoader;
     private boolean mHasCustomImage;
 
     private final int mEdgePadding;
@@ -107,11 +108,11 @@ public class VastVideoCloseButtonWidget extends RelativeLayout {
         }
     }
 
-    void updateCloseButtonIcon(@NonNull final String imageUrl) {
-        mImageLoader.get(imageUrl, new ImageLoader.ImageListener() {
+    void updateCloseButtonIcon(@NonNull final String imageUrl, @NonNull Context context) {
+        mImageLoader.fetch(imageUrl, new MoPubImageLoader.ImageListener() {
             @Override
-            public void onResponse(final ImageLoader.ImageContainer imageContainer,
-                    final boolean isImmediate) {
+            public void onResponse(@NonNull final MoPubImageLoader.ImageContainer imageContainer,
+                                   final boolean isImmediate) {
                 Bitmap bitmap = imageContainer.getBitmap();
                 if (bitmap != null) {
                     mImageView.setImageBitmap(bitmap);
@@ -122,10 +123,10 @@ public class VastVideoCloseButtonWidget extends RelativeLayout {
             }
 
             @Override
-            public void onErrorResponse(final VolleyError volleyError) {
-                MoPubLog.log(ERROR_WITH_THROWABLE, "Failed to load image.", volleyError);
+            public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
+                MoPubLog.log(ERROR_WITH_THROWABLE, "Failed to load image.", networkError);
             }
-        });
+        }, ImageUtils.getMaxImageWidth(context));
     }
 
     void setOnTouchListenerToContent(@Nullable View.OnTouchListener onTouchListener) {

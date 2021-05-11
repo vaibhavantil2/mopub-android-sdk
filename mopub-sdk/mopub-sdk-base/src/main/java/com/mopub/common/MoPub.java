@@ -19,6 +19,7 @@ import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.privacy.PersonalInfoManager;
 import com.mopub.common.util.Reflection;
 import com.mopub.network.Networking;
+import com.mopub.network.PlayServicesUrlRewriter;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -31,13 +32,15 @@ import static com.mopub.common.logging.MoPubLog.SdkLogEvent.INIT_FINISHED;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.INIT_STARTED;
 
 public class MoPub {
-    public static final String SDK_VERSION = "5.16.4";
+    public static final String SDK_VERSION = "5.17.0";
 
     public enum LocationAwareness { NORMAL, TRUNCATED, DISABLED }
 
     /**
-     * Browser agent to handle URIs with scheme HTTP or HTTPS
+     * Browser agent to handle URIs.
+     * @deprecated in favor of {@link BrowserAgentManager.BrowserAgent}.
      */
+    @Deprecated
     public enum BrowserAgent {
         /**
          * MoPub's in-app browser
@@ -55,7 +58,10 @@ public class MoPub {
          * For null or all other undefined values, returns default browser agent IN_APP.
          * @param browserAgent Integer header value from MoPub's AdServer.
          * @return IN_APP for 0, NATIVE for 1, and IN_APP for null or all other undefined values.
+         *
+         * @deprecated Use {@link BrowserAgentManager.BrowserAgent#fromHeader(Integer)} instead.
          */
+        @Deprecated
         @NonNull
         public static BrowserAgent fromHeader(@Nullable final Integer browserAgent) {
             if (browserAgent == null) {
@@ -64,6 +70,12 @@ public class MoPub {
 
             return browserAgent == 1 ? NATIVE : IN_APP;
         }
+
+        @Deprecated
+        @NonNull BrowserAgentManager.BrowserAgent toBrowserAgentFromManager() {
+            return (this == BrowserAgent.IN_APP) ? BrowserAgentManager.BrowserAgent.IN_APP :
+                    BrowserAgentManager.BrowserAgent.NATIVE;
+        }
     }
 
     private static final String MOPUB_REWARDED_ADS =
@@ -71,8 +83,6 @@ public class MoPub {
     private static final String MOPUB_REWARDED_AD_MANAGER =
             "com.mopub.mobileads.MoPubRewardedAdManager";
 
-    @NonNull private static volatile BrowserAgent sBrowserAgent = BrowserAgent.IN_APP;
-    private static volatile boolean sIsBrowserAgentOverriddenByClient = false;
     private static boolean sSearchedForUpdateActivityMethod = false;
     @Nullable private static Method sUpdateActivityMethod;
     private static boolean sSdkInitialized = false;
@@ -113,29 +123,35 @@ public class MoPub {
         return LocationService.getInstance().getMinimumLocationRefreshTimeMillis();
     }
 
+    /**
+     * @deprecated Use {@link BrowserAgentManager#setBrowserAgent(BrowserAgentManager.BrowserAgent)} instead.
+     */
+    @Deprecated
     public static void setBrowserAgent(@NonNull final BrowserAgent browserAgent) {
         Preconditions.checkNotNull(browserAgent);
 
-        sBrowserAgent = browserAgent;
-        sIsBrowserAgentOverriddenByClient = true;
+        BrowserAgentManager.setBrowserAgent(browserAgent.toBrowserAgentFromManager());
     }
 
-    public static void setBrowserAgentFromAdServer(
-            @NonNull final BrowserAgent adServerBrowserAgent) {
+    /**
+     * @deprecated Use {@link BrowserAgentManager#setBrowserAgentFromAdServer(BrowserAgentManager.BrowserAgent)}
+     * instead.
+     */
+    @Deprecated
+    public static void setBrowserAgentFromAdServer(@NonNull final BrowserAgent adServerBrowserAgent) {
         Preconditions.checkNotNull(adServerBrowserAgent);
 
-        if (sIsBrowserAgentOverriddenByClient) {
-            MoPubLog.log(CUSTOM, "Browser agent already overridden by client with value " + sBrowserAgent);
-        } else {
-            sBrowserAgent = adServerBrowserAgent;
-        }
+        BrowserAgentManager.setBrowserAgentFromAdServer(adServerBrowserAgent.toBrowserAgentFromManager());
     }
 
+    /**
+     * @deprecated Use {@link BrowserAgentManager#getBrowserAgent()} instead.
+     */
+    @Deprecated
     @NonNull
     public static BrowserAgent getBrowserAgent() {
-        Preconditions.checkNotNull(sBrowserAgent);
-
-        return sBrowserAgent;
+        return (BrowserAgentManager.getBrowserAgent() == BrowserAgentManager.BrowserAgent.IN_APP) ?
+                BrowserAgent.IN_APP : BrowserAgent.NATIVE;
     }
 
     /**
@@ -173,8 +189,8 @@ public class MoPub {
      * @param sdkInitializationListener Callback for when SDK initialization finishes.
      */
     public static void initializeSdk(@NonNull final Context context,
-            @NonNull final SdkConfiguration sdkConfiguration,
-            @Nullable final SdkInitializationListener sdkInitializationListener) {
+                                     @NonNull final SdkConfiguration sdkConfiguration,
+                                     @Nullable final SdkInitializationListener sdkInitializationListener) {
         Preconditions.checkNotNull(context);
         Preconditions.checkNotNull(sdkConfiguration);
 
@@ -213,7 +229,7 @@ public class MoPub {
         sSdkInitializing = true;
 
         // Guarantees initialization of the request queue on the main thread.
-        Networking.getRequestQueue(context);
+        Networking.getRequestQueue(context, new PlayServicesUrlRewriter());
 
         final InternalSdkInitializationListener internalSdkInitializationListener =
                 new InternalSdkInitializationListener(sdkInitializationListener);
@@ -289,18 +305,6 @@ public class MoPub {
     @Nullable
     public static PersonalInfoManager getPersonalInformationManager() {
         return sPersonalInfoManager;
-    }
-
-    @VisibleForTesting
-    static boolean isBrowserAgentOverriddenByClient() {
-        return sIsBrowserAgentOverriddenByClient;
-    }
-
-    @VisibleForTesting
-    @Deprecated
-    public static void resetBrowserAgent() {
-        sBrowserAgent = BrowserAgent.IN_APP;
-        sIsBrowserAgentOverriddenByClient = false;
     }
 
     //////// MoPub LifecycleListener messages ////////

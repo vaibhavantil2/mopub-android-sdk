@@ -6,6 +6,7 @@ apply from: '../shared-build.gradle'
 
 dependencies {
     api project(':mopub-sdk:mopub-sdk-base')
+    implementation project(':mopub-sdk:mopub-sdk-networking')
 }
 
 project.description = 'MoPub Android SDK - Fullscreen'

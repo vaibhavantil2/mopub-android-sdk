@@ -11,10 +11,9 @@ import android.os.SystemClock;
 import com.mopub.common.ClientMetadata;
 import com.mopub.common.MoPub;
 import com.mopub.common.test.support.SdkTestRunner;
+import com.mopub.network.MoPubRequest;
 import com.mopub.network.MoPubRequestQueue;
-import com.mopub.network.MoPubRequestQueueTest;
 import com.mopub.network.Networking;
-import com.mopub.volley.Request;
 
 import org.junit.After;
 import org.junit.Before;
@@ -71,7 +70,7 @@ public class PersonalInfoManagerTest {
         when(mockMoPubIdentifier.getAdvertisingInfo()).thenReturn(mockAdvertisingId);
 
         PowerMockito.mockStatic(Networking.class);
-        mockRequestQueue = mock(MoPubRequestQueueTest.TestMoPubRequestQueue2.class);
+        mockRequestQueue = mock(MoPubRequestQueue.class);
         when(Networking.getRequestQueue(any(Context.class))).thenReturn(mockRequestQueue);
         when(Networking.getScheme()).thenReturn("https");
 
@@ -355,7 +354,7 @@ public class PersonalInfoManagerTest {
 
         subject.changeConsentStateFromDialog(ConsentStatus.EXPLICIT_YES);
 
-        verify(mockRequestQueue).add(any(Request.class));
+        verify(mockRequestQueue).add(any(MoPubRequest.class));
         assertThat(subject.getPersonalInfoConsentStatus()).isEqualTo(ConsentStatus.EXPLICIT_YES);
         assertThat(personalInfoData.getConsentChangeReason()).isEqualTo(
                 ConsentChangeReason.GRANTED_BY_USER.getReason());
@@ -370,7 +369,7 @@ public class PersonalInfoManagerTest {
 
         subject.changeConsentStateFromDialog(ConsentStatus.EXPLICIT_NO);
 
-        verify(mockRequestQueue).add(any(Request.class));
+        verify(mockRequestQueue).add(any(MoPubRequest.class));
         assertThat(subject.getPersonalInfoConsentStatus()).isEqualTo(ConsentStatus.EXPLICIT_NO);
         assertThat(personalInfoData.getConsentChangeReason()).isEqualTo(
                 ConsentChangeReason.DENIED_BY_USER.getReason());

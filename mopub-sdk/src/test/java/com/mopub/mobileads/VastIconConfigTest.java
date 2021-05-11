@@ -20,7 +20,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.robolectric.Robolectric;
 
-import static com.mopub.common.VolleyRequestMatcher.isUrl;
+import static com.mopub.common.MoPubRequestMatcher.isUrl;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.verify;
@@ -50,7 +50,7 @@ public class VastIconConfigTest {
     }
 
     @Test
-    public void constructor_shouldSetParamsCorrectly() throws Exception {
+    public void constructor_shouldSetParamsCorrectly() {
         assertThat(subject.getWidth()).isEqualTo(123);
         assertThat(subject.getHeight()).isEqualTo(456);
         assertThat(subject.getOffsetMS()).isEqualTo(789);
@@ -67,7 +67,7 @@ public class VastIconConfigTest {
     }
 
     @Test
-    public void constructor_withNullOffset_shouldSetOffsetTo0() throws Exception {
+    public void constructor_withNullOffset_shouldSetOffsetTo0() {
         subject = new VastIconConfig(123, 456, null, 101,
                 new VastResource("resource", VastResource.Type.STATIC_RESOURCE, VastResource
                         .CreativeType.IMAGE, 123, 456),
@@ -80,7 +80,7 @@ public class VastIconConfigTest {
     }
 
     @Test
-    public void handleImpression_shouldTrackImpression() throws Exception {
+    public void handleImpression_shouldTrackImpression() {
         subject.handleImpression(context, 123, "uri");
 
         verify(mockRequestQueue).add(argThat(isUrl("viewTrackerOne")));
@@ -88,7 +88,7 @@ public class VastIconConfigTest {
     }
 
     @Test
-    public void handleClick_shouldNotTrackClick() throws Exception {
+    public void handleClick_shouldNotTrackClick() {
         subject.handleClick(context, null, dspCreativeId);
 
         verifyNoMoreInteractions(mockRequestQueue);
@@ -96,7 +96,7 @@ public class VastIconConfigTest {
 
 
     @Test
-    public void handleClick_shouldOpenMoPubBrowser() throws Exception {
+    public void handleClick_shouldOpenMoPubBrowser() {
         subject.handleClick(context, null, dspCreativeId);
 
         Robolectric.flushBackgroundThreadScheduler();

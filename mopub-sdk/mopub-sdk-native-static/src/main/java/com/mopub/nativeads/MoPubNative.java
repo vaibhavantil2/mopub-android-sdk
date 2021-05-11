@@ -21,9 +21,8 @@ import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.network.AdLoader;
 import com.mopub.network.AdResponse;
 import com.mopub.network.MoPubNetworkError;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Request;
-import com.mopub.volley.VolleyError;
+import com.mopub.network.MoPubNetworkResponse;
+import com.mopub.network.MoPubRequest;
 
 import java.lang.ref.WeakReference;
 import java.util.Map;
@@ -73,8 +72,8 @@ public class MoPubNative {
     @NonNull private Map<String, Object> mLocalExtras = new TreeMap<String, Object>();
     @Nullable private AdLoader mAdLoader;
     @Nullable private CustomEventNativeAdapter mNativeAdapter;
-    @NonNull private final AdLoader.Listener mVolleyListener;
-    @Nullable private Request mNativeRequest;
+    @NonNull private final AdLoader.Listener moPubResponseListener;
+    @Nullable private MoPubRequest mNativeRequest;
     @NonNull AdRendererRegistry mAdRendererRegistry;
     @Nullable
     private NativeAd mNativeAd;
@@ -101,15 +100,15 @@ public class MoPubNative {
         mAdUnitId = adUnitId;
         mMoPubNativeNetworkListener = moPubNativeNetworkListener;
         mAdRendererRegistry = adRendererRegistry;
-        mVolleyListener = new AdLoader.Listener() {
+        moPubResponseListener = new AdLoader.Listener() {
             @Override
-            public void onSuccess(@NonNull final AdResponse response) {
+            public void onResponse(@NonNull final AdResponse response) {
                 onAdLoad(response);
             }
 
             @Override
-            public void onErrorResponse(@NonNull final VolleyError volleyError) {
-                onAdError(volleyError);
+            public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
+                onAdError(networkError);
             }
         };
     }
@@ -193,10 +192,6 @@ public class MoPubNative {
 
         final String endpointUrl = generator.generateUrlString(Constants.HOST);
 
-        if (endpointUrl != null) {
-            MoPubLog.log(CUSTOM, "MoPubNative Loading ad from: " + endpointUrl);
-        }
-
         requestNativeAd(endpointUrl, null);
     }
 
@@ -211,7 +206,7 @@ public class MoPubNative {
                 mMoPubNativeNetworkListener.onNativeFail(errorCode == null ? INVALID_REQUEST_URL : errorCode);
                 return;
             } else {
-                mAdLoader = new AdLoader(endpointUrl, AdFormat.NATIVE, mAdUnitId, context, mVolleyListener);
+                mAdLoader = new AdLoader(endpointUrl, AdFormat.NATIVE, mAdUnitId, context, moPubResponseListener);
             }
         }
         mNativeRequest = mAdLoader.loadNextAd(errorCode);
@@ -273,14 +268,11 @@ public class MoPubNative {
     }
 
     @VisibleForTesting
-    void onAdError(@NonNull final VolleyError volleyError) {
-        MoPubLog.log(CUSTOM_WITH_THROWABLE, "Native ad request failed.", volleyError);
-        if (volleyError instanceof MoPubNetworkError) {
-            MoPubNetworkError error = (MoPubNetworkError) volleyError;
-            switch (error.getReason()) {
+    void onAdError(@NonNull final MoPubNetworkError networkError) {
+        MoPubLog.log(CUSTOM_WITH_THROWABLE, "Native ad request failed.", networkError);
+        if (networkError.getReason() != null) {
+            switch (networkError.getReason()) {
                 case BAD_BODY:
-                    mMoPubNativeNetworkListener.onNativeFail(INVALID_RESPONSE);
-                    return;
                 case BAD_HEADER_DATA:
                     mMoPubNativeNetworkListener.onNativeFail(INVALID_RESPONSE);
                     return;
@@ -288,23 +280,22 @@ public class MoPubNative {
                     // Used for the sample app to signal a toast.
                     // This is not customer-facing except in the sample app.
                     MoPubLog.log(CUSTOM, MoPubErrorCode.WARMUP);
-                    mMoPubNativeNetworkListener.onNativeFail(EMPTY_AD_RESPONSE);
-                    return;
                 case NO_FILL:
                     mMoPubNativeNetworkListener.onNativeFail(EMPTY_AD_RESPONSE);
                     return;
                 case TOO_MANY_REQUESTS:
                     mMoPubNativeNetworkListener.onNativeFail(TOO_MANY_REQUESTS);
                     return;
+                case NO_CONNECTION:
+                    mMoPubNativeNetworkListener.onNativeFail(CONNECTION_ERROR);
                 case UNSPECIFIED:
                 default:
                     mMoPubNativeNetworkListener.onNativeFail(UNSPECIFIED);
-                    return;
             }
         } else {
             // Process our other status code errors.
-            NetworkResponse response = volleyError.networkResponse;
-            if (response != null && response.statusCode >= 500 && response.statusCode < 600) {
+            MoPubNetworkResponse response = networkError.getNetworkResponse();
+            if (response != null && response.getStatusCode() >= 500 && response.getStatusCode() < 600) {
                 mMoPubNativeNetworkListener.onNativeFail(SERVER_ERROR_RESPONSE_CODE);
             } else if (response == null && !DeviceUtils.isNetworkAvailable(mContext.get())) {
                 MoPubLog.log(CUSTOM, MoPubErrorCode.NO_CONNECTION);

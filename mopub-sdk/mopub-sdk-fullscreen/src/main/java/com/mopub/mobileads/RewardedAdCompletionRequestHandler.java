@@ -16,10 +16,10 @@ import com.mopub.common.MoPub;
 import com.mopub.common.Preconditions;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.logging.MoPubLog;
+import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubRequestQueue;
+import com.mopub.network.MoPubRetryPolicy;
 import com.mopub.network.Networking;
-import com.mopub.volley.DefaultRetryPolicy;
-import com.mopub.volley.RequestQueue;
-import com.mopub.volley.VolleyError;
 
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 
@@ -52,7 +52,7 @@ public class RewardedAdCompletionRequestHandler implements
 
     @NonNull private final String mUrl;
     @NonNull private final Handler mHandler;
-    @NonNull private final RequestQueue mRequestQueue;
+    @NonNull private final MoPubRequestQueue mRequestQueue;
     @NonNull private final Context mContext;
     private int mRetryCount;
     private volatile boolean mShouldStop;
@@ -98,9 +98,10 @@ public class RewardedAdCompletionRequestHandler implements
         }
 
         final RewardedAdCompletionRequest rewardedAdCompletionRequest =
-                new RewardedAdCompletionRequest(mContext, mUrl,
-                        new DefaultRetryPolicy(getTimeout(mRetryCount) - REQUEST_TIMEOUT_DELAY,
-                                0, 0f), this);
+                new RewardedAdCompletionRequest(mContext,
+                        mUrl,
+                        new MoPubRetryPolicy(getTimeout(mRetryCount) - REQUEST_TIMEOUT_DELAY, 0, 0f),
+                        this);
         rewardedAdCompletionRequest.setTag(mUrl);
         mRequestQueue.add(rewardedAdCompletionRequest);
 
@@ -119,7 +120,7 @@ public class RewardedAdCompletionRequestHandler implements
     }
 
     @Override
-    public void onResponse(final Integer response) {
+    public void onResponse(@NonNull final Integer response) {
         // Only consider it a failure if we get a 5xx status code.
         if (response != null && !(response >= 500 && response < 600)) {
             mShouldStop = true;
@@ -127,10 +128,10 @@ public class RewardedAdCompletionRequestHandler implements
     }
 
     @Override
-    public void onErrorResponse(final VolleyError volleyError) {
-        if (volleyError != null && volleyError.networkResponse != null &&
-                !(volleyError.networkResponse.statusCode >= 500
-                        && volleyError.networkResponse.statusCode < 600)) {
+    public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
+        if (networkError.getNetworkResponse() != null
+                && !((networkError.getNetworkResponse().getStatusCode() >= 500)
+                    && (networkError.getNetworkResponse().getStatusCode() < 600))) {
             mShouldStop = true;
         }
     }

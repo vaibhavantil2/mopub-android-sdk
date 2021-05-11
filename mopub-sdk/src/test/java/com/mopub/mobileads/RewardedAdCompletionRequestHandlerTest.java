@@ -11,10 +11,10 @@ import android.os.Handler;
 
 import com.mopub.common.MoPub;
 import com.mopub.common.test.support.SdkTestRunner;
+import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubNetworkResponse;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.VolleyError;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -22,7 +22,9 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.robolectric.Robolectric;
 
-import static com.mopub.common.VolleyRequestMatcher.isUrl;
+import java.util.Collections;
+
+import static com.mopub.common.MoPubRequestMatcher.isUrl;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
@@ -56,7 +58,7 @@ public class RewardedAdCompletionRequestHandlerTest {
     }
 
     @Test
-    public void makeRewardedAdCompletionRequest_shouldAddMacros_shouldMakeVideoCompletionRequest() throws Exception {
+    public void makeRewardedAdCompletionRequest_shouldAddMacros_shouldMakeVideoCompletionRequest() {
         RewardedAdCompletionRequestHandler.makeRewardedAdCompletionRequest(context, url,
                 customerId, rewardName, rewardAmount, className, customData);
 
@@ -71,42 +73,42 @@ public class RewardedAdCompletionRequestHandlerTest {
     }
 
     @Test
-    public void makeRewardedAdCompletionRequest_withNullContext_shouldNotMakeVideoCompletionRequest() throws Exception {
+    public void makeRewardedAdCompletionRequest_withNullContext_shouldNotMakeVideoCompletionRequest() {
         RewardedAdCompletionRequestHandler.makeRewardedAdCompletionRequest(null, url,
                 customerId, rewardName, rewardAmount, className, customData);
         verifyZeroInteractions(mockRequestQueue);
     }
 
     @Test
-    public void makeRewardedAdCompletionRequest_withNullUrl_shouldNotMakeVideoCompletionRequest() throws Exception {
+    public void makeRewardedAdCompletionRequest_withNullUrl_shouldNotMakeVideoCompletionRequest() {
         RewardedAdCompletionRequestHandler.makeRewardedAdCompletionRequest(context, null,
                 customerId, rewardName, rewardAmount, className, customData);
         verifyZeroInteractions(mockRequestQueue);
     }
 
     @Test
-    public void makeRewardedAdCompletionRequest_withEmptyUrl_shouldNotMakeVideoCompletionRequest() throws Exception {
+    public void makeRewardedAdCompletionRequest_withEmptyUrl_shouldNotMakeVideoCompletionRequest() {
         RewardedAdCompletionRequestHandler.makeRewardedAdCompletionRequest(context, "",
                 customerId, rewardName, rewardAmount, className, customData);
         verifyZeroInteractions(mockRequestQueue);
     }
 
     @Test
-    public void makeRewardedAdCompletionRequest_withNullRewardName_shouldNotMakeVideoCompletionRequest() throws Exception {
+    public void makeRewardedAdCompletionRequest_withNullRewardName_shouldNotMakeVideoCompletionRequest() {
         RewardedAdCompletionRequestHandler.makeRewardedAdCompletionRequest(context, url,
                 customerId, null, rewardAmount, className, customData);
         verifyZeroInteractions(mockRequestQueue);
     }
 
     @Test
-    public void makeRewardedAdCompletionRequest_withNullRewardAmount_shouldNotMakeVideoCompletionRequest() throws Exception {
+    public void makeRewardedAdCompletionRequest_withNullRewardAmount_shouldNotMakeVideoCompletionRequest() {
         RewardedAdCompletionRequestHandler.makeRewardedAdCompletionRequest(context, url,
                 customerId, rewardName, null, className, customData);
         verifyZeroInteractions(mockRequestQueue);
     }
 
     @Test
-    public void makeRewardedAdCompletionRequest_withNullCustomEvent_shouldPassEmptyCustomEventQueryParam_shouldMakeVideoCompletionRequest() throws Exception {
+    public void makeRewardedAdCompletionRequest_withNullCustomEvent_shouldPassEmptyCustomEventQueryParam_shouldMakeVideoCompletionRequest() {
         RewardedAdCompletionRequestHandler.makeRewardedAdCompletionRequest(context, url,
                 customerId, rewardName, rewardAmount, null, customData);
 
@@ -121,7 +123,7 @@ public class RewardedAdCompletionRequestHandlerTest {
     }
 
     @Test
-    public void makeRewardedAdCompletionRequest_withAlreadyEncodedCustomData_shouldDoubleEncodeCustomData_shouldMakeVideoCompletionRequest() throws Exception {
+    public void makeRewardedAdCompletionRequest_withAlreadyEncodedCustomData_shouldDoubleEncodeCustomData_shouldMakeVideoCompletionRequest() {
         RewardedAdCompletionRequestHandler.makeRewardedAdCompletionRequest(context, url,
                 customerId, rewardName, rewardAmount, className, Uri.encode(customData));
 
@@ -136,7 +138,7 @@ public class RewardedAdCompletionRequestHandlerTest {
     }
 
     @Test
-    public void makeRewardedAdCompletionRequest_withNullCustomData_shouldAddAllOtherMacros_shouldMakeVideoCompletionRequest() throws Exception {
+    public void makeRewardedAdCompletionRequest_withNullCustomData_shouldAddAllOtherMacros_shouldMakeVideoCompletionRequest() {
         RewardedAdCompletionRequestHandler.makeRewardedAdCompletionRequest(context, url,
                 customerId, rewardName, rewardAmount, className, null);
 
@@ -150,7 +152,7 @@ public class RewardedAdCompletionRequestHandlerTest {
     }
 
     @Test
-    public void makeRewardedAdCompletionRequest_withEmptyCustomData_shouldAddAllOtherMacros_shouldMakeVideoCompletionRequest() throws Exception {
+    public void makeRewardedAdCompletionRequest_withEmptyCustomData_shouldAddAllOtherMacros_shouldMakeVideoCompletionRequest() {
         RewardedAdCompletionRequestHandler.makeRewardedAdCompletionRequest(context, url,
                 customerId, rewardName, rewardAmount, className, "");
 
@@ -196,32 +198,38 @@ public class RewardedAdCompletionRequestHandlerTest {
 
         assertThat(subject.getShouldStop()).isEqualTo(false);
 
-        subject.onErrorResponse(new VolleyError(new NetworkResponse(500, null, null, true)));
+        subject.onErrorResponse(new MoPubNetworkError.Builder().networkResponse(
+                new MoPubNetworkResponse(500, null, Collections.emptyMap())).build());
         assertThat(subject.getShouldStop()).isEqualTo(false);
 
         subject = new RewardedAdCompletionRequestHandler(context, url, customerId, rewardName,
                 rewardAmount, className, customData);
-        subject.onErrorResponse(new VolleyError(new NetworkResponse(501, null, null, true)));
+        subject.onErrorResponse(new MoPubNetworkError.Builder().networkResponse(
+                new MoPubNetworkResponse(501, null, Collections.emptyMap())).build());
         assertThat(subject.getShouldStop()).isEqualTo(false);
 
         subject = new RewardedAdCompletionRequestHandler(context, url, customerId, rewardName,
                 rewardAmount, className, customData);
-        subject.onErrorResponse(new VolleyError(new NetworkResponse(599, null, null, true)));
+        subject.onErrorResponse(new MoPubNetworkError.Builder().networkResponse(
+                new MoPubNetworkResponse(599, null, Collections.emptyMap())).build());
         assertThat(subject.getShouldStop()).isEqualTo(false);
 
         subject = new RewardedAdCompletionRequestHandler(context, url, customerId, rewardName,
                 rewardAmount, className, customData);
-        subject.onErrorResponse(new VolleyError(new NetworkResponse(200, null, null, true)));
+        subject.onErrorResponse(new MoPubNetworkError.Builder().networkResponse(
+                new MoPubNetworkResponse(200, null, Collections.emptyMap())).build());
         assertThat(subject.getShouldStop()).isEqualTo(true);
 
         subject = new RewardedAdCompletionRequestHandler(context, url, customerId, rewardName,
                 rewardAmount, className, customData);
-        subject.onErrorResponse(new VolleyError(new NetworkResponse(499, null, null, true)));
+        subject.onErrorResponse(new MoPubNetworkError.Builder().networkResponse(
+                new MoPubNetworkResponse(499, null, Collections.emptyMap())).build());
         assertThat(subject.getShouldStop()).isEqualTo(true);
 
         subject = new RewardedAdCompletionRequestHandler(context, url, customerId, rewardName,
                 rewardAmount, className, customData);
-        subject.onErrorResponse(new VolleyError(new NetworkResponse(600, null, null, true)));
+        subject.onErrorResponse(new MoPubNetworkError.Builder().networkResponse(
+                new MoPubNetworkResponse(600, null, Collections.emptyMap())).build());
         assertThat(subject.getShouldStop()).isEqualTo(true);
     }
 

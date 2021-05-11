@@ -9,11 +9,9 @@ import android.app.Activity;
 import com.mopub.common.Constants;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.network.MoPubNetworkError;
-import com.mopub.volley.DefaultRetryPolicy;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Response;
-import com.mopub.volley.RetryPolicy;
-import com.mopub.volley.VolleyError;
+import com.mopub.network.MoPubNetworkResponse;
+import com.mopub.network.MoPubResponse;
+import com.mopub.network.MoPubRetryPolicy;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -22,8 +20,12 @@ import org.mockito.Mock;
 import org.robolectric.Robolectric;
 
 import java.nio.charset.Charset;
+import java.util.Collections;
 
+import static com.mopub.network.MoPubRequest.DEFAULT_CONTENT_TYPE;
+import static com.mopub.network.MoPubRequest.JSON_CONTENT_TYPE;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,51 +50,69 @@ public class ConsentDialogRequestTest {
 
     @Test
     public void constructor_shouldSetParametersCorrectly() {
-        RetryPolicy retryPolicy = subject.getRetryPolicy();
+        MoPubRetryPolicy retryPolicy = subject.getRetryPolicy();
 
         assertThat(subject.getUrl()).isEqualTo(URL.substring(0, URL.indexOf('?')));
         assertThat(retryPolicy).isNotNull();
-        assertThat(retryPolicy.getCurrentTimeout()).isEqualTo(DefaultRetryPolicy.DEFAULT_TIMEOUT_MS);
-        assertThat(subject.shouldCache()).isFalse();
+        assertThat(retryPolicy.getInitialTimeoutMs()).isEqualTo(MoPubRetryPolicy.DEFAULT_TIMEOUT_MS);
+        assertThat(subject.getShouldCache()).isFalse();
+    }
+
+    @Test
+    public void getBodyContentType_withMoPubRequest_shouldReturnJsonContentType() {
+        assertEquals(JSON_CONTENT_TYPE, subject.getBodyContentType());
+    }
+
+    @Test
+    public void getBodyContentType_withNonMoPubRequest_shouldReturnDefaultContentType() {
+        String nonMoPubUrl = "https://www.abcdefg.com/xyz";
+        subject = new ConsentDialogRequest(activity, nonMoPubUrl, listener);
+
+        assertEquals(DEFAULT_CONTENT_TYPE, subject.getBodyContentType());
     }
 
     @Test
     public void parseNetworkResponse_withValidBody_shouldSucceed() {
-        NetworkResponse testResponse = new NetworkResponse(BODY.getBytes(Charset.defaultCharset()));
-        final Response<ConsentDialogResponse> response = subject.parseNetworkResponse(testResponse);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, BODY.getBytes(Charset.defaultCharset()),
+                Collections.emptyMap());
+        final MoPubResponse<ConsentDialogResponse> response = subject.parseNetworkResponse(testResponse);
 
-        assertThat(response.result).isNotNull();
-        assertThat(response.result.getHtml()).isEqualTo(HTML);
+        assertThat(response).isNotNull();
+        assertThat(response.getMoPubResult()).isNotNull();
+        assertThat(response.getMoPubResult().getHtml()).isEqualTo(HTML);
     }
 
     @Test
     public void parseNetworkResponse_withEmptyBody_shouldReturnErrorBadBody() {
-        NetworkResponse testResponse = new NetworkResponse("".getBytes(Charset.defaultCharset()));
-        final Response<ConsentDialogResponse> response = subject.parseNetworkResponse(testResponse);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(500, "".getBytes(Charset.defaultCharset()),
+                Collections.emptyMap());
+        final MoPubResponse<ConsentDialogResponse> response = subject.parseNetworkResponse(testResponse);
 
-        assertThat(response.error).isNotNull();
-        assertThat(response.error).isInstanceOf(MoPubNetworkError.class);
-        assertThat(((MoPubNetworkError) response.error).getReason()).isEqualTo(MoPubNetworkError.Reason.BAD_BODY);
+        assertThat(response).isNotNull();
+        assertThat(response.getMoPubNetworkError()).isNotNull();
+        assertEquals(MoPubNetworkError.Reason.BAD_BODY, response.getMoPubNetworkError().getReason());
     }
 
     @Test
     public void parseNetworkResponse_withBrokenJsonBody_shouldReturnErrorBadBody() {
-        NetworkResponse testResponse = new NetworkResponse("{ html - 'body' }".getBytes(Charset.defaultCharset()));
-        final Response<ConsentDialogResponse> response = subject.parseNetworkResponse(testResponse);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(500,
+                "{ html - 'body' }".getBytes(Charset.defaultCharset()), Collections.emptyMap());
+        final MoPubResponse<ConsentDialogResponse> response = subject.parseNetworkResponse(testResponse);
 
-        assertThat(response.error).isNotNull();
-        assertThat(response.error).isInstanceOf(MoPubNetworkError.class);
-        assertThat(((MoPubNetworkError) response.error).getReason()).isEqualTo(MoPubNetworkError.Reason.BAD_BODY);
+        assertThat(response).isNotNull();
+        assertThat(response.getMoPubNetworkError()).isNotNull();
+        assertEquals(MoPubNetworkError.Reason.BAD_BODY, response.getMoPubNetworkError().getReason());
     }
 
     @Test
     public void parseNetworkResponse_withJsonNoHtmlTag_shouldReturnErrorBadBody() {
-        NetworkResponse testResponse = new NetworkResponse("{ k: 1 }".getBytes(Charset.defaultCharset()));
-        final Response<ConsentDialogResponse> response = subject.parseNetworkResponse(testResponse);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(500, "{ k: 1 }".getBytes(Charset.defaultCharset()),
+                Collections.emptyMap());
+        final MoPubResponse<ConsentDialogResponse> response = subject.parseNetworkResponse(testResponse);
 
-        assertThat(response.error).isNotNull();
-        assertThat(response.error).isInstanceOf(MoPubNetworkError.class);
-        assertThat(((MoPubNetworkError) response.error).getReason()).isEqualTo(MoPubNetworkError.Reason.BAD_BODY);
+        assertThat(response).isNotNull();
+        assertThat(response.getMoPubNetworkError()).isNotNull();
+        assertEquals(MoPubNetworkError.Reason.BAD_BODY, response.getMoPubNetworkError().getReason());
     }
 
     @Test
@@ -100,7 +120,7 @@ public class ConsentDialogRequestTest {
         ConsentDialogResponse response = new ConsentDialogResponse("html-text");
         subject.deliverResponse(response);
 
-        verify(listener).onSuccess(response);
+        verify(listener).onResponse(response);
     }
 
     @Test
@@ -109,7 +129,7 @@ public class ConsentDialogRequestTest {
         ConsentDialogResponse response = new ConsentDialogResponse("html-text");
         subject.deliverResponse(response);
 
-        verify(listener, never()).onSuccess(any(ConsentDialogResponse.class));
-        verify(listener, never()).onErrorResponse(any(VolleyError.class));
+        verify(listener, never()).onResponse(any(ConsentDialogResponse.class));
+        verify(listener, never()).onErrorResponse(any(MoPubNetworkError.class));
     }
 }

@@ -42,11 +42,12 @@ import com.mopub.mobileads.resource.DrawableConstants;
 import com.mopub.mraid.MraidController;
 import com.mopub.mraid.PlacementType;
 import com.mopub.mraid.WebViewDebugListener;
+import com.mopub.network.MoPubImageLoader;
+import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.Networking;
 import com.mopub.network.TrackingRequest;
-import com.mopub.volley.VolleyError;
-import com.mopub.volley.toolbox.ImageLoader;
 
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -236,9 +237,9 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
                 return;
             }
             mImageView = new ImageView(mActivity);
-            Networking.getImageLoader(mActivity).get(imageUrl, new ImageLoader.ImageListener() {
+            Networking.getImageLoader(mActivity).fetch(imageUrl, new MoPubImageLoader.ImageListener() {
                 @Override
-                public void onResponse(ImageLoader.ImageContainer imageContainer, boolean b) {
+                public void onResponse(@NonNull MoPubImageLoader.ImageContainer imageContainer, boolean isImmediate) {
                     Bitmap bitmap = imageContainer.getBitmap();
                     if (mImageView != null && bitmap != null) {
                         mImageView.setAdjustViewBounds(true);
@@ -252,7 +253,7 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
                 }
 
                 @Override
-                public void onErrorResponse(VolleyError volleyError) {
+                public void onErrorResponse(@NonNull MoPubNetworkError networkError) {
                     MoPubLog.log(CUSTOM, String.format("Failed to retrieve image at %s", imageUrl));
                 }
             }, imageWidth, imageHeight, ImageView.ScaleType.CENTER_INSIDE);
@@ -493,9 +494,9 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
         if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
                 VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType())) {
             mImageView = new ImageView(mActivity);
-            Networking.getImageLoader(mActivity).get(vastResource.getResource(), new ImageLoader.ImageListener() {
+            Networking.getImageLoader(mActivity).fetch(vastResource.getResource(), new MoPubImageLoader.ImageListener() {
                 @Override
-                public void onResponse(ImageLoader.ImageContainer imageContainer, boolean b) {
+                public void onResponse(@NotNull MoPubImageLoader.ImageContainer imageContainer, boolean isImmediate) {
                     Bitmap bitmap = imageContainer.getBitmap();
                     if (mImageView != null && bitmap != null) {
                         mImageView.setAdjustViewBounds(true);
@@ -509,7 +510,7 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
                 }
 
                 @Override
-                public void onErrorResponse(VolleyError volleyError) {
+                public void onErrorResponse(@NotNull MoPubNetworkError networkError) {
                     MoPubLog.log(CUSTOM, String.format("Failed to retrieve image at %s",
                             vastResource.getResource()));
                 }
@@ -753,6 +754,30 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
 
     @Deprecated
     @VisibleForTesting
+    void setVideoTimeElapsed(final int videoTimeElapsed) {
+        mVideoTimeElapsed = videoTimeElapsed;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    int getVideoTimeElapsed() {
+        return mVideoTimeElapsed;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    void setOnVideoFinishCalled(final boolean onVideoFinishCalled) {
+        mOnVideoFinishCalled = onVideoFinishCalled;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    boolean getOnVideoFinishCalled() {
+        return mOnVideoFinishCalled;
+    }
+
+    @Deprecated
+    @VisibleForTesting
     @Nullable
     MoPubWebViewController getMoPubWebViewController() {
         return mMoPubWebViewController;
@@ -818,6 +843,12 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
 
     @Deprecated
     @VisibleForTesting
+    void setImageView(@Nullable ImageView imageView) {
+        mImageView = imageView;
+    }
+
+    @Deprecated
+    @VisibleForTesting
     void setBlurLastVideoFrameTask(@Nullable final VastVideoBlurLastVideoFrameTask blurLastVideoFrameTask) {
         mBlurLastVideoFrameTask = blurLastVideoFrameTask;
     }
@@ -852,9 +883,21 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
 
     @Deprecated
     @VisibleForTesting
+    void setSelectedVastCompanionAdConfig(@Nullable final VastCompanionAdConfig selectedVastCompanionAdConfig) {
+        mSelectedVastCompanionAdConfig = selectedVastCompanionAdConfig;
+    }
+
+    @Deprecated
+    @VisibleForTesting
     @Nullable
     BaseVideoViewController getVideoViewController() {
         return mVideoViewController;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    void setVideoViewController(@Nullable BaseVideoViewController videoViewController) {
+        mVideoViewController = videoViewController;
     }
 
     @Deprecated

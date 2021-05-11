@@ -7,7 +7,7 @@ package com.mopub.network;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.mopub.common.MoPub.BrowserAgent;
+import com.mopub.common.BrowserAgentManager.BrowserAgent;
 import com.mopub.common.Preconditions;
 import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.util.DateAndTime;

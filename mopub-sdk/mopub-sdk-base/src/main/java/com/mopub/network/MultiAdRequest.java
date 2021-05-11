@@ -4,8 +4,8 @@
 
 package com.mopub.network;
 
-
 import android.content.Context;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -14,15 +14,11 @@ import com.mopub.common.MoPub;
 import com.mopub.common.Preconditions;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.privacy.PersonalInfoManager;
-import com.mopub.volley.DefaultRetryPolicy;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Response;
-import com.mopub.volley.toolbox.HttpHeaderParser;
 
 import static com.mopub.common.logging.MoPubLog.AdLogEvent.CUSTOM;
 
 /**
- * Volley request class helper to support ad requests specifics
+ * {@link MoPubRequest} class helper to support ad requests specifics
  */
 public class MultiAdRequest extends MoPubRequest<MultiAdResponse> {
 
@@ -37,16 +33,18 @@ public class MultiAdRequest extends MoPubRequest<MultiAdResponse> {
 
     private int hashCode = 0;
 
-    public interface Listener extends Response.ErrorListener {
-        void onSuccessResponse(MultiAdResponse response);
-    }
+    public interface Listener extends MoPubResponse.Listener<MultiAdResponse> {}
 
     MultiAdRequest(@NonNull final String url,
                    @NonNull final AdFormat adFormat,
                    @Nullable final String adUnitId,
                    @NonNull final Context context,
                    @NonNull final Listener listener) {
-        super(context, clearUrlIfSdkNotInitialized(url), listener);
+        super(context,
+                clearUrlIfSdkNotInitialized(url),
+                MoPubRequestUtils.truncateQueryParamsIfPost(url),
+                MoPubRequestUtils.chooseMethod(url),
+                listener);
         Preconditions.checkNotNull(url);
         Preconditions.checkNotNull(adFormat);
         Preconditions.checkNotNull(context);
@@ -57,11 +55,6 @@ public class MultiAdRequest extends MoPubRequest<MultiAdResponse> {
         mAdFormat = adFormat;
         mContext = context.getApplicationContext();
 
-        DefaultRetryPolicy retryPolicy = new DefaultRetryPolicy(
-                DefaultRetryPolicy.DEFAULT_TIMEOUT_MS,
-                DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
-                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT);
-        setRetryPolicy(retryPolicy);
         setShouldCache(false);
 
         final PersonalInfoManager personalInfoManager = MoPub.getPersonalInformationManager();
@@ -85,6 +78,15 @@ public class MultiAdRequest extends MoPubRequest<MultiAdResponse> {
         return url;
     }
 
+    @NonNull
+    @Override
+    protected String getBodyContentType() {
+        if (MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return JSON_CONTENT_TYPE;
+        }
+        return super.getBodyContentType();
+    }
+
     /**
      * Callback from Volley to parse network response
      * @param networkResponse data to be parsed
@@ -92,35 +94,32 @@ public class MultiAdRequest extends MoPubRequest<MultiAdResponse> {
      */
     @Nullable
     @Override
-    protected Response<MultiAdResponse> parseNetworkResponse(NetworkResponse networkResponse) {
+    protected MoPubResponse<MultiAdResponse> parseNetworkResponse(final MoPubNetworkResponse networkResponse) {
         MultiAdResponse multiAdResponse;
         try {
             multiAdResponse = new MultiAdResponse(mContext, networkResponse, mAdFormat, mAdUnitId);
         } catch (Exception ex) {
             if (ex instanceof MoPubNetworkError) {
-                return Response.error((MoPubNetworkError) ex);
+                return MoPubResponse.error((MoPubNetworkError) ex);
             }
-            // Volley network error
-            return Response.error(new MoPubNetworkError(ex, MoPubNetworkError.Reason.UNSPECIFIED));
+            // JSON Exception
+            return MoPubResponse.error(new MoPubNetworkError.Builder(null, ex)
+                    .reason(MoPubNetworkError.Reason.UNSPECIFIED)
+                    .build());
         }
 
-        return Response.success(multiAdResponse, HttpHeaderParser.parseCacheHeaders(networkResponse));
+        return MoPubResponse.success(multiAdResponse, networkResponse);
     }
 
     /**
-     * Callback from Volley to deliver successful result to listener
+     * Callback to deliver successful response to listener
      * @param multiAdResponse valid object {@link MultiAdResponse}
      */
     @Override
-    protected void deliverResponse(MultiAdResponse multiAdResponse) {
+    protected void deliverResponse(@NonNull final MultiAdResponse multiAdResponse) {
         if (!isCanceled()) {
-            mListener.onSuccessResponse(multiAdResponse);
+            mListener.onResponse(multiAdResponse);
         }
-    }
-
-    @Override
-    public void cancel() {
-        super.cancel();
     }
 
     @Override

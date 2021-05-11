@@ -10,7 +10,6 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.mopub.common.MoPub.BrowserAgent;
 import com.mopub.common.privacy.SyncRequest;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.AsyncTasks;
@@ -18,18 +17,17 @@ import com.mopub.common.util.Reflection;
 import com.mopub.mobileads.MoPubRewardedAdListener;
 import com.mopub.mobileads.MoPubRewardedAdManager;
 import com.mopub.mobileads.MoPubRewardedAds;
+import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubRequest;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
 import com.mopub.network.TrackingRequest;
-import com.mopub.volley.Request;
-import com.mopub.volley.VolleyError;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -44,15 +42,15 @@ import java.util.Map;
 
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
 import static org.powermock.api.mockito.PowerMockito.verifyStatic;
 
-// If you encounter a VerifyError with PowerMock then you need to set Android Studio to use
-// JDK version 7u79 or later. Go to File > Project Structure > [Platform Settings] > SDK to
-// change the JDK version.
+// If you encounter a VerifyError with PowerMock then you need to set Android Studio to use JDK version 7u79 or later.
+// Go to File > Project Structure > [Platform Settings] > SDK to change the JDK version.
 @RunWith(SdkTestRunner.class)
 @Config(sdk = 21)
 @PowerMockIgnore({ "org.mockito.*", "org.robolectric.*", "android.*", "org.json.*", "com.mopub.network.CustomSSLSocketFactory" })
@@ -75,66 +73,67 @@ public class MoPubTest {
         mActivity = Robolectric.buildActivity(Activity.class).create().get();
         mMediationSettings = new MediationSettings[0];
 
-        mockInitializationListener = org.mockito.Mockito.mock(SdkInitializationListener.class);
-        mockRequestQueue = org.mockito.Mockito.mock(MoPubRequestQueue.class);
+        mockInitializationListener = mock(SdkInitializationListener.class);
+        mockRequestQueue = mock(MoPubRequestQueue.class);
         Networking.setRequestQueueForTesting(mockRequestQueue);
-        when(mockRequestQueue.add(any(Request.class))).then(new Answer<Object>() {
-            @Override
-            public Object answer(final InvocationOnMock invocationOnMock) throws Throwable {
-                Request req = ((Request) invocationOnMock.getArguments()[0]);
-                if (req.getClass().equals(SyncRequest.class)) {
-                    syncListener = (SyncRequest.Listener) req.getErrorListener();
-                    syncListener.onErrorResponse(new VolleyError());
-                    return null;
-                } else if (req.getClass().equals(TrackingRequest.class)) {
-                    return null;
-                } else {
-                    throw new Exception(String.format("Request object added to RequestQueue can " +
-                            "only be of type SyncRequest, " + "saw %s instead.", req.getClass()));
-                }
+        doAnswer((Answer<Object>) invocationOnMock -> {
+            MoPubRequest<?> req = ((MoPubRequest<?>) invocationOnMock.getArguments()[0]);
+            if (req.getClass().equals(SyncRequest.class)) {
+                syncListener = (SyncRequest.Listener) req.getMoPubListener();
+                assert syncListener != null;
+                syncListener.onErrorResponse(new MoPubNetworkError.Builder().build());
+                return null;
+            } else if (req.getClass().equals(TrackingRequest.class)) {
+                return null;
+            } else {
+                throw new Exception(String.format("Request object added to RequestQueue can only be of type" +
+                        " SyncRequest, saw %s instead.", req.getClass()));
             }
-        });
+        }).when(mockRequestQueue).add(any(MoPubRequest.class));
 
         mockStatic(MoPubRewardedAdManager.class);
 
-        MoPub.resetBrowserAgent();
         AsyncTasks.setExecutor(new RoboExecutorService());
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         MoPub.resetMoPub();
-        MoPub.resetBrowserAgent();
+        BrowserAgentManager.resetBrowserAgent();
         ClientMetadata.clearForTesting();
     }
 
     @Test
     public void setBrowserAgent_withDefaultValue_shouldNotChangeBrowserAgent_shouldSetOverriddenFlag() {
-        MoPub.setBrowserAgent(BrowserAgent.IN_APP);
-        assertThat(MoPub.getBrowserAgent()).isEqualTo(BrowserAgent.IN_APP);
-        assertThat(MoPub.isBrowserAgentOverriddenByClient()).isTrue();
+        MoPub.setBrowserAgent(MoPub.BrowserAgent.IN_APP);
+        assertThat(MoPub.getBrowserAgent()).isEqualTo(MoPub.BrowserAgent.IN_APP);
+        assertThat(BrowserAgentManager.getBrowserAgent()).isEqualTo(BrowserAgentManager.BrowserAgent.IN_APP);
+        assertThat(BrowserAgentManager.isBrowserAgentOverriddenByClient()).isTrue();
     }
 
     @Test
     public void setBrowserAgent_withNonDefaultValue_shouldChangeBrowserAgent_shouldSetOverriddenFlag() {
-        MoPub.setBrowserAgent(BrowserAgent.NATIVE);
-        assertThat(MoPub.getBrowserAgent()).isEqualTo(BrowserAgent.NATIVE);
-        assertThat(MoPub.isBrowserAgentOverriddenByClient()).isTrue();
+        MoPub.setBrowserAgent(MoPub.BrowserAgent.NATIVE);
+        assertThat(MoPub.getBrowserAgent()).isEqualTo(MoPub.BrowserAgent.NATIVE);
+        assertThat(BrowserAgentManager.getBrowserAgent()).isEqualTo(BrowserAgentManager.BrowserAgent.NATIVE);
+        assertThat(BrowserAgentManager.isBrowserAgentOverriddenByClient()).isTrue();
     }
 
     @Test
     public void setBrowserAgentFromAdServer_whenNotAlreadyOverriddenByClient_shouldSetBrowserAgentFromAdServer() {
-        MoPub.setBrowserAgentFromAdServer(BrowserAgent.NATIVE);
-        assertThat(MoPub.getBrowserAgent()).isEqualTo(BrowserAgent.NATIVE);
-        assertThat(MoPub.isBrowserAgentOverriddenByClient()).isFalse();
+        MoPub.setBrowserAgentFromAdServer(MoPub.BrowserAgent.NATIVE);
+        assertThat(MoPub.getBrowserAgent()).isEqualTo(MoPub.BrowserAgent.NATIVE);
+        assertThat(BrowserAgentManager.getBrowserAgent()).isEqualTo(BrowserAgentManager.BrowserAgent.NATIVE);
+        assertThat(BrowserAgentManager.isBrowserAgentOverriddenByClient()).isFalse();
     }
 
     @Test
     public void setBrowserAgentFromAdServer_whenAlreadyOverriddenByClient_shouldNotChangeBrowserAgent() {
-        MoPub.setBrowserAgent(BrowserAgent.NATIVE);
-        MoPub.setBrowserAgentFromAdServer(BrowserAgent.IN_APP);
-        assertThat(MoPub.getBrowserAgent()).isEqualTo(BrowserAgent.NATIVE);
-        assertThat(MoPub.isBrowserAgentOverriddenByClient()).isTrue();
+        MoPub.setBrowserAgent(MoPub.BrowserAgent.NATIVE);
+        MoPub.setBrowserAgentFromAdServer(MoPub.BrowserAgent.IN_APP);
+        assertThat(MoPub.getBrowserAgent()).isEqualTo(MoPub.BrowserAgent.NATIVE);
+        assertThat(BrowserAgentManager.getBrowserAgent()).isEqualTo(BrowserAgentManager.BrowserAgent.NATIVE);
+        assertThat(BrowserAgentManager.isBrowserAgentOverriddenByClient()).isTrue();
     }
 
     @Test(expected = NullPointerException.class)
@@ -264,7 +263,7 @@ public class MoPubTest {
     }
 
     @Test
-    public void initializeSdk_withCallbackSet_shouldCallCallback() throws Exception {
+    public void initializeSdk_withCallbackSet_shouldCallCallback() {
         MoPub.initializeSdk(mActivity, new SdkConfiguration.Builder(
                 INIT_ADUNIT).build(), mockInitializationListener);
         ShadowLooper.runUiThreadTasks();
@@ -273,7 +272,7 @@ public class MoPubTest {
     }
 
     @Test
-    public void initializeSdk_withNoLegitimateInterestAllowedValue_shouldCallPersonalInfoManagerSetAllowLegitimateInterest_withLegitimateInterestAllowedFalse() throws Exception {
+    public void initializeSdk_withNoLegitimateInterestAllowedValue_shouldCallPersonalInfoManagerSetAllowLegitimateInterest_withLegitimateInterestAllowedFalse() {
         MoPub.initializeSdk(mActivity, new SdkConfiguration.Builder(
                 INIT_ADUNIT).build(), null);
         ShadowLooper.runUiThreadTasks();
@@ -284,7 +283,7 @@ public class MoPubTest {
     }
 
     @Test
-    public void initializeSdk_withLegitimateInterestAllowedFalse_shouldCallPersonalInfoManagerSetAllowLegitimateInterest_withLegitimateInterestAllowedFalse() throws Exception {
+    public void initializeSdk_withLegitimateInterestAllowedFalse_shouldCallPersonalInfoManagerSetAllowLegitimateInterest_withLegitimateInterestAllowedFalse() {
         MoPub.initializeSdk(mActivity, new SdkConfiguration.Builder(
                 INIT_ADUNIT).withLegitimateInterestAllowed(false).build(), null);
         ShadowLooper.runUiThreadTasks();
@@ -295,7 +294,7 @@ public class MoPubTest {
     }
 
     @Test
-    public void initializeSdk_withLegitimateInterestAllowedTrue_shouldCallPersonalInfoManagerSetAllowLegitimateInterest_withLegitimateInterestAllowedTrue() throws Exception {
+    public void initializeSdk_withLegitimateInterestAllowedTrue_shouldCallPersonalInfoManagerSetAllowLegitimateInterest_withLegitimateInterestAllowedTrue() {
         MoPub.initializeSdk(mActivity, new SdkConfiguration.Builder(
                 INIT_ADUNIT).withLegitimateInterestAllowed(true).build(), null);
         ShadowLooper.runUiThreadTasks();

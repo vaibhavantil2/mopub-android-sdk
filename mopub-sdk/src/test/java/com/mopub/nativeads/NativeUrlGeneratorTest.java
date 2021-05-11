@@ -106,7 +106,7 @@ public class NativeUrlGeneratorTest {
         when(spyApplicationContext.getPackageName()).thenReturn(TEST_BUNDLE);
         PackageManager mockPackageManager = mock(PackageManager.class);
         PackageInfo mockPackageInfo = mock(PackageInfo.class);
-        mockPackageInfo.versionName = BuildConfig.VERSION_NAME;
+        mockPackageInfo.versionName = MoPub.SDK_VERSION;
         when(mockPackageManager.getPackageInfo(any(String.class), anyInt())).thenReturn(mockPackageInfo);
         when(spyApplicationContext.getPackageManager()).thenReturn(mockPackageManager);
 
@@ -182,7 +182,7 @@ public class NativeUrlGeneratorTest {
         String url = subject.generateUrlString("server.com");
 
         assertThat(getParameterFromRequestUrl(url, "vv")).isEqualTo("4");
-        assertThat(getParameterFromRequestUrl(url, "vver")).isEqualTo("1.3.4-Mopub");
+        assertThat(getParameterFromRequestUrl(url, "vver")).isEqualTo("1.3.16-Mopub");
     }
 
     @Test
@@ -193,7 +193,7 @@ public class NativeUrlGeneratorTest {
         String url = subject.generateUrlString("server.com");
 
         assertThat(getParameterFromRequestUrl(url, "vv")).isEqualTo("0");
-        assertThat(getParameterFromRequestUrl(url, "vver")).isEqualTo("1.3.4-Mopub");
+        assertThat(getParameterFromRequestUrl(url, "vver")).isEqualTo("1.3.16-Mopub");
     }
 
     @Test
@@ -404,13 +404,13 @@ public class NativeUrlGeneratorTest {
                         TEST_SCREEN_HEIGHT +
                         "&sc=" +
                         TEST_DENSITY +
-                        "&ct=3&av=" + Uri.encode(BuildConfig.VERSION_NAME) +
+                        "&ct=3&av=" + Uri.encode(MoPub.SDK_VERSION) +
                         "&ifa=mp_tmpl_advertising_id&dnt=mp_tmpl_do_not_track" +
                         "&tas=mp_tmpl_tas" +
                         "&mid=mp_tmpl_mopub_id" +
                         "&gdpr_applies=0" +
                         "&current_consent_status=unknown" +
-                        "&vv=4&vver=1.3.4-Mopub");
+                        "&vv=4&vver=1.3.16-Mopub");
     }
 
     @Test

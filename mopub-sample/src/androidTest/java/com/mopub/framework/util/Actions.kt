@@ -15,6 +15,7 @@ import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.espresso.util.HumanReadables
 import androidx.test.espresso.util.TreeIterables
 import org.hamcrest.Matcher
+import java.lang.Exception
 import java.util.concurrent.TimeoutException
 
 object Actions {
@@ -34,11 +35,11 @@ object Actions {
 
     @JvmStatic
     @JvmOverloads
-    fun findView(viewMatcher: Matcher<View>, timeout: Long = TIMEOUT): ViewInteraction {
+    fun findView(viewMatcher: Matcher<View>, timeoutMs: Long = TIMEOUT): ViewInteraction {
         var exception: Throwable? = null
         for (i in 1..REPEAT) {
             try {
-                onView(isRoot()).perform(findAction(viewMatcher, timeout / REPEAT))
+                onView(isRoot()).perform(findAction(viewMatcher, timeoutMs / REPEAT))
                 return onView(viewMatcher)
             } catch (e: Throwable) {
                 exception = e
@@ -49,6 +50,17 @@ object Actions {
         }
 
         return onView(viewMatcher)
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun findViewSafe(viewMatcher: Matcher<View>, timeoutMs: Long = 1000): Boolean {
+        try {
+            findView(viewMatcher, timeoutMs)
+        } catch (ex: Exception) {
+            return false
+        }
+        return true
     }
 
     @JvmStatic
@@ -85,7 +97,7 @@ object Actions {
                     do {
                         for (child in TreeIterables.breadthFirstViewTraversal(view)) {
                             if (child is WebView) {
-                                if (child.url == url) {
+                                if (child.url.toString().startsWith(url)) {
                                     child.stopLoading()
                                     uiController.loopMainThreadUntilIdle()
                                     return

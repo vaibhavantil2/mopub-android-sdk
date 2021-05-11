@@ -14,10 +14,9 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.mopub.common.test.support.SdkTestRunner;
-import com.mopub.network.MaxWidthImageLoader;
+import com.mopub.network.MoPubImageLoader;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
-import com.mopub.volley.toolbox.ImageLoader;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -46,12 +45,12 @@ public class StaticNativeViewHolderTest {
     private TextView sponsoredTextView;
 
     @Mock private MoPubRequestQueue mockRequestQueue;
-    @Mock private MaxWidthImageLoader mockImageLoader;
-    @Mock private ImageLoader.ImageContainer mockImageContainer;
+    @Mock private MoPubImageLoader mockImageLoader;
+    @Mock private MoPubImageLoader.ImageContainer mockImageContainer;
     @Mock private Bitmap mockBitmap;
 
-    @Captor private ArgumentCaptor<ImageLoader.ImageListener> mainImageCaptor;
-    @Captor private ArgumentCaptor<ImageLoader.ImageListener> iconImageCaptor;
+    @Captor private ArgumentCaptor<MoPubImageLoader.ImageListener> mainImageCaptor;
+    @Captor private ArgumentCaptor<MoPubImageLoader.ImageListener> iconImageCaptor;
 
     @Before
     public void setUp() throws Exception {

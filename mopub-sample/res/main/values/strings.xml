@@ -14,6 +14,7 @@
     <string name="ad_size_dialog_save_button">Save MoPubAdSize</string>
     <string name="custom_data">Custom Data (optional)</string>
     <string name="load_ad">Load Ad</string>
+    <string name="share_ad_request">Share Ad Request</string>
     <string name="refresh_ad">Refresh Ad</string>
     <string name="switch_layout">Switch Layout</string>
     <string name="show_ad">Show Ad</string>
@@ -81,5 +82,6 @@
     <string name="barcodereader_permission_camera_rationale">Access to the camera is needed for detection</string>
     <string name="barcodereader_no_camera_permission">This feature cannot run because it does not have the camera permission.</string>
     <string name="barcodereader_low_storage_error">Barcode detector dependencies cannot be downloaded due to low device storage</string>
+    <string name="sdk_version">SDK Version %s</string>
 
 </resources>

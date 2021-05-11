@@ -102,6 +102,7 @@ public class MoPubBrowser extends Activity {
         WebSettings webSettings = mWebView.getSettings();
 
         webSettings.setJavaScriptEnabled(true);
+        webSettings.setDomStorageEnabled(true);
 
         /*
          * Pinch to zoom is apparently not enabled by default on all devices, so

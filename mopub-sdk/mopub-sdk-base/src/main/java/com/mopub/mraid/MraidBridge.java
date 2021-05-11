@@ -48,7 +48,7 @@ import java.util.Map;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 import static com.mopub.mobileads.MoPubErrorCode.RENDER_PROCESS_GONE_UNSPECIFIED;
 import static com.mopub.mobileads.MoPubErrorCode.RENDER_PROCESS_GONE_WITH_CRASH;
-import static com.mopub.network.MoPubRequestUtils.getQueryParamMap;
+import static com.mopub.network.MoPubNetworkUtils.getQueryParamMap;
 
 public class MraidBridge {
     public interface MraidBridgeListener {

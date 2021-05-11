@@ -5,6 +5,7 @@
 apply from: '../shared-build.gradle'
 
 dependencies {
+    implementation project(':mopub-sdk:mopub-sdk-networking')
     api project(':mopub-sdk:mopub-sdk-base')
     api 'androidx.recyclerview:recyclerview:1.0.0'
 }

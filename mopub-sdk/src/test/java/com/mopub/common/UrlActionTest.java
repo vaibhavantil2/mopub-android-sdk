@@ -8,7 +8,6 @@ import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.mopub.common.MoPub.BrowserAgent;
 import com.mopub.common.test.support.SdkTestRunner;
 
 import org.junit.After;
@@ -16,6 +15,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import static com.mopub.common.BrowserAgentManager.BrowserAgent.NATIVE;
 import static com.mopub.common.UrlAction.FOLLOW_DEEP_LINK;
 import static com.mopub.common.UrlAction.FOLLOW_DEEP_LINK_WITH_FALLBACK;
 import static com.mopub.common.UrlAction.HANDLE_MOPUB_SCHEME;
@@ -32,12 +32,12 @@ public class UrlActionTest {
 
     @Before
     public void setUp() {
-        MoPub.resetBrowserAgent();
+        BrowserAgentManager.resetBrowserAgent();
     }
 
     @After
     public void tearDown() {
-        MoPub.resetBrowserAgent();
+        BrowserAgentManager.resetBrowserAgent();
     }
 
     @Test
@@ -79,7 +79,7 @@ public class UrlActionTest {
 
     @Test
     public void openNativeBrowser_withNativeBrowserAgent_shouldAlsoMatchHttpSchemes() throws Exception {
-        MoPub.setBrowserAgent(BrowserAgent.NATIVE);
+        BrowserAgentManager.setBrowserAgent(NATIVE);
         assertUrlActionMatching(OPEN_NATIVE_BROWSER, "mopubnativebrowser:", true);
         assertUrlActionMatching(OPEN_NATIVE_BROWSER, "MoPuBnAtIvEbRoWsEr:", true);
         assertUrlActionMatching(OPEN_NATIVE_BROWSER, "https:", true);

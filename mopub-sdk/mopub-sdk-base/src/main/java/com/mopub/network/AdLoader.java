@@ -4,7 +4,6 @@
 
 package com.mopub.network;
 
-
 import android.content.Context;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -16,10 +15,6 @@ import com.mopub.common.AdFormat;
 import com.mopub.common.Preconditions;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.mobileads.MoPubError;
-import com.mopub.volley.Request;
-import com.mopub.volley.RequestQueue;
-import com.mopub.volley.Response;
-import com.mopub.volley.VolleyError;
 
 import java.lang.ref.WeakReference;
 
@@ -28,15 +23,13 @@ import static com.mopub.common.logging.MoPubLog.AdLogEvent.REQUESTED;
 import static com.mopub.common.logging.MoPubLog.AdLogEvent.RESPONSE_RECEIVED;
 
 /**
- * AdLoader implements several simple functions: communicate with Volley to download multiple ads
- * in one HTTP call, implement client side waterfall logic, asynchronously return objects
- * AdResponse. This class is immutable and fully supports multithreading.
+ * AdLoader implements several simple functions: communicate with the networking library to download multiple ads in one
+ * HTTP call, implement client side waterfall logic, and asynchronously return {@link AdResponse} objects.
+ * This class is immutable and fully supports multithreading.
  */
 public class AdLoader {
     // to be implemented by external listener
-    public interface Listener extends Response.ErrorListener {
-        void onSuccess(AdResponse response);
-    }
+    public interface Listener extends MoPubResponse.Listener<AdResponse> {}
 
     private final MultiAdRequest.Listener mAdListener;
     private final WeakReference<Context> mContext;
@@ -84,16 +77,16 @@ public class AdLoader {
 
         mAdListener = new MultiAdRequest.Listener() {
             @Override
-            public void onErrorResponse(VolleyError volleyError) {
-                MoPubLog.log(RESPONSE_RECEIVED, volleyError.getMessage());
+            public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
+                MoPubLog.log(RESPONSE_RECEIVED, networkError.getMessage());
 
                 mFailed = true;
                 mRunning = false;
-                deliverError(volleyError);
+                deliverError(networkError);
             }
 
             @Override
-            public void onSuccessResponse(final MultiAdResponse response) {
+            public void onResponse(@NonNull final MultiAdResponse response) {
                 synchronized (lock) {
                     mRunning = false;
                     mMultiAdResponse = response;
@@ -140,7 +133,7 @@ public class AdLoader {
      * @return The returned object Request<?> can be used to cancel asynchronous operation.
      */
     @Nullable
-    public Request<?> loadNextAd(@Nullable final MoPubError errorCode) {
+    public MoPubRequest<?> loadNextAd(@Nullable final MoPubError errorCode) {
         if (mRunning) {
             return mMultiAdRequest;
         }
@@ -150,7 +143,9 @@ public class AdLoader {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    deliverError(new MoPubNetworkError(MoPubNetworkError.Reason.UNSPECIFIED));
+                    deliverError(new MoPubNetworkError.Builder()
+                            .reason(MoPubNetworkError.Reason.UNSPECIFIED)
+                            .build());
                 }
             });
             return null;
@@ -167,7 +162,9 @@ public class AdLoader {
                     mHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            deliverError(new MoPubNetworkError(MoPubNetworkError.Reason.TOO_MANY_REQUESTS));
+                            deliverError(new MoPubNetworkError.Builder()
+                                    .reason(MoPubNetworkError.Reason.TOO_MANY_REQUESTS)
+                                    .build());
                         }
                     });
                     return null;
@@ -211,7 +208,9 @@ public class AdLoader {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
-                deliverError(new MoPubNetworkError(MoPubNetworkError.Reason.NO_FILL));
+                deliverError(new MoPubNetworkError.Builder()
+                        .reason(MoPubNetworkError.Reason.NO_FILL)
+                        .build());
             }
         });
 
@@ -265,7 +264,7 @@ public class AdLoader {
      * @return generic object Request to be used for cancel() if necessary
      */
     @Nullable
-    private Request<?> fetchAd(@NonNull final MultiAdRequest request,
+    private MoPubRequest<?> fetchAd(@NonNull final MultiAdRequest request,
                                @Nullable final Context context) {
         Preconditions.checkNotNull(request);
 
@@ -274,13 +273,14 @@ public class AdLoader {
         }
 
         String bodyString = "<no body>";
-        if (request.getBody() != null) {
+        if (MoPubRequestUtils.isMoPubRequest(request.getUrl()) && request.getBody() != null) {
             bodyString = new String(request.getBody());
         }
-        MoPubLog.log(REQUESTED, request.getUrl(), bodyString);
+
+        MoPubLog.log(REQUESTED, request.getOriginalUrl(), bodyString);
 
         mRunning = true;
-        RequestQueue requestQueue = Networking.getRequestQueue(context);
+        MoPubRequestQueue requestQueue = Networking.getRequestQueue(context);
         mMultiAdRequest = request;
         requestQueue.add(request);
         return request;
@@ -289,19 +289,18 @@ public class AdLoader {
     /**
      * Helper function to make callback
      *
-     * @param volleyError error to be delivered
+     * @param networkError error to be delivered
      */
-    private void deliverError(@NonNull final VolleyError volleyError) {
-        Preconditions.checkNotNull(volleyError);
-
+    private void deliverError(@NonNull final MoPubNetworkError networkError) {
         mLastDeliveredResponse = null;
         if (mOriginalListener != null) {
-            if (volleyError instanceof MoPubNetworkError) {
-                mOriginalListener.onErrorResponse(volleyError);
+            if (networkError.getReason() != null) {
+                mOriginalListener.onErrorResponse(networkError);
             } else {
-                mOriginalListener.onErrorResponse(new MoPubNetworkError(volleyError.getMessage(),
-                        volleyError.getCause(),
-                        MoPubNetworkError.Reason.UNSPECIFIED));
+                mOriginalListener.onErrorResponse(
+                        new MoPubNetworkError.Builder(networkError.getMessage(), networkError.getCause())
+                                .reason(MoPubNetworkError.Reason.UNSPECIFIED)
+                                .build());
             }
         }
     }
@@ -320,7 +319,7 @@ public class AdLoader {
 
         if (mOriginalListener != null) {
             mLastDeliveredResponse = adResponse;
-            mOriginalListener.onSuccess(adResponse);
+            mOriginalListener.onResponse(adResponse);
         }
     }
 

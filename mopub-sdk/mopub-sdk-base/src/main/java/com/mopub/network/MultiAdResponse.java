@@ -4,7 +4,6 @@
 
 package com.mopub.network;
 
-
 import android.content.Context;
 import android.text.TextUtils;
 
@@ -13,6 +12,8 @@ import androidx.annotation.Nullable;
 
 import com.mopub.common.AdFormat;
 import com.mopub.common.AdType;
+import com.mopub.common.BrowserAgentManager;
+import com.mopub.common.BrowserAgentManager.BrowserAgent;
 import com.mopub.common.Constants;
 import com.mopub.common.DataKeys;
 import com.mopub.common.FullAdType;
@@ -23,8 +24,6 @@ import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.util.Json;
 import com.mopub.common.util.ResponseHeader;
 import com.mopub.mobileads.AdTypeTranslator;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.toolbox.HttpHeaderParser;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -77,16 +76,17 @@ public class MultiAdResponse implements Iterator<AdResponse> {
     @Nullable
     private static ServerOverrideListener sServerOverrideListener;
 
-    /*
+    /**
      *
-     * @param jsonString - Server response in JSON format
-     * @param networkResponse Volley NetworkResponse object
-     * @param adFormat ad format
+     * @param appContext application context
+     * @param networkResponse {@link MoPubNetworkResponse} to be parsed
+     * @param adFormat {@link AdFormat}
      * @param adUnitId ad unit id originally sent to server
-     * @throws JSONException, MoPubNetworkError
+     * @throws JSONException when JSON parsing fails
+     * @throws MoPubNetworkError when ad unit is warming up or no ads are found for ad unit
      */
     public MultiAdResponse(@NonNull final Context appContext,
-                           @NonNull final NetworkResponse networkResponse,
+                           @NonNull final MoPubNetworkResponse networkResponse,
                            @NonNull final AdFormat adFormat,
                            @Nullable final String adUnitId) throws JSONException, MoPubNetworkError {
 
@@ -156,9 +156,10 @@ public class MultiAdResponse implements Iterator<AdResponse> {
                 mFailUrl = "";
                 adResponseClear = singleAdResponse;
                 if (extractWarmup(item)) {
-                    throw new MoPubNetworkError("Server is preparing this Ad Unit.",
-                            MoPubNetworkError.Reason.WARMING_UP,
-                            adResponseClear.getRefreshTimeMillis());
+                    throw new MoPubNetworkError.Builder("Server is preparing this Ad Unit.")
+                            .reason(MoPubNetworkError.Reason.WARMING_UP)
+                            .refreshTimeMillis(adResponseClear.getRefreshTimeMillis())
+                            .build();
                 }
                 break; // we don't process items beyond 'clear'
 
@@ -182,10 +183,10 @@ public class MultiAdResponse implements Iterator<AdResponse> {
             if (adResponseClear != null) {
                 refreshTimeMilliseconds = adResponseClear.getRefreshTimeMillis();
             }
-            throw new MoPubNetworkError(
-                    "No ads found for ad unit.",
-                    MoPubNetworkError.Reason.NO_FILL,
-                    refreshTimeMilliseconds);
+            throw new MoPubNetworkError.Builder("No ads found for ad unit.")
+                    .reason(MoPubNetworkError.Reason.NO_FILL)
+                    .refreshTimeMillis(refreshTimeMilliseconds)
+                    .build();
         }
     }
 
@@ -213,10 +214,10 @@ public class MultiAdResponse implements Iterator<AdResponse> {
      * Parse single object {@link AdResponse} from JSON
      *
      * @param appContext      application context
-     * @param networkResponse original Volley network response
+     * @param networkResponse original {@link MoPubNetworkResponse}
      * @param jsonObject      JSON object to parse
      * @param adUnitId        request ad unit id
-     * @param adFormat        see {@link AdFormat}
+     * @param adFormat        {@link AdFormat}
      * @param requestId       GUID assigned by server
      * @return valid {@link AdResponse} or throws exception
      * @throws JSONException     when JSON format is broken or critical field is missing
@@ -224,7 +225,7 @@ public class MultiAdResponse implements Iterator<AdResponse> {
      */
     @NonNull
     protected static AdResponse parseSingleAdResponse(@NonNull final Context appContext,
-                                                      @NonNull final NetworkResponse networkResponse,
+                                                      @NonNull final MoPubNetworkResponse networkResponse,
                                                       @NonNull final JSONObject jsonObject,
                                                       @Nullable final String adUnitId,
                                                       @NonNull final AdFormat adFormat,
@@ -352,8 +353,9 @@ public class MultiAdResponse implements Iterator<AdResponse> {
             try {
                 builder.setJsonBody(new JSONObject(content));
             } catch (JSONException e) {
-                throw new MoPubNetworkError("Failed to decode body JSON for native ad format",
-                        e, MoPubNetworkError.Reason.BAD_BODY);
+                throw new MoPubNetworkError.Builder("Failed to decode body JSON for native ad format", e)
+                        .reason(MoPubNetworkError.Reason.BAD_BODY)
+                        .build();
             }
         }
 
@@ -363,9 +365,9 @@ public class MultiAdResponse implements Iterator<AdResponse> {
         builder.setBaseAdClassName(customEventClassName);
 
         // Default browser agent from X-Browser-Agent header
-        MoPub.BrowserAgent browserAgent = MoPub.BrowserAgent.fromHeader(
+        final BrowserAgent browserAgent = BrowserAgent.fromHeader(
                 extractIntegerHeader(jsonHeaders, ResponseHeader.BROWSER_AGENT));
-        MoPub.setBrowserAgentFromAdServer(browserAgent);
+        BrowserAgentManager.setBrowserAgentFromAdServer(browserAgent);
         builder.setBrowserAgent(browserAgent);
 
         // Process server extras if they are present:
@@ -380,8 +382,9 @@ public class MultiAdResponse implements Iterator<AdResponse> {
         try {
             serverExtras = Json.jsonStringToMap(customEventData);
         } catch (JSONException e) {
-            throw new MoPubNetworkError("Failed to decode server extras for base ad data.",
-                    e, MoPubNetworkError.Reason.BAD_HEADER_DATA);
+            throw new MoPubNetworkError.Builder("Failed to decode server extras for base ad data.", e)
+                    .reason(MoPubNetworkError.Reason.BAD_HEADER_DATA)
+                    .build();
         }
 
         try {
@@ -389,8 +392,9 @@ public class MultiAdResponse implements Iterator<AdResponse> {
                 serverExtras.put(ADM_KEY, jsonHeaders.getString(ADM_KEY));
             }
         } catch (JSONException e) {
-            throw new MoPubNetworkError("Failed to parse ADM for advanced bidding",
-                    e, MoPubNetworkError.Reason.BAD_BODY);
+            throw new MoPubNetworkError.Builder("Failed to parse ADM for advanced bidding", e)
+                    .reason(MoPubNetworkError.Reason.BAD_BODY)
+                    .build();
         }
 
         // Flag for immediate VAST clickability
@@ -509,14 +513,15 @@ public class MultiAdResponse implements Iterator<AdResponse> {
     }
 
     // Based on Volley's StringResponse class.
-    private static String parseStringBody(@NonNull final NetworkResponse response) {
+    private static String parseStringBody(@NonNull final MoPubNetworkResponse response) {
         Preconditions.checkNotNull(response);
 
         String parsed;
         try {
-            parsed = new String(response.data, HttpHeaderParser.parseCharset(response.headers));
+            parsed = new String(response.getData(),
+                    MoPubNetworkUtils.parseCharsetFromContentType(response.getHeaders()));
         } catch (UnsupportedEncodingException e) {
-            parsed = new String(response.data);
+            parsed = new String(response.getData());
         }
         return parsed;
     }

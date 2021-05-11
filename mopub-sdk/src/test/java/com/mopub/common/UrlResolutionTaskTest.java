@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 
+import static com.mopub.common.BrowserAgentManager.BrowserAgent.NATIVE;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -36,7 +37,7 @@ public class UrlResolutionTaskTest {
 
     @After
     public void tearDown() {
-        MoPub.resetBrowserAgent();
+        BrowserAgentManager.resetBrowserAgent();
     }
 
     @Test
@@ -159,7 +160,7 @@ public class UrlResolutionTaskTest {
 
     @Test
     public void doInBackground_withNativeBrowserAgent_withHttpScheme_shouldReturnUrlWithoutRedirectResolution() throws Exception {
-        MoPub.setBrowserAgent(MoPub.BrowserAgent.NATIVE);
+        BrowserAgentManager.setBrowserAgent(NATIVE);
         assertThat(subject.doInBackground(BASE_URL)).isEqualTo(BASE_URL);
     }
 
@@ -171,7 +172,7 @@ public class UrlResolutionTaskTest {
 
     @Test
     public void doInBackground_withNativeBrowserAgent_withNonHttpScheme_shouldReturnUrlWithoutRedirectResolution() throws Exception {
-        MoPub.setBrowserAgent(MoPub.BrowserAgent.NATIVE);
+        BrowserAgentManager.setBrowserAgent(NATIVE);
         final String nonHttpUrl = "nonhttps://a.example.com/b/c/d?e=f";
         assertThat(subject.doInBackground(nonHttpUrl)).isEqualTo(nonHttpUrl);
     }
@@ -184,7 +185,7 @@ public class UrlResolutionTaskTest {
 
     @Test
     public void doInBackground_withNativeBrowserAgent_withMoPubNativeBrowserScheme_shouldReturnUrlWithoutRedirectResolution() throws Exception {
-        MoPub.setBrowserAgent(MoPub.BrowserAgent.NATIVE);
+        BrowserAgentManager.setBrowserAgent(NATIVE);
         final String mopubNativeBrowserUrl = "mopubnativebrowser://navigate?url=https%3A%2F%2Fwww.twitter.com";
         assertThat(subject.doInBackground(mopubNativeBrowserUrl)).isEqualTo(mopubNativeBrowserUrl);
     }

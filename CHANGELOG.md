@@ -1,3 +1,13 @@
+## Version 5.17.0 (May 11, 2021)
+- **Features**
+  - SDK binary artifacts are uploaded to Maven Central Repository. 
+  - Update AndroidX Media2 dependencies from version 1.1.1 to 1.1.3.
+  - Improve MoPub SDK modularization with 'mopub-sdk-networking' and 'mopub-sdk-util' libraries.
+  - Add ProGuard rules for AudioFocusHandler and MediaPlayer.
+
+- **Bug Fixes**
+  - Fix rare audio focus handling issue when application is in the background.
+    
 ## Version 5.16.4 (March 31, 2021)
 - **Bug Fixes**
   - Fix `InvalidStateException` when finishing VAST videos on some devices.

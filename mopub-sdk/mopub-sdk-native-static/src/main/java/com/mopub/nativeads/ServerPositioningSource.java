@@ -17,10 +17,9 @@ import com.mopub.common.util.DeviceUtils;
 import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.nativeads.MoPubNativeAdPositioning.MoPubClientPositioning;
 import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubRequestQueue;
+import com.mopub.network.MoPubResponse;
 import com.mopub.network.Networking;
-import com.mopub.volley.RequestQueue;
-import com.mopub.volley.Response;
-import com.mopub.volley.VolleyError;
 
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.ERROR_WITH_THROWABLE;
@@ -67,8 +66,7 @@ class ServerPositioningSource implements PositioningSource {
     // Handler and runnable for retrying after a failed response.
     @NonNull private final Handler mRetryHandler;
     @NonNull private final Runnable mRetryRunnable;
-    private final Response.Listener<MoPubClientPositioning> mPositioningListener;
-    private final Response.ErrorListener mErrorListener;
+    private final MoPubResponse.Listener<MoPubClientPositioning> mPositioningListener;
 
     @Nullable private PositioningListener mListener;
     private int mRetryCount;
@@ -86,21 +84,19 @@ class ServerPositioningSource implements PositioningSource {
             }
         };
 
-        mPositioningListener = new Response.Listener<MoPubClientPositioning>() {
+        mPositioningListener = new MoPubResponse.Listener<MoPubClientPositioning>() {
             @Override
-            public void onResponse(final MoPubClientPositioning clientPositioning) {
+            public void onResponse(@NonNull final MoPubClientPositioning clientPositioning) {
                 handleSuccess(clientPositioning);
             }
-        };
 
-        mErrorListener = new Response.ErrorListener() {
             @Override
-            public void onErrorResponse(final VolleyError error) {
+            public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
                 // Don't log a stack trace when we're just warming up.
-                if (!(error instanceof MoPubNetworkError) ||
-                        ((MoPubNetworkError) error).getReason().equals(MoPubNetworkError.Reason.WARMING_UP)) {
-                    MoPubLog.log(ERROR_WITH_THROWABLE, "Failed to load positioning data", error);
-                    if (error.networkResponse == null && !DeviceUtils.isNetworkAvailable(mContext)) {
+                if (networkError.getReason() == null ||
+                        networkError.getReason().equals(MoPubNetworkError.Reason.WARMING_UP)) {
+                    MoPubLog.log(ERROR_WITH_THROWABLE, "Failed to load positioning data", networkError);
+                    if (networkError.getNetworkResponse() == null && !DeviceUtils.isNetworkAvailable(mContext)) {
                         MoPubLog.log(CUSTOM, String.valueOf(MoPubErrorCode.NO_CONNECTION));
                     }
                 }
@@ -134,8 +130,8 @@ class ServerPositioningSource implements PositioningSource {
     private void requestPositioningInternal() {
         MoPubLog.log(CUSTOM, "Loading positioning from: " + mRetryUrl);
 
-        mRequest = new PositioningRequest(mContext, mRetryUrl, mPositioningListener, mErrorListener);
-        final RequestQueue requestQueue = Networking.getRequestQueue(mContext);
+        mRequest = new PositioningRequest(mContext, mRetryUrl, mPositioningListener);
+        final MoPubRequestQueue requestQueue = Networking.getRequestQueue(mContext);
         requestQueue.add(mRequest);
     }
 

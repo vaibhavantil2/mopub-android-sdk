@@ -15,6 +15,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.WebView;
+import android.widget.ImageView;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media2.common.SessionPlayer;
@@ -30,7 +31,7 @@ import com.mopub.mobileads.test.support.GestureUtils;
 import com.mopub.mobileads.test.support.TestMediaPlayerFactory;
 import com.mopub.mobileads.test.support.TestVideoViewFactory;
 import com.mopub.mobileads.test.support.VastUtils;
-import com.mopub.network.MaxWidthImageLoader;
+import com.mopub.network.MoPubImageLoader;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
 
@@ -60,8 +61,8 @@ import static com.mopub.common.DataKeys.AD_DATA_KEY;
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_DISMISS;
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_FAIL;
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_SHOW;
-import static com.mopub.common.VolleyRequestMatcher.isUrl;
-import static com.mopub.common.VolleyRequestMatcher.isUrlStartingWith;
+import static com.mopub.common.MoPubRequestMatcher.isUrl;
+import static com.mopub.common.MoPubRequestMatcher.isUrlStartingWith;
 import static com.mopub.mobileads.BaseVideoViewController.BaseVideoViewControllerListener;
 import static com.mopub.mobileads.EventForwardingBroadcastReceiverTest.getIntentForActionAndIdentifier;
 import static com.mopub.mobileads.VastVideoViewController.CURRENT_POSITION;
@@ -69,7 +70,6 @@ import static com.mopub.mobileads.VastVideoViewController.DEFAULT_VIDEO_DURATION
 import static com.mopub.mobileads.VastVideoViewController.MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON;
 import static com.mopub.mobileads.VastVideoViewController.RESUMED_VAST_CONFIG;
 import static com.mopub.mobileads.VastVideoViewController.VAST_VIDEO_CONFIG;
-import static com.mopub.volley.toolbox.ImageLoader.ImageListener;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
@@ -125,7 +125,7 @@ public class VastVideoViewControllerTest {
     @Mock
     MoPubRequestQueue mockRequestQueue;
     @Mock
-    MaxWidthImageLoader mockImageLoader;
+    MoPubImageLoader mockImageLoader;
     @Mock
     private ExternalViewabilitySessionManager mockExternalViewabilityManager;
 
@@ -215,7 +215,7 @@ public class VastVideoViewControllerTest {
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         Robolectric.getForegroundThreadScheduler().reset();
         Robolectric.getBackgroundThreadScheduler().reset();
 
@@ -470,9 +470,12 @@ public class VastVideoViewControllerTest {
 
         initializeSubject();
 
-        verify(mockImageLoader).get(
+        verify(mockImageLoader).fetch(
                 eq("https://ton.twitter.com/exchange-media/images/v4/star_icon_3x_1.png"),
-                any(ImageListener.class));
+                any(MoPubImageLoader.ImageListener.class),
+                anyInt(),
+                anyInt(),
+                any(ImageView.ScaleType.class));
     }
 
     @Test
@@ -1862,6 +1865,7 @@ public class VastVideoViewControllerTest {
 
         subject.onPause();
 
+        mockMediaPlayer.pause().isDone();
         final Field audioFocusHandlerField =
                 MediaPlayer.class.getDeclaredField("mAudioFocusHandler");
         audioFocusHandlerField.setAccessible(true);

@@ -4,15 +4,13 @@
 
 package com.mopub.network;
 
-
 import android.app.Activity;
 
 import com.mopub.common.AdFormat;
-import com.mopub.common.MoPub;
+import com.mopub.common.BrowserAgentManager;
+import com.mopub.common.Constants;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.ResponseHeader;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Response;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -29,13 +27,17 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+import static com.mopub.network.MoPubRequest.DEFAULT_CONTENT_TYPE;
+import static com.mopub.network.MoPubRequest.JSON_CONTENT_TYPE;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @RunWith(SdkTestRunner.class)
 public class MultiAdRequestTest {
     private static final String ACCEPT_LANGUAGE = "accept-language";
+    private static final String URL = Constants.HTTPS + "://" + Constants.HOST;
 
     @Mock private MultiAdRequest.Listener mockListener;
     @Mock private MultiAdResponse mockAdResponse;
@@ -94,7 +96,7 @@ public class MultiAdRequestTest {
     public void setup() throws JSONException {
         activity = Robolectric.buildActivity(Activity.class).create().get();
         adUnitId = "testAdUnitId";
-        subject = new MultiAdRequest("testUrl", AdFormat.BANNER, adUnitId, activity, mockListener);
+        subject = new MultiAdRequest(URL, AdFormat.BANNER, adUnitId, activity, mockListener);
         JSONObject metadata = new JSONObject();
         metadata.put(ResponseHeader.CONTENT_TYPE.getKey(), "text/html; charset=UTF-8");
         metadata.put(ResponseHeader.AD_TYPE.getKey(), "html");
@@ -126,50 +128,67 @@ public class MultiAdRequestTest {
         // Reset our locale for other tests.
         Locale.setDefault(Locale.US);
         //noinspection deprecation
-        MoPub.resetBrowserAgent();
+        BrowserAgentManager.resetBrowserAgent();
     }
 
     @Test
     public void deliverResponse_shouldCallListenerOnSuccess() {
         subject.deliverResponse(mockAdResponse);
-        verify(mockListener).onSuccessResponse(mockAdResponse);
+        verify(mockListener).onResponse(mockAdResponse);
     }
 
     @Test
     public void deliverResponse_afterCancel_shouldNotCallListener(){
         subject.cancel();
         subject.deliverResponse(mockAdResponse);
-        verify(mockListener, never()).onSuccessResponse(mockAdResponse);
+        verify(mockListener, never()).onResponse(mockAdResponse);
+    }
+
+    @Test
+    public void getBodyContentType_withMoPubRequest_shouldReturnJsonContentType() {
+        assertEquals(JSON_CONTENT_TYPE, subject.getBodyContentType());
+    }
+
+    @Test
+    public void getBodyContentType_withNonMoPubRequest_shouldReturnDefaultContentType() {
+        String nonMoPubUrl = "https://www.abcdefg.com/xyz";
+        subject = new MultiAdRequest(nonMoPubUrl, AdFormat.BANNER, adUnitId, activity, mockListener);
+
+        assertEquals(DEFAULT_CONTENT_TYPE, subject.getBodyContentType());
     }
 
     @Test
     public void parseNetworkResponse_withValidData_shouldReturnNonErrorResponse() {
-        NetworkResponse testResponse = new NetworkResponse(jsonBody.toString().getBytes());
-        final Response<MultiAdResponse> response = subject.parseNetworkResponse(testResponse);
-        assert response != null;
-        assertThat(response.error).isNull();
-        assertThat(response.result).isNotNull();
-        assertThat(response.result.hasNext()).isEqualTo(true);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, jsonBody.toString().getBytes(),
+                Collections.emptyMap());
+        final MoPubResponse<MultiAdResponse> response = subject.parseNetworkResponse(testResponse);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getMoPubNetworkError()).isNull();
+        assertThat(response.getMoPubResult()).isNotNull();
+        assertThat(response.getMoPubResult().hasNext()).isEqualTo(true);
     }
 
     @Test
     public void parseNetworkResponse_withInvalidData_shouldReturnErrorResponse() {
-        NetworkResponse testResponse = new NetworkResponse("invalid_json".getBytes());
-        final Response<MultiAdResponse> response = subject.parseNetworkResponse(testResponse);
-        assert response != null;
-        assertThat(response.error).isNotNull();
-        assertThat(response.result).isNull();
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(500, "invalid_json".getBytes(),
+                Collections.emptyMap());
+        final MoPubResponse<MultiAdResponse> response = subject.parseNetworkResponse(testResponse);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getMoPubNetworkError()).isNotNull();
+        assertThat(response.getMoPubResult()).isNull();
     }
 
     @Test
     public void equals_shouldReturnTrue(){
-        MultiAdRequest that = new MultiAdRequest("testUrl", AdFormat.BANNER, adUnitId, activity, mockListener);
+        MultiAdRequest that = new MultiAdRequest(URL, AdFormat.BANNER, adUnitId, activity, mockListener);
         assert(subject.equals(that));
     }
 
     @Test
     public void equals_shouldReturnFalse(){
-        MultiAdRequest that = new MultiAdRequest("testUrl", AdFormat.INTERSTITIAL, adUnitId, activity, mockListener);
+        MultiAdRequest that = new MultiAdRequest(URL, AdFormat.INTERSTITIAL, adUnitId, activity, mockListener);
         assert(!subject.equals(that));
     }
 

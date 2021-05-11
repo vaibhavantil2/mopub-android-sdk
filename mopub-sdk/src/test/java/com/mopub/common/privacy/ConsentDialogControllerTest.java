@@ -16,9 +16,7 @@ import com.mopub.common.util.Intents;
 import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.MoPubRequestQueue;
-import com.mopub.network.MoPubRequestQueueTest;
 import com.mopub.network.Networking;
-import com.mopub.volley.VolleyError;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -62,7 +60,7 @@ public class ConsentDialogControllerTest {
     public void setup() {
         Activity activity = Robolectric.buildActivity(Activity.class).get();
         Context context = activity.getApplicationContext();
-        mockRequestQueue = Mockito.mock(MoPubRequestQueueTest.TestMoPubRequestQueue.class);
+        mockRequestQueue = Mockito.mock(MoPubRequestQueue.class);
         mockDialogListener = Mockito.mock(ConsentDialogListener.class);
         dialogResponse = new ConsentDialogResponse(HTML_TEXT);
         personalInfoData = new PersonalInfoData(context);
@@ -126,7 +124,7 @@ public class ConsentDialogControllerTest {
     @Test
     public void onSuccess_withValidResponse_shouldCallConsentDialogLoaded() {
         subject.loadConsentDialog(mockDialogListener, true, personalInfoData);
-        subject.onSuccess(dialogResponse);
+        subject.onResponse(dialogResponse);
 
         assertThat(subject.mReady).isTrue();
         assertThat(subject.mRequestInFlight).isFalse();
@@ -137,7 +135,7 @@ public class ConsentDialogControllerTest {
     @Test
     public void onSuccess_withEmptyResponse_shouldNotCallConsentDialogLoaded() {
         subject.loadConsentDialog(mockDialogListener, true, personalInfoData);
-        subject.onSuccess(new ConsentDialogResponse(""));
+        subject.onResponse(new ConsentDialogResponse(""));
 
         assertThat(subject.mReady).isFalse();
         assertThat(subject.mRequestInFlight).isFalse();
@@ -148,7 +146,7 @@ public class ConsentDialogControllerTest {
     @Test
     public void onErrorResponse_shouldResetState_shouldCallDialogFailed() {
         subject.loadConsentDialog(mockDialogListener, true, personalInfoData);
-        subject.onErrorResponse(new VolleyError());
+        subject.onErrorResponse(new MoPubNetworkError.Builder().build());
 
         assertThat(subject.mReady).isFalse();
         assertThat(subject.mRequestInFlight).isFalse();
@@ -159,7 +157,7 @@ public class ConsentDialogControllerTest {
     @Test
     public void onErrorResponse_withErrorBadBody_shouldResetState_shouldCallDialogFailed() {
         subject.loadConsentDialog(mockDialogListener, true, personalInfoData);
-        subject.onErrorResponse(new MoPubNetworkError(BAD_BODY));
+        subject.onErrorResponse(new MoPubNetworkError.Builder().reason(BAD_BODY).build());
 
         assertThat(subject.mReady).isFalse();
         assertThat(subject.mRequestInFlight).isFalse();
@@ -170,7 +168,7 @@ public class ConsentDialogControllerTest {
     @Test
     public void showConsentDialog_whenDataIsReady_shouldStartActivity_shouldResetControllerState() throws Exception {
         subject.loadConsentDialog(mockDialogListener, true, personalInfoData);
-        subject.onSuccess(dialogResponse);
+        subject.onResponse(dialogResponse);
 
         subject.showConsentDialog();
 
@@ -183,7 +181,7 @@ public class ConsentDialogControllerTest {
     @Test
     public void showConsentDialog_whenDataIsNotReady_shouldNotStartActivity() throws Exception {
         subject.loadConsentDialog(mockDialogListener, true, personalInfoData);
-        subject.onErrorResponse(new MoPubNetworkError(BAD_BODY));
+        subject.onErrorResponse(new MoPubNetworkError.Builder().reason(BAD_BODY).build());
 
         subject.showConsentDialog();
 

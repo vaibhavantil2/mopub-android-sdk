@@ -10,10 +10,6 @@ import android.content.Context;
 import com.mopub.common.AdFormat;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.ResponseHeader;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Request;
-import com.mopub.volley.RequestQueue;
-import com.mopub.volley.VolleyError;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -22,6 +18,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.robolectric.Robolectric;
 
@@ -33,6 +30,7 @@ import java.util.Map;
 
 import static com.mopub.mobileads.MoPubErrorCode.UNSPECIFIED;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Matchers.any;
@@ -41,6 +39,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @RunWith(SdkTestRunner.class)
 public class AdLoaderTest {
@@ -135,13 +134,15 @@ public class AdLoaderTest {
     public void loadNextAd_firstCall_whenBlockedByRequestRateLimit_makesNoReqeust_returnsNull() {
         RequestRateTrackerTest.prepareRequestRateTracker(adUnitId, 100, "reason");
 
-        Request<?> request = subject.loadNextAd(null);
+        MoPubRequest<?> request = subject.loadNextAd(null);
 
         assertNull(request);
         verify(mockListener).onErrorResponse(
-                eq(new MoPubNetworkError(MoPubNetworkError.Reason.TOO_MANY_REQUESTS)));
-        RequestQueue requestQueue = Networking.getRequestQueue();
-        verify(requestQueue, never()).add(any(Request.class));
+                eq(new MoPubNetworkError.Builder()
+                        .reason(MoPubNetworkError.Reason.TOO_MANY_REQUESTS)
+                        .build()));
+        MoPubRequestQueue requestQueue = Networking.getRequestQueue();
+        verify(requestQueue, never()).add(any(MoPubRequest.class));
     }
 
     @Test
@@ -150,7 +151,7 @@ public class AdLoaderTest {
         JSONObject adResponseJson1 = createAdResponseJson("trackingUrl1", "content_1");
         JSONObject adResponseJson2 = createAdResponseJson("trackingUrl2", "content_2");
         byte[] body = createResponseBody(null, new JSONObject[]{adResponseJson1, adResponseJson2});
-        NetworkResponse testResponse = new NetworkResponse(200, body, headers, false);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, body, headers);
         MultiAdResponse multiAdResponse = new MultiAdResponse(activity, testResponse, AdFormat.BANNER, adUnitId);
 
         // set subject MultiAdResponse
@@ -160,15 +161,15 @@ public class AdLoaderTest {
         // validation
         assertThat(subject.hasMoreAds()).isTrue();
         subject.loadNextAd(null);
-        verify(mockListener, times(1)).onSuccess(any(AdResponse.class));
+        verify(mockListener, times(1)).onResponse(any(AdResponse.class));
         assertThat(subject.hasMoreAds()).isTrue();
 
         RequestRateTrackerTest.prepareRequestRateTracker(adUnitId, 100, "reason");
-        Request<?> request = subject.loadNextAd(UNSPECIFIED);
+        MoPubRequest<?> request = subject.loadNextAd(UNSPECIFIED);
 
         assertNotNull(request);
-        verify(mockListener, times(2)).onSuccess(any(AdResponse.class));
-        verify(mockListener, never()).onErrorResponse(any(VolleyError.class));
+        verify(mockListener, times(2)).onResponse(any(AdResponse.class));
+        verify(mockListener, never()).onErrorResponse(any(MoPubNetworkError.class));
         assertThat(subject.hasMoreAds()).isFalse();
     }
 
@@ -180,7 +181,7 @@ public class AdLoaderTest {
 
         subject.loadNextAd(null);
 
-        verify(mockListener).onErrorResponse(any(VolleyError.class));
+        verify(mockListener).onErrorResponse(any(MoPubNetworkError.class));
     }
 
     @Test
@@ -189,17 +190,34 @@ public class AdLoaderTest {
         subject.loadNextAd(null);
 
         verify(mockListener).onErrorResponse(
-                eq(new MoPubNetworkError(MoPubNetworkError.Reason.TOO_MANY_REQUESTS)));
+                eq(new MoPubNetworkError.Builder()
+                        .reason(MoPubNetworkError.Reason.TOO_MANY_REQUESTS)
+                        .build()));
         assertThat(getPrivateField("mFailed").getBoolean(subject)).isTrue();
     }
 
     @Test
-    public void deliverError_callsOriginalListenerOnErrorResponse() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    public void deliverError_withReason_callsOriginalListenerOnErrorResponse_withSameError() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         // call private method AdLoader.deliverError()
-        Method methodDeliverError = getMethod("deliverError", new Class[]{VolleyError.class});
-        methodDeliverError.invoke(subject, mock(VolleyError.class));
+        Method methodDeliverError = getMethod("deliverError", new Class[]{MoPubNetworkError.class});
+        MoPubNetworkError error = new MoPubNetworkError.Builder().reason(MoPubNetworkError.Reason.NO_FILL).build();
+        methodDeliverError.invoke(subject, error);
 
-        verify(mockListener).onErrorResponse(any(VolleyError.class));
+        ArgumentCaptor<MoPubNetworkError> networkErrorCaptor = ArgumentCaptor.forClass(MoPubNetworkError.class);
+        verify(mockListener).onErrorResponse(networkErrorCaptor.capture());
+        assertEquals(error, networkErrorCaptor.getValue());
+    }
+
+    @Test
+    public void deliverError_withNullReason_callsOriginalListenerOnErrorResponse_withReasonUnspecified() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        // call private method AdLoader.deliverError()
+        Method methodDeliverError = getMethod("deliverError", new Class[]{MoPubNetworkError.class});
+        MoPubNetworkError error = new MoPubNetworkError.Builder().build();
+        methodDeliverError.invoke(subject, error);
+
+        ArgumentCaptor<MoPubNetworkError> networkErrorCaptor = ArgumentCaptor.forClass(MoPubNetworkError.class);
+        verify(mockListener).onErrorResponse(networkErrorCaptor.capture());
+        assertEquals(MoPubNetworkError.Reason.UNSPECIFIED, networkErrorCaptor.getValue().getReason());
     }
 
     @Test
@@ -208,16 +226,18 @@ public class AdLoaderTest {
         Method deliverResponse = getMethod("deliverResponse", new Class[]{AdResponse.class});
         deliverResponse.invoke(subject, mock(AdResponse.class));
 
-        verify(mockListener).onSuccess(any(AdResponse.class));
+        verify(mockListener).onResponse(any(AdResponse.class));
     }
 
     @Test
     public void fetchAd_addsRequestToQueue() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        when(mockMultiAdRequest.getUrl()).thenReturn("test-url");
+
         // call private method AdLoader.fetchAd()
         Method fetchMethod = getMethod("fetchAd", new Class[]{MultiAdRequest.class, Context.class});
-        Request<?> request = (Request<?>) fetchMethod.invoke(subject, mockMultiAdRequest, activity);
+        MoPubRequest<?> request = (MoPubRequest<?>) fetchMethod.invoke(subject, mockMultiAdRequest, activity);
 
-        RequestQueue requestQueue = Networking.getRequestQueue();
+        MoPubRequestQueue requestQueue = Networking.getRequestQueue();
         verify(requestQueue).add(request);
     }
 
@@ -225,7 +245,7 @@ public class AdLoaderTest {
     public void oneAdResponseWaterfall_shouldSucceed() throws JSONException, MoPubNetworkError, NoSuchFieldException, IllegalAccessException {
         JSONObject adResponseJson = createAdResponseJson("trackingUrl", "content_data");
         byte[] body = createResponseBody(null, new JSONObject[]{adResponseJson});
-        NetworkResponse testResponse = new NetworkResponse(200, body, headers, false);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, body, headers);
         MultiAdResponse multiAdResponse = new MultiAdResponse(activity, testResponse, AdFormat.BANNER, adUnitId);
 
         // set subject MultiAdResponse
@@ -235,7 +255,7 @@ public class AdLoaderTest {
         // validation
         assertThat(subject.hasMoreAds()).isTrue();
         subject.loadNextAd(null);
-        verify(mockListener).onSuccess(any(AdResponse.class));
+        verify(mockListener).onResponse(any(AdResponse.class));
         assertThat(subject.hasMoreAds()).isFalse();
     }
 
@@ -244,7 +264,7 @@ public class AdLoaderTest {
         JSONObject adResponseJson1 = createAdResponseJson("trackingUrl1", "content_1");
         JSONObject adResponseJson2 = createAdResponseJson("trackingUrl2", "content_2");
         byte[] body = createResponseBody(null, new JSONObject[]{adResponseJson1, adResponseJson2});
-        NetworkResponse testResponse = new NetworkResponse(200, body, headers, false);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, body, headers);
         MultiAdResponse multiAdResponse = new MultiAdResponse(activity, testResponse, AdFormat.BANNER, adUnitId);
 
         // set subject MultiAdResponse
@@ -254,11 +274,11 @@ public class AdLoaderTest {
         // validation
         assertThat(subject.hasMoreAds()).isTrue();
         subject.loadNextAd(null);
-        verify(mockListener, times(1)).onSuccess(any(AdResponse.class));
+        verify(mockListener, times(1)).onResponse(any(AdResponse.class));
         assertThat(subject.hasMoreAds()).isTrue();
 
         subject.loadNextAd(UNSPECIFIED);
-        verify(mockListener, times(2)).onSuccess(any(AdResponse.class));
+        verify(mockListener, times(2)).onResponse(any(AdResponse.class));
         assertThat(subject.hasMoreAds()).isFalse();
     }
 
@@ -267,7 +287,7 @@ public class AdLoaderTest {
         JSONObject adResponseJson1 = createAdResponseJson("trackingUrl1", "content_1");
         JSONObject adResponseJson2 = createAdResponseJson("trackingUrl2", "content_2");
         byte[] body = createResponseBody("fail_url", new JSONObject[]{adResponseJson1, adResponseJson2});
-        NetworkResponse testResponse = new NetworkResponse(200, body, headers, false);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, body, headers);
         MultiAdResponse multiAdResponse = new MultiAdResponse(activity, testResponse, AdFormat.BANNER, adUnitId);
 
         // set subject MultiAdResponse
@@ -277,11 +297,11 @@ public class AdLoaderTest {
         // validation
         assertThat(subject.hasMoreAds()).isTrue();
         subject.loadNextAd(null);
-        verify(mockListener, times(1)).onSuccess(any(AdResponse.class));
+        verify(mockListener, times(1)).onResponse(any(AdResponse.class));
         assertThat(subject.hasMoreAds()).isTrue();
 
         subject.loadNextAd(UNSPECIFIED);
-        verify(mockListener, times(2)).onSuccess(any(AdResponse.class));
+        verify(mockListener, times(2)).onResponse(any(AdResponse.class));
         assertThat(subject.hasMoreAds()).isTrue();
     }
 

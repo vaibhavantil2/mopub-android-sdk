@@ -14,12 +14,6 @@ import com.mopub.common.logging.MoPubLog;
 import com.mopub.mobileads.VastErrorCode;
 import com.mopub.mobileads.VastMacroHelper;
 import com.mopub.mobileads.VastTracker;
-import com.mopub.volley.DefaultRetryPolicy;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.RequestQueue;
-import com.mopub.volley.Response;
-import com.mopub.volley.VolleyError;
-import com.mopub.volley.toolbox.HttpHeaderParser;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,42 +21,55 @@ import java.util.List;
 
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 
-public class TrackingRequest extends MoPubRequest<Void> {
+public class TrackingRequest extends MoPubRequest<String> {
 
     // Retrying may cause duplicate impressions
     private static final int ZERO_RETRIES = 0;
 
-    public interface Listener extends Response.ErrorListener {
-        void onResponse(@NonNull String url);
-    }
+    public interface Listener extends MoPubResponse.Listener<String> {}
 
-    @Nullable private final TrackingRequest.Listener mListener;
+    @Nullable private final Listener mListener;
 
-    private TrackingRequest(@NonNull final Context context,
+    private TrackingRequest(
+            @NonNull final Context context,
             @NonNull final String url,
             @Nullable final Listener listener) {
-        super(context, url, listener);
+        super(context,
+                url,
+                MoPubRequestUtils.truncateQueryParamsIfPost(url),
+                MoPubRequestUtils.chooseMethod(url),
+                listener);
         mListener = listener;
         setShouldCache(false);
-        setRetryPolicy(new DefaultRetryPolicy(
-                DefaultRetryPolicy.DEFAULT_TIMEOUT_MS,
+        setRetryPolicy(new MoPubRetryPolicy(
+                MoPubRetryPolicy.DEFAULT_TIMEOUT_MS,
                 ZERO_RETRIES,
-                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+                MoPubRetryPolicy.DEFAULT_BACKOFF_MULT));
     }
 
+    @NonNull
     @Override
-    protected Response<Void> parseNetworkResponse(final NetworkResponse networkResponse) {
-        if (networkResponse.statusCode != 200) {
-            return Response.error(
-                    new MoPubNetworkError("Failed to log tracking request. Response code: "
-                            + networkResponse.statusCode + " for url: " + getUrl(),
-                            MoPubNetworkError.Reason.TRACKING_FAILURE));
+    protected String getBodyContentType() {
+        if (MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return JSON_CONTENT_TYPE;
         }
-        return Response.success(null, HttpHeaderParser.parseCacheHeaders(networkResponse));
+        return super.getBodyContentType();
     }
 
     @Override
-    public void deliverResponse(final Void aVoid) {
+    protected MoPubResponse<String> parseNetworkResponse(final MoPubNetworkResponse networkResponse) {
+        if (networkResponse.getStatusCode() != 200) {
+            return MoPubResponse.error(
+                    new MoPubNetworkError.Builder("Failed to log tracking request. Response code: "
+                            + networkResponse.getStatusCode() + " for url: " + getUrl())
+                            .reason(MoPubNetworkError.Reason.TRACKING_FAILURE)
+                            .build());
+        }
+        return MoPubResponse.success(Integer.toString(networkResponse.getStatusCode()), networkResponse);
+    }
+
+    @Override
+    protected void deliverResponse(@NonNull final String data) {
         if (mListener != null) {
             mListener.onResponse(getUrl());
         }
@@ -103,13 +110,13 @@ public class TrackingRequest extends MoPubRequest<Void> {
     }
 
     public static void makeTrackingHttpRequest(@Nullable final Iterable<String> urls,
-            @Nullable final Context context,
-            @Nullable final Listener listener) {
+                                               @Nullable final Context context,
+                                               @Nullable final Listener listener) {
         if (urls == null || context == null) {
             return;
         }
 
-        final RequestQueue requestQueue = Networking.getRequestQueue(context);
+        final MoPubRequestQueue requestQueue = Networking.getRequestQueue(context);
         for (final String url : urls) {
             if (TextUtils.isEmpty(url)) {
                 continue;
@@ -125,34 +132,33 @@ public class TrackingRequest extends MoPubRequest<Void> {
                 }
 
                 @Override
-                public void onErrorResponse(final VolleyError volleyError) {
+                public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
                     MoPubLog.log(CUSTOM, "Failed to hit tracking endpoint: " + url);
                     if (listener != null) {
-                        listener.onErrorResponse(volleyError);
+                        listener.onErrorResponse(networkError);
                     }
                 }
             };
-            final TrackingRequest trackingRequest = new TrackingRequest(context, url,
-                    internalListener);
+            final TrackingRequest trackingRequest = new TrackingRequest(context, url, internalListener);
             requestQueue.add(trackingRequest);
         }
     }
 
     public static void makeTrackingHttpRequest(@Nullable final String url,
-            @Nullable final Context context) {
+                                               @Nullable final Context context) {
         makeTrackingHttpRequest(url, context, null);
     }
 
     public static void makeTrackingHttpRequest(@Nullable final String url,
-            @Nullable final Context context,
-            @Nullable Listener listener) {
+                                               @Nullable final Context context,
+                                               @Nullable Listener listener) {
         if (!TextUtils.isEmpty(url)) {
             makeTrackingHttpRequest(Arrays.asList(url), context, listener);
         }
     }
 
     public static void makeTrackingHttpRequest(@Nullable final Iterable<String> urls,
-            @Nullable final Context context) {
+                                               @Nullable final Context context) {
         makeTrackingHttpRequest(urls, context, null);
     }
 }

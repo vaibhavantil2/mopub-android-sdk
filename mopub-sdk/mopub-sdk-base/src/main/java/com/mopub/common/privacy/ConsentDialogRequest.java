@@ -10,11 +10,10 @@ import androidx.annotation.Nullable;
 import android.text.TextUtils;
 
 import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubNetworkResponse;
 import com.mopub.network.MoPubRequest;
-import com.mopub.volley.DefaultRetryPolicy;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Response;
-import com.mopub.volley.toolbox.HttpHeaderParser;
+import com.mopub.network.MoPubRequestUtils;
+import com.mopub.network.MoPubResponse;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -22,28 +21,34 @@ import org.json.JSONObject;
 class ConsentDialogRequest extends MoPubRequest<ConsentDialogResponse> {
     private static final String HTML_KEY = "dialog_html";
 
-    public interface Listener extends Response.ErrorListener {
-        void onSuccess(ConsentDialogResponse response);
-    }
+    public interface Listener extends MoPubResponse.Listener<ConsentDialogResponse> {}
 
     @Nullable
     private Listener mListener;
 
     ConsentDialogRequest(@NonNull Context context, @NonNull String url, @Nullable Listener listener) {
-        super(context, url, listener);
+        super(context,
+                url,
+                MoPubRequestUtils.truncateQueryParamsIfPost(url),
+                MoPubRequestUtils.chooseMethod(url),
+                listener);
 
         mListener = listener;
 
-        DefaultRetryPolicy retryPolicy = new DefaultRetryPolicy(
-                DefaultRetryPolicy.DEFAULT_TIMEOUT_MS,
-                DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
-                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT);
-        setRetryPolicy(retryPolicy);
         setShouldCache(false);
     }
 
+    @NonNull
     @Override
-    protected Response<ConsentDialogResponse> parseNetworkResponse(final NetworkResponse networkResponse) {
+    protected String getBodyContentType() {
+        if (MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return JSON_CONTENT_TYPE;
+        }
+        return super.getBodyContentType();
+    }
+
+    @Override
+    protected MoPubResponse<ConsentDialogResponse> parseNetworkResponse(final MoPubNetworkResponse networkResponse) {
         final String responseBody = parseStringBody(networkResponse);
 
         ConsentDialogResponse response;
@@ -55,22 +60,20 @@ class ConsentDialogRequest extends MoPubRequest<ConsentDialogResponse> {
             }
             response = new ConsentDialogResponse(html);
         } catch (JSONException e) {
-            return Response.error(
-                    new MoPubNetworkError(
-                            "Unable to parse consent dialog request network response.",
-                            MoPubNetworkError.Reason.BAD_BODY,
-                            null
-                    )
+            return MoPubResponse.error(
+                    new MoPubNetworkError.Builder("Unable to parse consent dialog request network response.")
+                            .reason(MoPubNetworkError.Reason.BAD_BODY)
+                            .build()
             );
         }
 
-        return Response.success(response, HttpHeaderParser.parseCacheHeaders(networkResponse));
+        return MoPubResponse.success(response, networkResponse);
     }
 
     @Override
-    protected void deliverResponse(ConsentDialogResponse consentDialogResponse) {
+    protected void deliverResponse(@NonNull final ConsentDialogResponse consentDialogResponse) {
         if (mListener != null) {
-            mListener.onSuccess(consentDialogResponse);
+            mListener.onResponse(consentDialogResponse);
         }
     }
 }

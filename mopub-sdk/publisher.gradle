@@ -3,15 +3,14 @@
 // https://www.mopub.com/legal/sdk-license-agreement/
 
 apply plugin: 'com.android.library'
-apply plugin: 'com.jfrog.bintray'
 apply plugin: 'maven-publish'
+apply plugin: 'signing'
 
 def siteUrl = 'https://github.com/mopub/mopub-android-sdk'
-def gitUrl = 'https://github.com/mopub/mopub-android-sdk.git'
-def issuesUrl = 'https://github.com/mopub/mopub-android-sdk/issues'
-def bintrayRepo = 'mopub-android-sdk'
-def bintrayUserOrg = 'mopub'
-// Put your credentials (bintray.user, bintray.apikey) in ~/.gradle/gradle.properties
+def gitUrl = 'github.com/mopub/mopub-android-sdk.git'
+
+// Maven signing
+ext."signing.password" = System.getenv('GPG_RING_PASS')
 
 task sourcesJar(type: Jar) {
     from android.sourceSets.main.java.srcDirs
@@ -27,29 +26,48 @@ afterEvaluate {
         publications {
             release(MavenPublication) {
                 from components.release
-                artifact sourcesJar
 
                 groupId = project.group
                 artifactId = project.ext.projectName
                 version = project.version
+
+                pom {
+                    name = project.ext.displayName
+                    description = project.description
+                    licenses {
+                        license {
+                            name = 'MoPub SDK License Agreement'
+                            url = 'https://www.mopub.com/legal/sdk-license-agreement/'
+                        }
+                    }
+                    developers {
+                        developer {
+                            id = 'mopub'
+                            name = 'MoPub (a division of Twitter, Inc.)'
+                            url = 'https://www.mopub.com'
+                            email = 'support@mopub.com'
+                        }
+                    }
+                    scm {
+                        connection = 'scm:git:git://' + gitUrl
+                        developerConnection = 'scm:git:ssh://' + gitUrl
+                        url = siteUrl
+                    }
+                }
+            }
+        }
+        repositories {
+            maven {
+                url = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+                credentials {
+                    username = project.hasProperty("maven.user") ? project.getProperty("maven.user") : ""
+                    password = project.hasProperty("maven.pass") ? project.getProperty("maven.pass") : ""
+                }
             }
         }
     }
 
-    bintray {
-        user = project.hasProperty("bintray.user") ? project.getProperty("bintray.user") : ""
-        key = project.hasProperty("bintray.apikey") ? project.getProperty("bintray.apikey") : ""
-        publications = ['release']
-        pkg {
-            repo = bintrayRepo
-            name = project.ext.uploadName
-            userOrg = bintrayUserOrg
-            vcsUrl = gitUrl
-            websiteUrl = siteUrl
-            issueTrackerUrl = issuesUrl
-            desc = project.description
-        }
-        dryRun = false
-        publish = true
+    signing {
+        sign publishing.publications.release
     }
 }

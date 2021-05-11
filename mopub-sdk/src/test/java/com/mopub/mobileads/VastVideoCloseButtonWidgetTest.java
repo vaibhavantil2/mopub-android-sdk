@@ -12,11 +12,10 @@ import android.graphics.drawable.VectorDrawable;
 import android.widget.ImageView;
 
 import com.mopub.common.test.support.SdkTestRunner;
-import com.mopub.network.MaxWidthImageLoader;
+import com.mopub.network.MoPubImageLoader;
+import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
-import com.mopub.volley.VolleyError;
-import com.mopub.volley.toolbox.ImageLoader;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -28,6 +27,7 @@ import org.robolectric.Robolectric;
 
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -44,13 +44,13 @@ public class VastVideoCloseButtonWidgetTest {
     @Mock
     MoPubRequestQueue mockRequestQueue;
     @Mock
-    private MaxWidthImageLoader mockImageLoader;
+    private MoPubImageLoader mockImageLoader;
     @Mock
-    private ImageLoader.ImageContainer mockImageContainer;
+    private MoPubImageLoader.ImageContainer mockImageContainer;
     @Mock
     private Bitmap mockBitmap;
     @Captor
-    private ArgumentCaptor<ImageLoader.ImageListener> imageCaptor;
+    private ArgumentCaptor<MoPubImageLoader.ImageListener> imageCaptor;
 
     @Before
     public void setUp() throws Exception {
@@ -61,43 +61,46 @@ public class VastVideoCloseButtonWidgetTest {
     }
 
     @Test
-    public void updateCloseButtonIcon_imageListenerOnResponse_shouldUseImageBitmap() throws Exception {
+    public void updateCloseButtonIcon_imageListenerOnResponse_shouldUseImageBitmap() {
         when(mockImageContainer.getBitmap()).thenReturn(mockBitmap);
 
-        subject.updateCloseButtonIcon(ICON_IMAGE_URL);
+        subject.updateCloseButtonIcon(ICON_IMAGE_URL, context);
 
-        verify(mockImageLoader).get(eq(ICON_IMAGE_URL), imageCaptor.capture());
-        ImageLoader.ImageListener listener = imageCaptor.getValue();
+        verify(mockImageLoader).fetch(eq(ICON_IMAGE_URL), imageCaptor.capture(), anyInt(), anyInt(),
+                any(ImageView.ScaleType.class));
+        MoPubImageLoader.ImageListener listener = imageCaptor.getValue();
         listener.onResponse(mockImageContainer, true);
         assertThat(((BitmapDrawable) subject.getImageView().getDrawable()).getBitmap()).isEqualTo(mockBitmap);
     }
 
     @Test
-    public void updateImage_imageListenerOnResponseWhenReturnedBitMapIsNull_shouldUseDefaultCloseButtonDrawable() throws Exception {
+    public void updateImage_imageListenerOnResponseWhenReturnedBitMapIsNull_shouldUseDefaultCloseButtonDrawable() {
         final ImageView imageViewSpy = spy(subject.getImageView());
         subject.setImageView(imageViewSpy);
 
         when(mockImageContainer.getBitmap()).thenReturn(null);
 
-        subject.updateCloseButtonIcon(ICON_IMAGE_URL);
+        subject.updateCloseButtonIcon(ICON_IMAGE_URL, context);
 
-        verify(mockImageLoader).get(eq(ICON_IMAGE_URL), imageCaptor.capture());
-        ImageLoader.ImageListener listener = imageCaptor.getValue();
+        verify(mockImageLoader).fetch(eq(ICON_IMAGE_URL), imageCaptor.capture(), anyInt(), anyInt(),
+                any(ImageView.ScaleType.class));
+        MoPubImageLoader.ImageListener listener = imageCaptor.getValue();
         listener.onResponse(mockImageContainer, true);
         verify(imageViewSpy, never()).setImageBitmap(any(Bitmap.class));
         assertThat(subject.getImageView().getDrawable()).isInstanceOf(VectorDrawable.class);
     }
 
     @Test
-    public void updateImage_imageListenerOnErrorResponse_shouldUseDefaultCloseButtonDrawable() throws Exception {
+    public void updateImage_imageListenerOnErrorResponse_shouldUseDefaultCloseButtonDrawable() {
         final ImageView imageViewSpy = spy(subject.getImageView());
         subject.setImageView(imageViewSpy);
 
-        subject.updateCloseButtonIcon(ICON_IMAGE_URL);
+        subject.updateCloseButtonIcon(ICON_IMAGE_URL, context);
 
-        verify(mockImageLoader).get(eq(ICON_IMAGE_URL), imageCaptor.capture());
-        ImageLoader.ImageListener listener = imageCaptor.getValue();
-        listener.onErrorResponse(new VolleyError());
+        verify(mockImageLoader).fetch(eq(ICON_IMAGE_URL), imageCaptor.capture(), anyInt(), anyInt(),
+                any(ImageView.ScaleType.class));
+        MoPubImageLoader.ImageListener listener = imageCaptor.getValue();
+        listener.onErrorResponse(new MoPubNetworkError.Builder().build());
         verify(imageViewSpy, never()).setImageBitmap(any(Bitmap.class));
         assertThat(subject.getImageView().getDrawable()).isInstanceOf(VectorDrawable.class);
     }

@@ -14,13 +14,13 @@ import com.mopub.network.AdResponse;
 import com.mopub.network.ImpressionListener;
 import com.mopub.network.ImpressionsEmitter;
 import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubNetworkResponse;
+import com.mopub.network.MoPubRequest;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.MultiAdRequest;
 import com.mopub.network.MultiAdResponse;
 import com.mopub.network.Networking;
 import com.mopub.network.TrackingRequest;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Request;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -30,17 +30,17 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.robolectric.Robolectric;
 
 import java.lang.reflect.Field;
+import java.util.Collections;
 
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @RunWith(SdkTestRunner.class)
 public class AdLoaderRewardedAdTest {
@@ -62,22 +62,19 @@ public class AdLoaderRewardedAdTest {
         String url = "test-url";
         subject = new AdLoaderRewardedAd(url, AdFormat.REWARDED_AD, adUnitId, activity, mockListener);
 
-        when(mockRequestQueue.add(any(Request.class))).then(new Answer<Object>() {
-            @Override
-            public Object answer(final InvocationOnMock invocationOnMock) throws Throwable {
-                Request req = ((Request) invocationOnMock.getArguments()[0]);
-                if (req.getClass().equals(TrackingRequest.class)) {
-                    request = (TrackingRequest) req;
-                    return null;
-                } else if (req.getClass().equals(MultiAdRequest.class)) {
-                    // ignore it
-                    return null;
-                } else {
-                    throw new Exception(String.format("Request object added to RequestQueue can " +
-                            "only be of type TrackingRequest, saw %s instead.", req.getClass()));
-                }
+        doAnswer((Answer<Object>) invocationOnMock -> {
+            MoPubRequest<?> req = ((MoPubRequest<?>) invocationOnMock.getArguments()[0]);
+            if (req.getClass().equals(TrackingRequest.class)) {
+                request = (TrackingRequest) req;
+                return null;
+            } else if (req.getClass().equals(MultiAdRequest.class)) {
+                // ignore it
+                return null;
+            } else {
+                throw new Exception(String.format("Request object added to RequestQueue can only be of type " +
+                        "TrackingRequest, saw %s instead.", req.getClass()));
             }
-        });
+        }).when(mockRequestQueue).add(any(MoPubRequest.class));
 
         Networking.setRequestQueueForTesting(mockRequestQueue);
     }
@@ -105,7 +102,7 @@ public class AdLoaderRewardedAdTest {
         JSONObject firstAdJson = serverJson.getJSONArray(ResponseHeader.AD_RESPONSES.getKey()).getJSONObject(0);
         JSONObject firstAdMetadata = firstAdJson.getJSONObject(ResponseHeader.METADATA.getKey());
         byte[] body = serverJson.toString().getBytes();
-        NetworkResponse testResponse = new NetworkResponse(body);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, body, Collections.emptyMap());
         MultiAdResponse multiAdResponse = new MultiAdResponse(activity, testResponse, AdFormat.BANNER, adUnitId);
 
         // set subject MultiAdResponse
@@ -115,7 +112,7 @@ public class AdLoaderRewardedAdTest {
         // validation for basic AdLoader
         assertThat(subject.hasMoreAds()).isTrue();
         subject.loadNextAd(null);
-        verify(mockListener).onSuccess(any(AdResponse.class));
+        verify(mockListener).onResponse(any(AdResponse.class));
         assertThat(subject.hasMoreAds()).isTrue();
 
         //validation for all functions in AdLoaderRewardedAd
@@ -129,7 +126,7 @@ public class AdLoaderRewardedAdTest {
     public void trackImpression_shouldMakeTrackingRequest() throws JSONException, MoPubNetworkError, NoSuchFieldException, IllegalAccessException {
         JSONObject serverJson = createAdResponseJson();
         byte[] body = serverJson.toString().getBytes();
-        NetworkResponse testResponse = new NetworkResponse(body);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, body, Collections.emptyMap());
         MultiAdResponse multiAdResponse = new MultiAdResponse(activity, testResponse, AdFormat.BANNER, adUnitId);
 
         // set subject MultiAdResponse
@@ -139,7 +136,7 @@ public class AdLoaderRewardedAdTest {
         // validation for basic AdLoader
         assertThat(subject.hasMoreAds()).isTrue();
         subject.loadNextAd(null);
-        verify(mockListener).onSuccess(any(AdResponse.class));
+        verify(mockListener).onResponse(any(AdResponse.class));
         assertThat(subject.hasMoreAds()).isTrue();
 
         // call tracking
@@ -154,7 +151,7 @@ public class AdLoaderRewardedAdTest {
     public void trackImpression_shouldMakeImpressionDataCall() throws JSONException, MoPubNetworkError, NoSuchFieldException, IllegalAccessException {
         JSONObject serverJson = createAdResponseJson();
         byte[] body = serverJson.toString().getBytes();
-        NetworkResponse testResponse = new NetworkResponse(body);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, body, Collections.emptyMap());
         MultiAdResponse multiAdResponse = new MultiAdResponse(activity, testResponse, AdFormat.BANNER, adUnitId);
 
         // set subject MultiAdResponse
@@ -179,7 +176,7 @@ public class AdLoaderRewardedAdTest {
         serverJson.getJSONArray("ad-responses").getJSONObject(0).getJSONObject("metadata").put(
                 "imptrackers", new JSONArray().put("imp1").put("imp2"));
         byte[] body = serverJson.toString().getBytes();
-        NetworkResponse testResponse = new NetworkResponse(body);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, body, Collections.emptyMap());
         MultiAdResponse multiAdResponse = new MultiAdResponse(activity, testResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // set subject MultiAdResponse
@@ -189,7 +186,7 @@ public class AdLoaderRewardedAdTest {
         // validation for basic AdLoader
         assertThat(subject.hasMoreAds()).isTrue();
         subject.loadNextAd(null);
-        verify(mockListener).onSuccess(any(AdResponse.class));
+        verify(mockListener).onResponse(any(AdResponse.class));
         assertThat(subject.hasMoreAds()).isTrue();
 
         // call tracking
@@ -204,7 +201,7 @@ public class AdLoaderRewardedAdTest {
     public void trackClick_shouldMakeClickTrackingRequest() throws JSONException, MoPubNetworkError, NoSuchFieldException, IllegalAccessException {
         JSONObject serverJson = createAdResponseJson();
         byte[] body = serverJson.toString().getBytes();
-        NetworkResponse testResponse = new NetworkResponse(body);
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, body, Collections.emptyMap());
         MultiAdResponse multiAdResponse = new MultiAdResponse(activity, testResponse, AdFormat.BANNER, adUnitId);
 
         // set subject MultiAdResponse
@@ -214,7 +211,7 @@ public class AdLoaderRewardedAdTest {
         // validation for basic AdLoader
         assertThat(subject.hasMoreAds()).isTrue();
         subject.loadNextAd(null);
-        verify(mockListener).onSuccess(any(AdResponse.class));
+        verify(mockListener).onResponse(any(AdResponse.class));
         assertThat(subject.hasMoreAds()).isTrue();
 
         // call tracking

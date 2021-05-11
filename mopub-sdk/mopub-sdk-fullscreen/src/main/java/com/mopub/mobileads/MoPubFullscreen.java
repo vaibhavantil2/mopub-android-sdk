@@ -26,9 +26,9 @@ import com.mopub.mobileads.factories.VastManagerFactory;
 import com.mopub.mraid.MraidBridge;
 import com.mopub.mraid.MraidController;
 import com.mopub.mraid.PlacementType;
+import com.mopub.network.MoPubImageLoader;
+import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.Networking;
-import com.mopub.volley.VolleyError;
-import com.mopub.volley.toolbox.ImageLoader;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -105,7 +105,9 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
             MoPubLog.log(LOAD_FAILED, ADAPTER_NAME,
                     MoPubErrorCode.INTERNAL_ERROR.getIntCode(),
                     MoPubErrorCode.INTERNAL_ERROR);
-            mLoadListener.onAdLoadFailed(MoPubErrorCode.INTERNAL_ERROR);
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoadFailed(MoPubErrorCode.INTERNAL_ERROR);
+            }
             return;
         }
 
@@ -156,19 +158,25 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
             MoPubLog.log(LOAD_FAILED, ADAPTER_NAME,
                     MoPubErrorCode.VIDEO_CACHE_ERROR.getIntCode(),
                     MoPubErrorCode.VIDEO_CACHE_ERROR);
-            mLoadListener.onAdLoadFailed(MoPubErrorCode.VIDEO_CACHE_ERROR);
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoadFailed(MoPubErrorCode.VIDEO_CACHE_ERROR);
+            }
             return;
         }
 
         if (mAdData == null) {
-            mLoadListener.onAdLoadFailed(MoPubErrorCode.NETWORK_INVALID_STATE);
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoadFailed(MoPubErrorCode.NETWORK_INVALID_STATE);
+            }
             return;
         }
 
         mHandler = new Handler();
         mAdExpiration = () -> {
             MoPubLog.log(EXPIRED, ADAPTER_NAME, "time in seconds");
-            mLoadListener.onAdLoadFailed(MoPubErrorCode.EXPIRED);
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoadFailed(MoPubErrorCode.EXPIRED);
+            }
             onInvalidate();
         };
 
@@ -215,7 +223,9 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
             moPubWebViewController = HtmlControllerFactory.create(context,
                     adData.getDspCreativeId());
         } else {
-            mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+            }
             return;
         }
 
@@ -239,36 +249,44 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
             imageUrl = imageData.getString(IMAGE_KEY);
         } catch (JSONException e) {
             MoPubLog.log(CUSTOM, "Unable to get image url.");
-            mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+            }
             return;
         }
 
         if (TextUtils.isEmpty(imageUrl)) {
             MoPubLog.log(CUSTOM, "Image url is empty.");
-            mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+            }
             return;
         }
 
-        ImageLoader.ImageListener imageListener = new ImageLoader.ImageListener() {
+        MoPubImageLoader.ImageListener imageListener = new MoPubImageLoader.ImageListener() {
             @Override
-            public void onResponse(final ImageLoader.ImageContainer imageContainer, final boolean isImmediate) {
+            public void onResponse(@NonNull MoPubImageLoader.ImageContainer imageContainer, boolean isImmediate) {
                 // Image Loader returns a "default" response immediately. We want to ignore this
                 // unless the image is already cached.
                 if (imageContainer.getBitmap() == null) {
                     return;
                 }
-                mLoadListener.onAdLoaded();
+                if (mLoadListener != null){
+                    mLoadListener.onAdLoaded();
+                }
                 markReady();
             }
 
             @Override
-            public void onErrorResponse(VolleyError volleyError) {
-                mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+            public void onErrorResponse(@NonNull MoPubNetworkError networkError) {
+                if (mLoadListener != null) {
+                    mLoadListener.onAdLoadFailed(FULLSCREEN_LOAD_ERROR);
+                }
             }
         };
 
-        final ImageLoader imageLoader = Networking.getImageLoader(context);
-        imageLoader.get(imageUrl, imageListener);
+        final MoPubImageLoader imageLoader = Networking.getImageLoader(context);
+        imageLoader.fetch(imageUrl, imageListener);
     }
 
     @Override

@@ -11,6 +11,7 @@
         android:id="@+id/privacy_recycler_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:layout_marginBottom="8dp"
         app:layout_constraintBottom_toTopOf="@+id/privacy_close_btn"
         app:layout_constraintTop_toTopOf="parent"
         tools:listitem="@layout/privacy_info_item" />

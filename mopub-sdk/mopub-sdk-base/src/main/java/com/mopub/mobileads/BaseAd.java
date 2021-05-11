@@ -29,7 +29,9 @@ public abstract class BaseAd {
 
     private boolean mAutomaticImpressionAndClickTracking = true;
 
+    @Nullable
     protected AdLifecycleListener.LoadListener mLoadListener;
+    @Nullable
     protected AdLifecycleListener.InteractionListener mInteractionListener;
 
     /*

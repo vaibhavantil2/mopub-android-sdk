@@ -8,7 +8,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.mopub.common.logging.MoPubLog;
-import com.mopub.mobileads.base.BuildConfig;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -22,7 +21,7 @@ import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 
 @SuppressWarnings({"WeakerAccess"})
 public class ImpressionData implements Serializable {
-    private static final long serialVersionUID = BuildConfig.VERSION_CODE;
+    private static final long serialVersionUID = 5637646059670153782L;
 
     public static final String APP_VERSION = "app_version";
     public static final String ADUNIT_ID = "adunit_id";

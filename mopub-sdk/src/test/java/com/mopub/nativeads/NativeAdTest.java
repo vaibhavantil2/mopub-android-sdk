@@ -28,7 +28,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import static com.mopub.common.VolleyRequestMatcher.isUrl;
+import static com.mopub.common.MoPubRequestMatcher.isUrl;
 import static com.mopub.nativeads.NativeAd.MoPubNativeEventListener;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;

@@ -7,8 +7,7 @@ package com.mopub.nativeads;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.view.View;
-
-import androidx.annotation.NonNull;
+import android.widget.ImageView;
 
 import com.mopub.common.ExternalViewabilitySessionManager;
 import com.mopub.common.test.support.SdkTestRunner;
@@ -17,11 +16,10 @@ import com.mopub.nativeads.CustomEventNative.CustomEventNativeListener;
 import com.mopub.nativeads.MoPubCustomEventNative.MoPubStaticNativeAd;
 import com.mopub.nativeads.test.support.MoPubShadowBitmap;
 import com.mopub.nativeads.test.support.MoPubShadowDisplay;
-import com.mopub.network.MaxWidthImageLoader;
+import com.mopub.network.MoPubImageLoader;
+import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
-import com.mopub.volley.VolleyError;
-import com.mopub.volley.toolbox.ImageLoader;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -30,7 +28,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
@@ -43,16 +40,18 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.mopub.nativeads.MoPubCustomEventNative.MoPubStaticNativeAd.Parameter;
-import static com.mopub.volley.toolbox.ImageLoader.ImageListener;
+import static com.mopub.network.MoPubImageLoader.ImageListener;
+import static com.mopub.network.MoPubImageLoader.ImageContainer;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.fest.assertions.api.Assertions.fail;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -70,8 +69,8 @@ public class MoPubStaticNativeAdTest {
     @Mock private CustomEventNativeListener mockCustomEventNativeListener;
     @Mock private NativeEventListener mockNativeEventListener;
     @Mock private MoPubRequestQueue mockRequestQueue;
-    @Mock private MaxWidthImageLoader mockImageLoader;
-    @Mock private ImageLoader.ImageContainer mockImageContainer;
+    @Mock private MoPubImageLoader mockImageLoader;
+    @Mock private ImageContainer mockImageContainer;
     @Mock private ExternalViewabilitySessionManager mockViewabilityManager;
 
     @Before
@@ -280,23 +279,23 @@ public class MoPubStaticNativeAdTest {
         fakeJsonObject.put("iconimage", "iconimageurl");
         fakeJsonObject.put("extraimage", "extraimageurl");
 
-        when(mockImageLoader.get(anyString(), any(ImageListener.class)))
-                .then(new Answer<Void>() {
-                    @Override
-                    public Void answer(final InvocationOnMock invocationOnMock) throws Throwable {
-                        ImageListener listener = ((ImageListener) invocationOnMock.getArguments()[1]);
-                        listener.onResponse(mockImageContainer, false);
-                        return null;
-                    }
-                });
+        doAnswer((Answer<Void>) invocationOnMock -> {
+            ImageListener listener = ((ImageListener) invocationOnMock.getArguments()[1]);
+            listener.onResponse(mockImageContainer, false);
+            return null;
+        }).when(mockImageLoader)
+                .fetch(anyString(), any(ImageListener.class), anyInt(), anyInt(), any(ImageView.ScaleType.class));
 
-        subject = new MoPubStaticNativeAd(context, fakeJsonObject, mockImpressionTracker,
-                mMockNativeClickHandler, mockCustomEventNativeListener);
+        subject = new MoPubStaticNativeAd(context, fakeJsonObject, mockImpressionTracker, mMockNativeClickHandler,
+                mockCustomEventNativeListener);
         subject.loadAd();
 
-        verify(mockImageLoader).get(eq("mainimageurl"), any(ImageListener.class));
-        verify(mockImageLoader).get(eq("iconimageurl"), any(ImageListener.class));
-        verify(mockImageLoader).get(eq("extraimageurl"), any(ImageListener.class));
+        verify(mockImageLoader).fetch(eq("mainimageurl"), any(ImageListener.class), anyInt(), anyInt(),
+                any(ImageView.ScaleType.class));
+        verify(mockImageLoader).fetch(eq("iconimageurl"), any(ImageListener.class), anyInt(), anyInt(),
+                any(ImageView.ScaleType.class));
+        verify(mockImageLoader).fetch(eq("extraimageurl"), any(ImageListener.class), anyInt(), anyInt(),
+                any(ImageView.ScaleType.class));
 
         verify(mockCustomEventNativeListener).onNativeAdLoaded(subject);
         verify(mockCustomEventNativeListener, never()).onNativeAdFailed(any(NativeErrorCode.class));
@@ -308,15 +307,12 @@ public class MoPubStaticNativeAdTest {
         fakeJsonObject.put("iconimage", "iconimageurl");
         fakeJsonObject.put("extraimage", "extraimageurl");
 
-        when(mockImageLoader.get(anyString(), any(ImageListener.class)))
-                .then(new Answer<Void>() {
-                    @Override
-                    public Void answer(final InvocationOnMock invocationOnMock) throws Throwable {
-                        ImageListener listener = ((ImageListener) invocationOnMock.getArguments()[1]);
-                        listener.onErrorResponse(new VolleyError());
-                        return null;
-                    }
-                });
+        doAnswer((Answer<Void>) invocationOnMock -> {
+            ImageListener listener = ((ImageListener) invocationOnMock.getArguments()[1]);
+            listener.onErrorResponse(new MoPubNetworkError.Builder().build());
+            return null;
+        }).when(mockImageLoader)
+                .fetch(anyString(), any(ImageListener.class), anyInt(), anyInt(), any(ImageView.ScaleType.class));
 
         subject = new MoPubStaticNativeAd(context, fakeJsonObject, mockImpressionTracker,
                 mMockNativeClickHandler, mockCustomEventNativeListener);

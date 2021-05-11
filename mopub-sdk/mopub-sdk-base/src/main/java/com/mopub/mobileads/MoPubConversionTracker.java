@@ -17,7 +17,6 @@ import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.privacy.ConsentData;
 import com.mopub.common.privacy.PersonalInfoManager;
 import com.mopub.network.TrackingRequest;
-import com.mopub.volley.VolleyError;
 
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 
@@ -99,12 +98,7 @@ public class MoPubConversionTracker {
                                 .putBoolean(mWantToTrack, false)
                                 .apply();
                     }
-
-                    @Override
-                    public void onErrorResponse(final VolleyError volleyError) {
-                    }
                 });
-
     }
 
     public boolean shouldTrack() {

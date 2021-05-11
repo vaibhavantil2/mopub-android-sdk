@@ -24,6 +24,7 @@ import org.robolectric.shadows.ShadowApplication;
 
 import java.net.URISyntaxException;
 
+import static com.mopub.common.MoPubRequestMatcher.isUrl;
 import static com.mopub.common.UrlAction.FOLLOW_DEEP_LINK;
 import static com.mopub.common.UrlAction.FOLLOW_DEEP_LINK_WITH_FALLBACK;
 import static com.mopub.common.UrlAction.HANDLE_MOPUB_SCHEME;
@@ -34,7 +35,6 @@ import static com.mopub.common.UrlAction.NOOP;
 import static com.mopub.common.UrlAction.OPEN_APP_MARKET;
 import static com.mopub.common.UrlAction.OPEN_IN_APP_BROWSER;
 import static com.mopub.common.UrlAction.OPEN_NATIVE_BROWSER;
-import static com.mopub.common.VolleyRequestMatcher.isUrl;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Mockito.never;

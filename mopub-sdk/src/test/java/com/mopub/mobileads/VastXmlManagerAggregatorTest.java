@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 
-import static com.mopub.common.VolleyRequestMatcher.isUrl;
+import static com.mopub.common.MoPubRequestMatcher.isUrl;
 import static com.mopub.mobileads.VastXmlManagerAggregator.VastXmlManagerAggregatorListener;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.junit.Assert.assertNotNull;

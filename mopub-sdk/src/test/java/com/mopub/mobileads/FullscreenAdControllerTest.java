@@ -12,6 +12,7 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -41,6 +42,7 @@ import static org.fest.assertions.api.Assertions.assertThat;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -632,6 +634,356 @@ public class FullscreenAdControllerTest {
         subject.onAdClicked(activity, adData);
 
         semaphore.acquire();
+    }
+
+    @Test
+    public void onVideoFinish_withNullCloseableLayout_shouldFinishActivity_shouldNotChangeVideoTimeElapsed() {
+        subject.setCloseableLayout(null);
+        subject.setVideoTimeElapsed(Integer.MIN_VALUE);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        verify(activity).finish();
+
+        assertThat(subject.getVideoTimeElapsed()).isEqualTo(Integer.MIN_VALUE);
+    }
+
+    @Test
+    public void onVideoFinish_withOnVideoFinishCalledTrue_shouldNotChangeVideoTimeElapsed() {
+        subject.setSelectedVastCompanionAdConfig(vastCompanionAdConfig);
+        subject.setOnVideoFinishCalled(true);
+        subject.setVideoTimeElapsed(Integer.MIN_VALUE);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        assertThat(subject.getVideoTimeElapsed()).isEqualTo(Integer.MIN_VALUE);
+
+        verify(activity, never()).finish();
+    }
+
+    @Test
+    public void onVideoFinish_withOnVideoFinishCalledFalse_shouldChangeVideoTimeElapsed() {
+        subject.setSelectedVastCompanionAdConfig(vastCompanionAdConfig);
+        subject.setOnVideoFinishCalled(false);
+        subject.setVideoTimeElapsed(Integer.MIN_VALUE);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        assertThat(subject.getVideoTimeElapsed()).isEqualTo(Integer.MAX_VALUE);
+        assertTrue(subject.getOnVideoFinishCalled());
+    }
+
+    @Test
+    public void onVideoFinish_withNullSelectedVastCompanionAdConfig_shouldFinishActivity_shouldNotChangeVideoTimeElapsed() {
+        subject.setSelectedVastCompanionAdConfig(null);
+        subject.setVideoTimeElapsed(Integer.MIN_VALUE);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        verify(activity).finish();
+
+        assertThat(subject.getVideoTimeElapsed()).isEqualTo(Integer.MIN_VALUE);
+    }
+
+    @Test
+    public void onVideoFinish_withNonNullVideoViewController_shouldPauseVideoViewController_shouldDestroyVideoViewController() {
+        final BaseVideoViewController mockVideoViewController = mock(BaseVideoViewController.class);
+        subject.setVideoViewController(mockVideoViewController);
+
+        subject.setSelectedVastCompanionAdConfig(vastCompanionAdConfig);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        verify(mockVideoViewController).onPause();
+        verify(mockVideoViewController).onDestroy();
+    }
+
+    @Test
+    public void onVideoFinish_withStaticResourceType_withImageCreativeType_withNullImageView_shouldSetControllerState_shouldFinishActivity() {
+        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
+        subject.setCloseableLayout(mockCloseableLayout);
+
+        subject.setImageView(null);
+
+        VastResource vastResource = new VastResource(
+                COMPANION_RESOURCE,
+                VastResource.Type.STATIC_RESOURCE,
+                VastResource.CreativeType.IMAGE,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+
+        VastCompanionAdConfig companionAdConfig = new VastCompanionAdConfig(
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT,
+                vastResource,
+                COMPANION_CLICKTHROUGH_URL,
+                companionClickTrackers,
+                companionCreativeViewTrackers,
+                null);
+
+        subject.setSelectedVastCompanionAdConfig(companionAdConfig);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        verify(mockCloseableLayout).removeAllViews();
+        verify(mockCloseableLayout).setOnCloseListener(any(CloseableLayout.OnCloseListener.class));
+
+        /*
+        if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
+                VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType()) ||
+                VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType())) {
+         */
+
+        assertThat(subject.getState()).isEqualTo(FullscreenAdController.ControllerState.IMAGE);
+
+        verify(activity).finish();
+    }
+
+    @Test
+    public void onVideoFinish_withBlurredLastFrameType_withNullImageView_shouldSetControllerState_shouldFinishActivity() {
+        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
+        subject.setCloseableLayout(mockCloseableLayout);
+
+        subject.setImageView(null);
+
+        VastResource vastResource = new VastResource(
+                COMPANION_RESOURCE,
+                VastResource.Type.BLURRED_LAST_FRAME,
+                VastResource.CreativeType.IMAGE,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+
+        VastCompanionAdConfig companionAdConfig = new VastCompanionAdConfig(
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT,
+                vastResource,
+                COMPANION_CLICKTHROUGH_URL,
+                companionClickTrackers,
+                companionCreativeViewTrackers,
+                null);
+
+        subject.setSelectedVastCompanionAdConfig(companionAdConfig);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        verify(mockCloseableLayout).removeAllViews();
+        verify(mockCloseableLayout).setOnCloseListener(any(CloseableLayout.OnCloseListener.class));
+
+        /*
+        if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
+                VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType()) ||
+                VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType())) {
+         */
+
+        assertThat(subject.getState()).isEqualTo(FullscreenAdController.ControllerState.IMAGE);
+
+        verify(activity).finish();
+    }
+
+    @Test
+    public void onVideoFinish_withBlurredLastFrameType_withIsRewardedTrue_withRewardedDurationLessThanZero_shouldSetShowCloseButtonDelayMillisToDefault_shouldSetCloseAlwaysInteractableFalse_shouldSetCloseVisibleFalse() {
+
+        adData = new AdData.Builder()
+                .adPayload(EXPECTED_HTML_DATA)
+                .broadcastIdentifier(broadcastIdentifier)
+                .rewardedDurationSeconds(-1) // specific to this test
+                .vastVideoConfig(vastVideoConfig.toJsonString())
+                .dspCreativeId(DSP_CREATIVE_ID)
+                .fullAdType(FullAdType.MRAID)
+                .isRewarded(true)
+                .build();
+        final Bundle bundle = new Bundle();
+        bundle.putParcelable(DataKeys.AD_DATA_KEY, adData);
+        when(mockIntent.getExtras()).thenReturn(bundle);
+
+        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+
+        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
+        subject.setCloseableLayout(mockCloseableLayout);
+
+        final ImageView mockImageView = mock(ImageView.class);
+        subject.setImageView(mockImageView);
+
+        VastResource vastResource = new VastResource(
+                COMPANION_RESOURCE,
+                VastResource.Type.BLURRED_LAST_FRAME,
+                VastResource.CreativeType.IMAGE,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+
+        VastCompanionAdConfig companionAdConfig = new VastCompanionAdConfig(
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT,
+                vastResource,
+                COMPANION_CLICKTHROUGH_URL,
+                companionClickTrackers,
+                companionCreativeViewTrackers,
+                null);
+
+        subject.setSelectedVastCompanionAdConfig(companionAdConfig);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        verify(mockCloseableLayout).removeAllViews();
+        verify(mockCloseableLayout).setOnCloseListener(any(CloseableLayout.OnCloseListener.class));
+
+        /*
+        if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
+                VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType()) ||
+                VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType())) {
+         */
+
+        assertThat(subject.getState()).isEqualTo(FullscreenAdController.ControllerState.IMAGE);
+
+        // once from our call, once from an internal call
+        verify(mockImageView, times(2)).setLayoutParams(any());
+        verify(mockCloseableLayout).addView(any(RelativeLayout.class));
+
+        // After the if/else
+        verify(mockCloseableLayout).setCloseAlwaysInteractable(false);
+        verify(mockCloseableLayout).setCloseVisible(false);
+
+        verify(activity).setContentView(mockCloseableLayout);
+
+        assertThat(subject.getShowCloseButtonDelayMillis()).isEqualTo(DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS);
+    }
+
+    @Test
+    public void onVideoFinish_withBlurredLastFrameType_withIsRewardedTrue_withRewardedDurationZero_shouldSetShowCloseButtonDelayMillisToRewardedDuration_shouldSetCloseAlwaysInteractableFalse_shouldSetCloseVisibleFalse() {
+
+        adData = new AdData.Builder()
+                .adPayload(EXPECTED_HTML_DATA)
+                .broadcastIdentifier(broadcastIdentifier)
+                .rewardedDurationSeconds(0) // specific to this test
+                .vastVideoConfig(vastVideoConfig.toJsonString())
+                .dspCreativeId(DSP_CREATIVE_ID)
+                .fullAdType(FullAdType.MRAID)
+                .isRewarded(true)
+                .build();
+        final Bundle bundle = new Bundle();
+        bundle.putParcelable(DataKeys.AD_DATA_KEY, adData);
+        when(mockIntent.getExtras()).thenReturn(bundle);
+
+        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+
+        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
+        subject.setCloseableLayout(mockCloseableLayout);
+
+        final ImageView mockImageView = mock(ImageView.class);
+        subject.setImageView(mockImageView);
+
+        VastResource vastResource = new VastResource(
+                COMPANION_RESOURCE,
+                VastResource.Type.BLURRED_LAST_FRAME,
+                VastResource.CreativeType.IMAGE,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+
+        VastCompanionAdConfig companionAdConfig = new VastCompanionAdConfig(
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT,
+                vastResource,
+                COMPANION_CLICKTHROUGH_URL,
+                companionClickTrackers,
+                companionCreativeViewTrackers,
+                null);
+
+        subject.setSelectedVastCompanionAdConfig(companionAdConfig);
+
+        subject.setVideoTimeElapsed(1); // for if (timeElapsed >= mShowCloseButtonDelayMillis
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        verify(mockCloseableLayout).removeAllViews();
+        verify(mockCloseableLayout).setOnCloseListener(any(CloseableLayout.OnCloseListener.class));
+
+        /*
+        if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
+                VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType()) ||
+                VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType())) {
+         */
+
+        assertThat(subject.getState()).isEqualTo(FullscreenAdController.ControllerState.IMAGE);
+
+        // once from our call, once from an internal call
+        verify(mockImageView, times(2)).setLayoutParams(any());
+        verify(mockCloseableLayout).addView(any(RelativeLayout.class));
+
+        // After the if/else
+        verify(mockCloseableLayout).setCloseAlwaysInteractable(false);
+        verify(mockCloseableLayout).setCloseVisible(false);
+
+        verify(activity).setContentView(mockCloseableLayout);
+
+        assertThat(subject.getShowCloseButtonDelayMillis()).isEqualTo(0); // adData.getRewardedDurationSeconds() * MILLIS_IN_SECOND
+
+        // for if (timeElapsed >= mShowCloseButtonDelayMillis
+        verify(mockCloseableLayout).setCloseAlwaysInteractable(true);
+    }
+
+    @Test
+    public void onVideoFinish_withBlurredLastFrameType_withIsRewardedFalse_shouldSetCloseAlwaysInteractableTrue() {
+
+        adData = new AdData.Builder()
+                .adPayload(EXPECTED_HTML_DATA)
+                .broadcastIdentifier(broadcastIdentifier)
+                .rewardedDurationSeconds(REWARDED_DURATION_IN_SECONDS)
+                .vastVideoConfig(vastVideoConfig.toJsonString())
+                .dspCreativeId(DSP_CREATIVE_ID)
+                .fullAdType(FullAdType.MRAID)
+                .isRewarded(true)
+                .build();
+        final Bundle bundle = new Bundle();
+        bundle.putParcelable(DataKeys.AD_DATA_KEY, adData);
+        when(mockIntent.getExtras()).thenReturn(bundle);
+
+        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+
+        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
+        subject.setCloseableLayout(mockCloseableLayout);
+
+        final ImageView mockImageView = mock(ImageView.class);
+        subject.setImageView(mockImageView);
+
+        VastResource vastResource = new VastResource(
+                COMPANION_RESOURCE,
+                VastResource.Type.STATIC_RESOURCE,
+                VastResource.CreativeType.IMAGE,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+
+        VastCompanionAdConfig companionAdConfig = new VastCompanionAdConfig(
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT,
+                vastResource,
+                COMPANION_CLICKTHROUGH_URL,
+                companionClickTrackers,
+                companionCreativeViewTrackers,
+                null);
+
+        subject.setSelectedVastCompanionAdConfig(companionAdConfig);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        verify(mockCloseableLayout).removeAllViews();
+        verify(mockCloseableLayout).setOnCloseListener(any(CloseableLayout.OnCloseListener.class));
+
+        /*
+        if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
+                VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType()) ||
+                VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType())) {
+         */
+
+        assertThat(subject.getState()).isEqualTo(FullscreenAdController.ControllerState.IMAGE);
+
+        // once from our call, once from an internal call
+        verify(mockImageView, times(2)).setLayoutParams(any());
+        verify(mockCloseableLayout).addView(any(RelativeLayout.class));
+
+        // After the if/else
+        // for if (mAdData.isRewarded()) else
+        verify(activity).setContentView(mockCloseableLayout);
+        verify(mockCloseableLayout).setCloseAlwaysInteractable(true);
     }
 
     @Test

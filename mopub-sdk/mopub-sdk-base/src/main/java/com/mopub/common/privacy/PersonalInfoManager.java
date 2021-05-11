@@ -4,7 +4,6 @@
 
 package com.mopub.common.privacy;
 
-
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
@@ -27,7 +26,6 @@ import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.MultiAdResponse;
 import com.mopub.network.Networking;
-import com.mopub.volley.VolleyError;
 
 import java.util.Calendar;
 import java.util.Collections;
@@ -631,7 +629,7 @@ public class PersonalInfoManager {
     private class PersonalInfoSyncRequestListener implements SyncRequest.Listener {
 
         @Override
-        public void onSuccess(final SyncResponse response) {
+        public void onResponse(@NonNull final SyncResponse response) {
             MoPubLog.log(SYNC_COMPLETED);
 
             final boolean oldCanCollectPersonalInformation = canCollectPersonalInformation();
@@ -727,13 +725,13 @@ public class PersonalInfoManager {
         }
 
         @Override
-        public void onErrorResponse(final VolleyError volleyError) {
-            final int reason = ((volleyError instanceof MoPubNetworkError)
-                    ? ((MoPubNetworkError) volleyError).getReason().ordinal()
-                    : MoPubErrorCode.UNSPECIFIED.getIntCode());
-            final String message = ((volleyError instanceof MoPubNetworkError)
-                    ? volleyError.getMessage()
-                    : MoPubErrorCode.UNSPECIFIED.toString());
+        public void onErrorResponse(@NonNull final MoPubNetworkError networkError) {
+            final int reason = (networkError.getReason() != null)
+                    ? networkError.getReason().getCode()
+                    : MoPubErrorCode.UNSPECIFIED.getIntCode();
+            final String message = (networkError.getMessage() != null)
+                    ? networkError.getMessage()
+                    : MoPubErrorCode.UNSPECIFIED.toString();
             MoPubLog.log(SYNC_FAILED, reason, message);
 
             mSyncRequestInFlight = false;

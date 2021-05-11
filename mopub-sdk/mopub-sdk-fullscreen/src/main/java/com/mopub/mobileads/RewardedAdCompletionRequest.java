@@ -5,13 +5,15 @@
 package com.mopub.mobileads;
 
 import android.content.Context;
-import androidx.annotation.NonNull;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.mopub.network.MoPubNetworkResponse;
 import com.mopub.network.MoPubRequest;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Response;
-import com.mopub.volley.RetryPolicy;
-import com.mopub.volley.toolbox.HttpHeaderParser;
+import com.mopub.network.MoPubRequestUtils;
+import com.mopub.network.MoPubResponse;
+import com.mopub.network.MoPubRetryPolicy;
 
 /**
  * The actual class making the rewarded ad completion request. Since we actually only care about the
@@ -19,30 +21,42 @@ import com.mopub.volley.toolbox.HttpHeaderParser;
  */
 public class RewardedAdCompletionRequest extends MoPubRequest<Integer> {
 
-    public interface RewardedAdCompletionRequestListener extends Response.ErrorListener {
-        void onResponse(Integer response);
+    public interface RewardedAdCompletionRequestListener extends MoPubResponse.Listener<Integer> {
     }
 
-    @NonNull final RewardedAdCompletionRequestListener mListener;
+    @NonNull
+    final RewardedAdCompletionRequestListener mListener;
 
     public RewardedAdCompletionRequest(@NonNull final Context context,
                                        @NonNull final String url,
-                                       @NonNull final RetryPolicy retryPolicy,
+                                       @NonNull final MoPubRetryPolicy retryPolicy,
                                        @NonNull final RewardedAdCompletionRequestListener listener) {
-        super(context, url, listener);
+        super(context,
+                url,
+                MoPubRequestUtils.truncateQueryParamsIfPost(url),
+                MoPubRequestUtils.chooseMethod(url),
+                listener);
         setShouldCache(false);
         setRetryPolicy(retryPolicy);
         mListener = listener;
     }
 
+    @NonNull
     @Override
-    protected Response<Integer> parseNetworkResponse(final NetworkResponse networkResponse) {
-        return Response.success(networkResponse.statusCode,
-                HttpHeaderParser.parseCacheHeaders(networkResponse));
+    protected String getBodyContentType() {
+        if (MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return JSON_CONTENT_TYPE;
+        }
+        return super.getBodyContentType();
     }
 
     @Override
-    protected void deliverResponse(final Integer response) {
+    protected MoPubResponse<Integer> parseNetworkResponse(final MoPubNetworkResponse networkResponse) {
+        return MoPubResponse.success(networkResponse.getStatusCode(), networkResponse);
+    }
+
+    @Override
+    protected void deliverResponse(@NonNull final Integer response) {
         mListener.onResponse(response);
     }
 }

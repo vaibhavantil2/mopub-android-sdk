@@ -7,6 +7,7 @@ package com.mopub.mobileads
 import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
 import com.mopub.common.Constants
+import com.mopub.common.Mockable
 import java.io.Serializable
 
 @Mockable

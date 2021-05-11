@@ -29,15 +29,13 @@ import com.mopub.common.util.ResponseHeader;
 import com.mopub.mobileads.test.support.TestFullscreenAdAdapterFactory;
 import com.mopub.network.AdResponse;
 import com.mopub.network.MoPubNetworkError;
+import com.mopub.network.MoPubNetworkResponse;
+import com.mopub.network.MoPubRequest;
 import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.MultiAdRequest;
 import com.mopub.network.MultiAdResponse;
 import com.mopub.network.Networking;
 import com.mopub.network.TrackingRequest;
-import com.mopub.volley.AuthFailureError;
-import com.mopub.volley.NetworkResponse;
-import com.mopub.volley.Request;
-import com.mopub.volley.VolleyError;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -49,13 +47,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.robolectric.Robolectric;
 import org.robolectric.shadows.ShadowLog;
 import org.robolectric.shadows.ShadowLooper;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -66,6 +64,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -144,28 +143,24 @@ MoPubRewardedAdManagerTest {
                 .addParam(PersonalInfoManager.class, mockPersonalInfoManager)
                 .execute();
 
-        when(mockRequestQueue.add(any(Request.class))).then(new Answer<Object>() {
-            @Override
-            public Object answer(final InvocationOnMock invocationOnMock) throws Throwable {
-                Request req = ((Request) invocationOnMock.getArguments()[0]);
-                if (req.getClass().equals(MultiAdRequest.class)) {
-                    request = (MultiAdRequest) req;
-                    requestListener = request.mListener;
-                    return null;
-                } else if (req.getClass().equals(RewardedAdCompletionRequest.class)) {
-                    rewardedAdCompletionRequest = (RewardedAdCompletionRequest) req;
-                    return null;
-                } else if(req.getClass().equals(SyncRequest.class)){
-                    return null;
-                } else if(req.getClass().equals(TrackingRequest.class)){
-                    return null;
-                } else {
-                    throw new Exception(String.format("Request object added to RequestQueue can " +
-                            "only be of type MultiAdRequest or RewardedAdCompletionRequest, " +
-                            "saw %s instead.", req.getClass()));
-                }
+        doAnswer((Answer<Object>) invocationOnMock -> {
+            MoPubRequest<?> req = ((MoPubRequest<?>) invocationOnMock.getArguments()[0]);
+            if (req.getClass().equals(MultiAdRequest.class)) {
+                request = (MultiAdRequest) req;
+                requestListener = request.mListener;
+                return null;
+            } else if (req.getClass().equals(RewardedAdCompletionRequest.class)) {
+                rewardedAdCompletionRequest = (RewardedAdCompletionRequest) req;
+                return null;
+            } else if(req.getClass().equals(SyncRequest.class)) {
+                return null;
+            } else if(req.getClass().equals(TrackingRequest.class)) {
+                return null;
+            } else {
+                throw new Exception(String.format("Request object added to RequestQueue can only be of type " +
+                        "MultiAdRequest or RewardedAdCompletionRequest, saw %s instead.", req.getClass()));
             }
-        });
+        }).when(mockRequestQueue).add(any(MoPubRequest.class));
 
         Networking.setRequestQueueForTesting(mockRequestQueue);
     }
@@ -233,7 +228,7 @@ MoPubRewardedAdManagerTest {
         verify(mockRequestQueue).add(argThat(new RequestBodyContains("nonsense;garbage;keywords")));
 
         // Finish the request
-        requestListener.onErrorResponse(new VolleyError("end test"));
+        requestListener.onErrorResponse(new MoPubNetworkError.Builder("end test").build());
         ShadowLooper.unPauseMainLooper();
     }
 
@@ -255,7 +250,7 @@ MoPubRewardedAdManagerTest {
         assertThat(MoPubRewardedAdManager.getRewardedAdData().getCustomerId()).isEqualTo("testCustomerId");
 
         // Finish the request
-        requestListener.onErrorResponse(new VolleyError("end test"));
+        requestListener.onErrorResponse(new MoPubNetworkError.Builder("end test").build());
         ShadowLooper.unPauseMainLooper();
     }
 
@@ -298,7 +293,7 @@ MoPubRewardedAdManagerTest {
         JSONObject metadata = firstResponse.getJSONObject(ResponseHeader.METADATA.getKey());
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
 
@@ -308,7 +303,7 @@ MoPubRewardedAdManagerTest {
 
         // Load the first base ad
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
@@ -317,7 +312,7 @@ MoPubRewardedAdManagerTest {
         assertThat(MoPubRewardedAdManager.hasAd(adUnitId)).isTrue();
         verify(mockRewardedAdListener).onRewardedAdLoadSuccess(eq(adUnitId));
         verifyNoMoreInteractions(mockRewardedAdListener);
-        verify(mockRequestQueue).add(any(Request.class));
+        verify(mockRequestQueue).add(any(MoPubRequest.class));
         reset(mockRewardedAdListener);
 
         ShadowLooper.pauseMainLooper();
@@ -358,7 +353,7 @@ MoPubRewardedAdManagerTest {
 
         MoPubRewardedAdManager.loadAd("testAdUnit", null);
         // Triggers a call to MoPubRewardedAdManager.onRewardedAdLoadSuccess
-        requestListener.onSuccessResponse(multiAdResponse);
+        requestListener.onResponse(multiAdResponse);
 
         ShadowLooper.unPauseMainLooper();
 
@@ -383,7 +378,7 @@ MoPubRewardedAdManagerTest {
 
         MoPubRewardedAdManager.updateActivity(null);
         MoPubRewardedAdManager.loadAd("testAdUnit", null);
-        requestListener.onSuccessResponse(multiAdResponse);
+        requestListener.onResponse(multiAdResponse);
 
         verify(mockRequestQueue).add(any(MultiAdRequest.class));
         verifyNoMoreInteractions(mockRequestQueue);
@@ -400,11 +395,11 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.CUSTOM_EVENT_NAME.getKey(), "doesn't_Exist");
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoadFailed(MoPubErrorCode.ADAPTER_CONFIGURATION_ERROR);
 
         verify(mockRewardedAdListener).onRewardedAdLoadFailure(eq(adUnitId),
@@ -421,16 +416,16 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.CUSTOM_EVENT_NAME.getKey(), "doesn't_Exist");
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoadFailed(MoPubErrorCode.ADAPTER_CONFIGURATION_ERROR);
 
         assertThat(request.getUrl()).isEqualTo("fail.url");
         // Clear up the static state :(
-        requestListener.onErrorResponse(new VolleyError("reset"));
+        requestListener.onErrorResponse(new MoPubNetworkError.Builder("reset").build());
     }
 
     @Test
@@ -444,7 +439,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.REWARDED_VIDEO_CURRENCY_AMOUNT.getKey(), SINGLE_CURRENCY_AMOUNT);
         metadata.remove(ResponseHeader.REWARDED_CURRENCIES.getKey());
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -452,7 +447,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
@@ -473,7 +468,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.REWARDED_VIDEO_CURRENCY_AMOUNT.getKey(), SINGLE_CURRENCY_AMOUNT);
         metadata.remove(ResponseHeader.REWARDED_CURRENCIES.getKey());
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -481,7 +476,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
@@ -507,7 +502,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
         metadata.put(ResponseHeader.REWARDED_CURRENCIES.getKey(), new JSONObject(MULTI_CURRENCIES_JSON_4));
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
 
@@ -516,7 +511,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
@@ -543,7 +538,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.CUSTOM_EVENT_NAME.getKey(), "com.mopub.mobileads.MoPubRewardedAdManagerTest$TestAdAdapter");
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -551,7 +546,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
@@ -580,7 +575,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.REWARDED_VIDEO_CURRENCY_AMOUNT.getKey(), SINGLE_CURRENCY_AMOUNT);
         metadata.put(ResponseHeader.REWARDED_CURRENCIES.getKey(), MULTI_CURRENCIES_JSON_4);
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -588,7 +583,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
@@ -616,7 +611,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
         metadata.put(ResponseHeader.REWARDED_CURRENCIES.getKey(), "not json");
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
 
@@ -625,7 +620,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
 
         ShadowLooper.unPauseMainLooper();
 
@@ -649,7 +644,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
         metadata.put(ResponseHeader.CUSTOM_EVENT_DATA.getKey(), "{\"k1\":\"v1\",\"k2\":\"v2\"}");
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -657,7 +652,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
@@ -687,7 +682,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
         metadata.put(ResponseHeader.CUSTOM_EVENT_DATA.getKey(), "{\"k3\":\"v3\"}");
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -695,7 +690,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         TestFullscreenAdAdapterFactory.getSingletonMock().onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
@@ -718,7 +713,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.CUSTOM_EVENT_NAME.getKey(), "com.mopub.mobileads.MoPubRewardedAdManagerTest$TestAdAdapter");
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, "testAdUnit1");
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -727,7 +722,7 @@ MoPubRewardedAdManagerTest {
 
         // Load the first base ad
         MoPubRewardedAdManager.loadAd("testAdUnit1", null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         final FullscreenAdAdapter adAdapter1 = (FullscreenAdAdapter) MoPubRewardedAdManager.getRewardedAdData().getAdAdapter("testAdUnit1");
 
         ShadowLooper.unPauseMainLooper();
@@ -741,7 +736,7 @@ MoPubRewardedAdManagerTest {
         // Load the second base ad
         testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, "testAdUnit2");
         MoPubRewardedAdManager.loadAd("testAdUnit2", null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         final FullscreenAdAdapter adAdapter2 = (FullscreenAdAdapter) MoPubRewardedAdManager.getRewardedAdData().getAdAdapter("testAdUnit2");
 
         ShadowLooper.unPauseMainLooper();
@@ -765,7 +760,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.REWARDED_VIDEO_CURRENCY_AMOUNT.getKey(), SINGLE_CURRENCY_AMOUNT);
         metadata.remove(ResponseHeader.REWARDED_CURRENCIES.getKey());
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -773,7 +768,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
 
         ShadowLooper.unPauseMainLooper();
 
@@ -791,7 +786,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.CUSTOM_EVENT_NAME.getKey(), "com.mopub.mobileads.MoPubRewardedAdManagerTest$TestAdAdapter");
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -799,7 +794,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdShown();
 
@@ -822,7 +817,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.CUSTOM_EVENT_NAME.getKey(), "com.mopub.mobileads.MoPubRewardedAdManagerTest$NoAdAdAdapter");
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -830,7 +825,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoadFailed(MoPubErrorCode.NETWORK_NO_FILL);
 
         ShadowLooper.unPauseMainLooper();
@@ -851,7 +846,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
         metadata.put(ResponseHeader.REWARDED_CURRENCIES.getKey(), new JSONObject(MULTI_CURRENCIES_JSON_4));
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -859,7 +854,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
@@ -878,7 +873,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
         metadata.put(ResponseHeader.REWARDED_CURRENCIES.getKey(), new JSONObject(MULTI_CURRENCIES_JSON_4));
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -887,7 +882,7 @@ MoPubRewardedAdManagerTest {
 
         final RewardedAdData rewardedAdData = MoPubRewardedAdManager.getRewardedAdData();
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         final AdAdapter adAdapter = rewardedAdData.getAdAdapter(adUnitId);
         adAdapter.onAdLoaded();
 
@@ -926,7 +921,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
         metadata.put(ResponseHeader.REWARDED_CURRENCIES.getKey(), new JSONObject(MULTI_CURRENCIES_JSON_4));
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -934,7 +929,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         Set<MoPubReward> availableRewards = MoPubRewardedAdManager.getAvailableRewards(adUnitId);
@@ -966,7 +961,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
         metadata.put(ResponseHeader.REWARDED_CURRENCIES.getKey(), new JSONObject(MULTI_CURRENCIES_JSON_4));
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -974,7 +969,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         Set<MoPubReward> availableRewards = MoPubRewardedAdManager.getAvailableRewards(adUnitId);
@@ -1001,7 +996,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
         metadata.put(ResponseHeader.REWARDED_CURRENCIES.getKey(), MULTI_CURRENCY_JSON_1);
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -1010,7 +1005,7 @@ MoPubRewardedAdManagerTest {
 
         final RewardedAdData rewardedAdData = MoPubRewardedAdManager.getRewardedAdData();
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         final AdAdapter adAdapter = rewardedAdData.getAdAdapter(adUnitId);
         adAdapter.onAdLoaded();
 
@@ -1043,7 +1038,7 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.REWARDED_VIDEO_CURRENCY_AMOUNT.getKey(), 123);
         metadata.put(ResponseHeader.REWARDED_CURRENCIES.getKey(), "");
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         // Robolectric executes its handlers immediately, so if we want the async behavior we see
@@ -1051,7 +1046,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         final AdAdapter adAdapter = MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId);
         adAdapter.onAdLoaded();
 
@@ -1080,7 +1075,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(multiAdResponse);
+        requestListener.onResponse(multiAdResponse);
 
         ShadowLooper.unPauseMainLooper();
 
@@ -1108,7 +1103,7 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(multiAdResponse);
+        requestListener.onResponse(multiAdResponse);
 
         ShadowLooper.unPauseMainLooper();
 
@@ -1127,7 +1122,7 @@ MoPubRewardedAdManagerTest {
 
     @Test
     public void onAdFailure_shouldCallFailCallback() throws JSONException {
-        VolleyError e = new VolleyError("testError!");
+        MoPubNetworkError e = new MoPubNetworkError.Builder("testError!").build();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
 
@@ -1334,11 +1329,11 @@ MoPubRewardedAdManagerTest {
         metadata.put(ResponseHeader.CUSTOM_EVENT_NAME.getKey(), "com.mopub.mobileads.MoPubRewardedAdManagerTest$TestAdAdapter");
         metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
 
-        NetworkResponse netResponse = new NetworkResponse(jsonResponse.toString().getBytes());
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200, jsonResponse.toString().getBytes(), Collections.emptyMap());
         MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, adUnitId);
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onSuccessResponse(testResponse);
+        requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoadFailed(MoPubErrorCode.EXPIRED);
 
         verify(mockRewardedAdListener).onRewardedAdShowError(eq(adUnitId),
@@ -1423,7 +1418,7 @@ MoPubRewardedAdManagerTest {
         }
     }
 
-    private static class RequestBodyContains extends ArgumentMatcher<Request> {
+    private static class RequestBodyContains extends ArgumentMatcher<MoPubRequest> {
 
         private final String mMustContain;
 
@@ -1433,12 +1428,8 @@ MoPubRewardedAdManagerTest {
 
         @Override
         public boolean matches(final Object argument) {
-            try {
-                return argument instanceof Request
-                        && new String(((Request) argument).getBody()).contains(mMustContain);
-            } catch (AuthFailureError authFailureError) {
-                return false;
-            }
+            return argument instanceof MoPubRequest
+                        && new String(((MoPubRequest<?>) argument).getBody()).contains(mMustContain);
         }
     }
 

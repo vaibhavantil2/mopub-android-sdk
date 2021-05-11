@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.mopub.simpleadsdemo.qrcode;
 
 import android.Manifest;
@@ -171,6 +172,9 @@ public final class BarcodeCaptureActivity extends AppCompatActivity implements B
                 .setFacing(CameraSource.CAMERA_FACING_BACK)
                 .setRequestedPreviewSize(width, height)
                 .setRequestedFps(15.0f);
+
+        builder = builder.setFocusMode(
+                autoFocus ? Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE : null);
 
         mCameraSource = builder
                 .setFlashMode(useFlash ? Camera.Parameters.FLASH_MODE_TORCH : null)
