@@ -25,7 +25,6 @@ public class MoPubFullscreenActivityTest {
     private AdData adData;
 
     private static final String HTML_DATA = "TEST HTML DATA";
-    private static final int REWARDED_DURATION_IN_SECONDS = 25;
 
     @Mock
     private FullscreenAdController mockFullscreenAdController;
@@ -37,7 +36,6 @@ public class MoPubFullscreenActivityTest {
         AdData adData = new AdData.Builder()
                 .broadcastIdentifier(broadcastIdentifier)
                 .adPayload(HTML_DATA)
-                .rewardedDurationSeconds(REWARDED_DURATION_IN_SECONDS)
                 .build();
 
         Context context = Robolectric.buildActivity(Activity.class).create().get();

@@ -20,6 +20,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.mopub.common.AdUrlGenerator;
+import com.mopub.common.CESettingsCacheService;
 import com.mopub.common.ClientMetadata;
 import com.mopub.common.Constants;
 import com.mopub.common.DataKeys;
@@ -109,6 +110,9 @@ public class MoPubRewardedAdManager {
 
     @NonNull
     private final RewardedAdsLoaders rewardedAdsLoaders;
+
+    @Nullable
+    private CreativeExperienceSettings mCreativeExperienceSettings;
 
     public static final class RequestParameters {
         @Nullable
@@ -319,7 +323,20 @@ public class MoPubRewardedAdManager {
 
         setSafeAreaValues(urlGenerator);
 
-        loadAd(adUnitId, urlGenerator.generateUrlString(Constants.HOST), null);
+        CESettingsCacheService.CESettingsCacheListener ceSettingsCacheListener =
+                new CESettingsCacheService.CESettingsCacheListener() {
+                    @Override
+                    public void onHashReceived(@NonNull String hash) {
+                        urlGenerator.withCeSettingsHash(hash);
+                        loadAd(adUnitId, urlGenerator.generateUrlString(Constants.HOST), null);
+                    }
+                };
+
+        CESettingsCacheService.getCESettingsHash(
+                adUnitId,
+                ceSettingsCacheListener,
+                sInstance.mContext
+        );
     }
 
     private static void loadAd(@NonNull String adUnitId, @NonNull String adUrlString, @Nullable MoPubErrorCode errorCode) {
@@ -464,6 +481,12 @@ public class MoPubRewardedAdManager {
     void onAdSuccess(AdResponse adResponse) {
         final String adUnitId = adResponse.getAdUnitId();
 
+        if (TextUtils.isEmpty(adUnitId)) {
+            MoPubLog.log(CUSTOM, "Couldn't load base ad because ad unit id was empty");
+            failover(adUnitId, MoPubErrorCode.MISSING_AD_UNIT_ID);
+            return;
+        }
+
         Integer timeoutMillis = adResponse.getAdTimeoutMillis(DEFAULT_LOAD_TIMEOUT);
         final String baseAdClassName = adResponse.getBaseAdClassName();
 
@@ -543,7 +566,7 @@ public class MoPubRewardedAdManager {
 
         final AdData.Builder adDataBuilder = new AdData.Builder()
                 .adUnit(adUnitId)
-                .isRewarded(true)
+                .isRewarded(adResponse.isRewarded())
                 // Rewarded ad responses are different than non-rewarded and require the
                 // `fullAdType`` to be passed as `adType`.
                 .adType(adResponse.getFullAdType())
@@ -555,15 +578,9 @@ public class MoPubRewardedAdManager {
                 .broadcastIdentifier(Utils.generateUniqueId())
                 .timeoutDelayMillis(timeoutDelayMillis)
                 .customerId(mRewardedAdData.getCustomerId())
-                .allowCustomClose(false)
                 .viewabilityVendors(adResponse.getViewabilityVendors())
                 .fullAdType(adResponse.getFullAdType())
                 .extras(serverExtras);
-
-        final Integer rewardedDuration = adResponse.getRewardedDuration();
-        if (rewardedDuration != null) {
-            adDataBuilder.rewardedDurationSeconds(rewardedDuration);
-        }
 
         final String currencyAmountString = adResponse.getRewardedAdCurrencyAmount();
         int currencyAmount = MoPubReward.DEFAULT_REWARD_AMOUNT;
@@ -578,6 +595,63 @@ public class MoPubRewardedAdManager {
             }
         }
         adDataBuilder.currencyAmount(currencyAmount);
+
+        final CESettingsCacheService.CESettingsCacheListener ceSettingsCacheListener =
+                new CESettingsCacheService.CESettingsCacheListener() {
+                    @Override
+                    public void onSettingsReceived(@Nullable CreativeExperienceSettings settings) {
+                        if (settings == null) {
+                            MoPubLog.log(CUSTOM, "Failed to get creative experience " +
+                                    "settings from cache for ad unit " + adUnitId);
+                        } else {
+                            mCreativeExperienceSettings = settings;
+                        }
+
+                        adDataBuilder.creativeExperienceSettings(mCreativeExperienceSettings);
+                        instantiateAdAdapter(
+                                baseAdClassName,
+                                adUnitId,
+                                adDataBuilder.build(),
+                                timeoutDelayMillis
+                        );
+                    }
+                };
+
+        mCreativeExperienceSettings = adResponse.getCreativeExperienceSettings();
+        if ("0".equals(adResponse.getCreativeExperienceSettings().getHash())) {
+            // If the ad response does not contain new CE settings, retrieve the settings from cache
+            CESettingsCacheService.getCESettings(
+                    adUnitId,
+                    ceSettingsCacheListener,
+                    mContext
+            );
+        } else {
+            // Cache new CE Settings
+            CESettingsCacheService.putCESettings(
+                    adUnitId,
+                    adResponse.getCreativeExperienceSettings(),
+                    mContext
+            );
+
+            adDataBuilder.creativeExperienceSettings(mCreativeExperienceSettings);
+            instantiateAdAdapter(
+                    baseAdClassName,
+                    adUnitId,
+                    adDataBuilder.build(),
+                    timeoutDelayMillis
+            );
+        }
+    }
+
+    private void instantiateAdAdapter(
+            @NonNull String baseAdClassName,
+            @NonNull String adUnitId,
+            @NonNull AdData adData,
+            int timeoutMillis
+    ) {
+        Preconditions.checkNotNull(baseAdClassName);
+        Preconditions.checkNotNull(adUnitId);
+        Preconditions.checkNotNull(adData);
 
         // Load base ad
         MoPubLog.log(CUSTOM, String.format(Locale.US,
@@ -598,7 +672,7 @@ public class MoPubRewardedAdManager {
             final AdAdapter adAdapter = (AdAdapter) adAdapterConstructor.newInstance(
                     sInstance.mMainActivity.get(),
                     baseAdClassName,
-                    adDataBuilder.build()
+                    adData
             );
 
             final InternalRewardedAdListener listener = new InternalRewardedAdListener(adAdapter);
@@ -1102,5 +1176,14 @@ public class MoPubRewardedAdManager {
 
         sBaseAdSharedPrefs = sharedPrefs;
     }
-}
 
+    @Nullable
+    @Deprecated
+    @VisibleForTesting
+    static CreativeExperienceSettings getCreativeExperienceSettings() {
+        if (sInstance != null) {
+            return sInstance.mCreativeExperienceSettings;
+        }
+        return null;
+    }
+}

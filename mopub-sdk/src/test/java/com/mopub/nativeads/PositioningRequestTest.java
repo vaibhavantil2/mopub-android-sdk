@@ -10,7 +10,11 @@ import com.mopub.common.Constants;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.MoPubNetworkResponse;
+import com.mopub.network.MoPubRequestUtils;
 import com.mopub.network.MoPubResponse;
+import com.mopub.network.MoPubUrlRewriter;
+import com.mopub.network.Networking;
+import com.mopub.network.PlayServicesUrlRewriter;
 
 import org.json.JSONException;
 import org.junit.Before;
@@ -20,12 +24,17 @@ import org.mockito.Mock;
 import org.robolectric.Robolectric;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.mopub.network.MoPubRequest.DEFAULT_CONTENT_TYPE;
 import static com.mopub.network.MoPubRequest.JSON_CONTENT_TYPE;
 import static junit.framework.Assert.fail;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(SdkTestRunner.class)
 public class PositioningRequestTest {
@@ -39,6 +48,48 @@ public class PositioningRequestTest {
     @Before
     public void setup() {
         subject = new PositioningRequest(Robolectric.buildActivity(Activity.class).get(), URL, mockListener);
+    }
+
+    @Test
+    public void getParams_whenUrlRewriterIsNull_shouldReturnNull() {
+        /*
+        if (... || rewriter == null) {
+            return null;
+        }
+         */
+        Networking.setUrlRewriter(null);
+
+        assertNull(subject.getParams());
+    }
+
+    @Test
+    public void getParams_withNonMoPubRequest_shouldReturnNull() {
+        /*
+        if (!MoPubRequestUtils.isMoPubRequest(getUrl()) || ...) {
+            return null;
+        }
+         */
+        String nonMoPubUrl = "https://www.abcdefg.com/xyz";
+        subject = new PositioningRequest(Robolectric.buildActivity(Activity.class).get(), nonMoPubUrl, mockListener);
+        Networking.setUrlRewriter(new PlayServicesUrlRewriter());
+
+        assertNull(subject.getParams());
+    }
+
+    @Test
+    public void getParams_withMoPubRequest_whenUrlRewriterIsNotNull_shouldReturnParamMap() {
+        String url = Constants.HTTPS + "://" + Constants.HOST + "/m/ad?query1=abc&query2=def&query3=ghi";
+        subject = new PositioningRequest(Robolectric.buildActivity(Activity.class).get(), url, mockListener);
+        Networking.setUrlRewriter(new PlayServicesUrlRewriter());
+
+        Map<String, String> paramMap = subject.getParams();
+
+        Map<String, String> expectedMap = new HashMap<>();
+        expectedMap.put("query1", "abc");
+        expectedMap.put("query2", "def");
+        expectedMap.put("query3", "ghi");
+        assertNotNull(paramMap);
+        assertEquals(expectedMap, paramMap);
     }
 
     @Test

@@ -13,6 +13,7 @@ import androidx.annotation.NonNull;
 
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.util.Dips;
+import com.mopub.mobileads.base.R;
 
 public class CtaButtonDrawable extends BaseWidgetDrawable {
     @NonNull private final Paint mBackgroundPaint;
@@ -27,10 +28,10 @@ public class CtaButtonDrawable extends BaseWidgetDrawable {
     public CtaButtonDrawable(@NonNull final Context context) {
         super();
 
-        final int outlineStrokeWidth = Dips.dipsToIntPixels(
-                DrawableConstants.CtaButton.OUTLINE_STROKE_WIDTH_DIPS, context);
-        final float textSize = Dips.dipsToFloatPixels(
-                DrawableConstants.CtaButton.TEXT_SIZE_SP, context);
+        final int outlineStrokeWidth = context.getResources()
+                .getDimensionPixelSize(R.dimen.cta_button_outline_stroke_width);
+        final int textSize = context.getResources()
+                .getDimensionPixelSize(R.dimen.cta_button_text_size);
 
         mBackgroundPaint = new Paint();
         mBackgroundPaint.setColor(DrawableConstants.CtaButton.BACKGROUND_COLOR);
@@ -56,7 +57,8 @@ public class CtaButtonDrawable extends BaseWidgetDrawable {
         mCtaText = DrawableConstants.CtaButton.DEFAULT_CTA_TEXT;
 
         mButtonRect = new RectF();
-        mButtonCornerRadius = Dips.dipsToIntPixels(DrawableConstants.CtaButton.CORNER_RADIUS_DIPS, context);
+        mButtonCornerRadius = context.getResources()
+                .getDimensionPixelSize(R.dimen.cta_button_corner_radius);
     }
 
     @Override

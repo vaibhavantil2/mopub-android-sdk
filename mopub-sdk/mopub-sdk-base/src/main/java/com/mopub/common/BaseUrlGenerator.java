@@ -86,6 +86,31 @@ public abstract class BaseUrlGenerator {
      */
     protected static final String FORCE_GDPR_APPLIES = "force_gdpr_applies";
 
+    /**
+     * Device Model.
+     */
+    protected static final String DEVICE_MODEL = "model";
+
+    /**
+     * Platform (ios or android) version.
+     */
+    protected static final String ANDROID_VERSION = "osv";
+
+    /**
+     * Device Manufacturer.
+     */
+    protected static final String DEVICE_MAKE = "make";
+
+    /**
+     * Device Hardware.
+     */
+    protected static final String DEVICE_HARDWARE = "hwv";
+
+    /**
+     * Device Information (Sending Manufacturer,Model,Product details)
+     */
+    protected static final String DEVICE_INFO = "dn";
+
     private static final String WIDTH_KEY = "w";
     private static final String HEIGHT_KEY = "h";
 
@@ -173,18 +198,25 @@ public abstract class BaseUrlGenerator {
         addParam("av", appVersion);
     }
 
-    protected void setDeviceInfo(String... info) {
+    protected void setDeviceInfo(@NonNull final String osVersion,
+                                 @NonNull final String manufacturer,
+                                 @NonNull final String model,
+                                 @NonNull final String product,
+                                 @NonNull final String hardware) {
+        Preconditions.checkNotNull(osVersion);
+        Preconditions.checkNotNull(manufacturer);
+        Preconditions.checkNotNull(model);
+        Preconditions.checkNotNull(product);
+        Preconditions.checkNotNull(hardware);
         StringBuilder result = new StringBuilder();
-        if (info == null || info.length < 1) {
-            return;
-        }
-
-        for (int i=0; i<info.length-1; i++) {
-            result.append(info[i]).append(",");
-        }
-        result.append(info[info.length-1]);
-
-        addParam("dn", result.toString());
+        result.append(manufacturer).append(",");
+        result.append(model).append(",");
+        result.append(product);
+        addParam(DEVICE_INFO, result.toString());
+        addParam(ANDROID_VERSION, osVersion);
+        addParam(DEVICE_MAKE, manufacturer);
+        addParam(DEVICE_MODEL, model);
+        addParam(DEVICE_HARDWARE, hardware);
     }
 
     /**
@@ -199,7 +231,6 @@ public abstract class BaseUrlGenerator {
     }
 
     /**
-     *
      * @param engineInfo {@link com.mopub.common.AppEngineInfo}
      */
     public static void setAppEngineInfo(@NonNull final AppEngineInfo engineInfo) {
@@ -213,7 +244,7 @@ public abstract class BaseUrlGenerator {
      */
     public static void setWrapperVersion(@NonNull final String wrapperVersion) {
         Preconditions.checkNotNull(wrapperVersion);
-        
+
         sWrapperVersion = wrapperVersion;
     }
 
@@ -235,30 +266,30 @@ public abstract class BaseUrlGenerator {
     /**
      * Adds the width and height.
      *
-     * @param dimensions The width and height of the screen
+     * @param dimensions      The width and height of the screen
      * @param requestedAdSize The requested width and height for the ad.
-     * @param windowInsets The WindowInsets for the current window.
+     * @param windowInsets    The WindowInsets for the current window.
      */
-    protected void setDeviceDimensions(@NonNull final Point dimensions, 
+    protected void setDeviceDimensions(@NonNull final Point dimensions,
                                        @Nullable final Point requestedAdSize,
                                        @Nullable final WindowInsets windowInsets) {
         final int requestedWidth = ((requestedAdSize != null) ? requestedAdSize.x : 0);
         final int requestedHeight = ((requestedAdSize != null) ? requestedAdSize.y : 0);
-      
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
                 && windowInsets != null
                 && windowInsets.getDisplayCutout() != null) {
             final DisplayCutout displayCutout = windowInsets.getDisplayCutout();
             final int safeWidth = dimensions.x - displayCutout.getSafeInsetLeft() - displayCutout.getSafeInsetRight();
             final int safeHeight = dimensions.y - displayCutout.getSafeInsetTop() - displayCutout.getSafeInsetBottom();
-          
+
             addParam(SAFE_WIDTH_KEY, "" + Math.min(safeWidth, requestedWidth));
             addParam(SAFE_HEIGHT_KEY, "" + Math.min(safeHeight, requestedHeight));
         } else {
             addParam(SAFE_WIDTH_KEY, "" + requestedWidth);
             addParam(SAFE_HEIGHT_KEY, "" + requestedHeight);
         }
-      
+
         addParam(WIDTH_KEY, "" + dimensions.x);
         addParam(HEIGHT_KEY, "" + dimensions.y);
     }

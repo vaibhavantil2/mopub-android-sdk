@@ -18,6 +18,7 @@ import com.mopub.mobileads.VastTracker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 
@@ -45,6 +46,15 @@ public class TrackingRequest extends MoPubRequest<String> {
                 MoPubRetryPolicy.DEFAULT_TIMEOUT_MS,
                 ZERO_RETRIES,
                 MoPubRetryPolicy.DEFAULT_BACKOFF_MULT));
+    }
+
+    @Nullable
+    @Override
+    protected Map<String, String> getParams() {
+        if (!MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return null;
+        }
+        return super.getParams();
     }
 
     @NonNull

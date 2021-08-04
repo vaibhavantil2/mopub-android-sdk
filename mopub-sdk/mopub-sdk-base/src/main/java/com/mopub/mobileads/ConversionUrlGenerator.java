@@ -5,6 +5,8 @@
 package com.mopub.mobileads;
 
 import android.content.Context;
+import android.os.Build;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -96,9 +98,12 @@ class ConversionUrlGenerator extends BaseUrlGenerator {
         addParam(INITIALIZATION_AD_UNIT_ID_KEY, mAdUnit);
         addParam(PACKAGE_NAME_KEY, mContext.getPackageName());
         addParam(BUNDLE_ID_KEY, mContext.getPackageName());
-        setDeviceInfo(clientMetadata.getDeviceManufacturer(),
+        setDeviceInfo(clientMetadata.getDeviceOsVersion(),
+                clientMetadata.getDeviceManufacturer(),
                 clientMetadata.getDeviceModel(),
-                clientMetadata.getDeviceProduct());
+                clientMetadata.getDeviceProduct(),
+                clientMetadata.getDeviceHardware());
+
         if (mSt) {
             addParam(SESSION_TRACKER_KEY, true);
         }

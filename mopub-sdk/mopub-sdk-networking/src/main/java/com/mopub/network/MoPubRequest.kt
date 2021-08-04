@@ -120,8 +120,10 @@ abstract class MoPubRequest<T: Any>(val context: Context,
     }
 
     protected open fun getParams() : Map<String, String>? {
-        val rewriter = Networking.getUrlRewriter()
-        return MoPubNetworkUtils.convertQueryToMap(rewriter.rewriteUrl(originalUrl))
+        // Checks for isMoPubRequest are moved out of the networking module
+        return Networking.urlRewriter?.let {
+            MoPubNetworkUtils.convertQueryToMap(it.rewriteUrl(originalUrl))
+        }
     }
 
     open fun getBody() : ByteArray? {

@@ -9,7 +9,6 @@ import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebSettings;
 import android.webkit.WebViewClient;
 
-import com.mopub.common.CloseableLayout;
 import com.mopub.common.Constants;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.mobileads.MoPubErrorCode;
@@ -35,7 +34,6 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.startsWith;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -69,10 +67,10 @@ public class MraidBridgeTest {
     public void setUp() {
         activity = Robolectric.buildActivity(Activity.class).create().get();
 
-        subjectBanner = new MraidBridge(PlacementType.INLINE, mockNativeCommandHandler, false);
+        subjectBanner = new MraidBridge(PlacementType.INLINE, mockNativeCommandHandler);
         subjectBanner.setMraidBridgeListener(mockBridgeListener);
 
-        subjectInterstitial = new MraidBridge(PlacementType.INTERSTITIAL, mockNativeCommandHandler, false);
+        subjectInterstitial = new MraidBridge(PlacementType.INTERSTITIAL, mockNativeCommandHandler);
         subjectInterstitial.setMraidBridgeListener(mockBridgeListener);
     }
 
@@ -291,75 +289,7 @@ public class MraidBridgeTest {
     }
 
     @Test
-    public void runCommand_useCustomClose_withShouldUseCustomCloseTrue_shouldPassTrue()
-            throws MraidCommandException {
-        subjectBanner = new MraidBridge(PlacementType.INLINE, mockNativeCommandHandler, true);
-        subjectBanner.setMraidBridgeListener(mockBridgeListener);
-        subjectInterstitial = new MraidBridge(PlacementType.INTERSTITIAL, mockNativeCommandHandler, true);
-        subjectInterstitial.setMraidBridgeListener(mockBridgeListener);
-        attachWebViews();
-        subjectBanner.setClicked(true);
-        Map<String, String> params = new HashMap<>();
-        params.put("shouldUseCustomClose", "true");
-
-        subjectBanner.runCommand(MraidJavascriptCommand.USE_CUSTOM_CLOSE, params);
-
-        verify(mockBridgeListener).onUseCustomClose( true);
-    }
-
-    @Test
-    public void runCommand_useCustomClose_withShouldUseCustomCloseFalse_shouldPassFalse()
-            throws MraidCommandException {
-        subjectBanner = new MraidBridge(PlacementType.INLINE, mockNativeCommandHandler, true);
-        subjectBanner.setMraidBridgeListener(mockBridgeListener);
-        subjectInterstitial = new MraidBridge(PlacementType.INTERSTITIAL, mockNativeCommandHandler, true);
-        subjectInterstitial.setMraidBridgeListener(mockBridgeListener);
-        attachWebViews();
-        subjectBanner.setClicked(true);
-        Map<String, String> params = new HashMap<>();
-        params.put("shouldUseCustomClose", "false");
-
-        subjectBanner.runCommand(MraidJavascriptCommand.USE_CUSTOM_CLOSE, params);
-
-        verify(mockBridgeListener).onUseCustomClose( false);
-    }
-
-    @Test
-    public void runCommand_useCustomClose_withShouldUseCustomCloseTrue_withAllowCustomCloseFalse_shouldPassFalse()
-            throws MraidCommandException {
-        attachWebViews();
-        subjectBanner.setClicked(true);
-        Map<String, String> params = new HashMap<>();
-        params.put("shouldUseCustomClose", "true");
-
-        subjectBanner.runCommand(MraidJavascriptCommand.USE_CUSTOM_CLOSE, params);
-
-        verify(mockBridgeListener).onUseCustomClose( false);
-    }
-
-    @Test
-    public void runCommand_resize_withAllowCustomClose_shouldCallListener()
-            throws MraidCommandException {
-        subjectBanner = new MraidBridge(PlacementType.INLINE, mockNativeCommandHandler, true);
-        subjectBanner.setMraidBridgeListener(mockBridgeListener);
-        subjectInterstitial = new MraidBridge(PlacementType.INTERSTITIAL, mockNativeCommandHandler, true);
-        subjectInterstitial.setMraidBridgeListener(mockBridgeListener);
-        attachWebViews();
-        subjectBanner.setClicked(true);
-        Map<String, String> params = new HashMap<>();
-        params.put("width", "50");
-        params.put("height", "60");
-        params.put("offsetX", "70");
-        params.put("offsetY", "80");
-
-        subjectBanner.runCommand(MraidJavascriptCommand.RESIZE, params);
-
-        verify(mockBridgeListener).onResize(anyInt(), anyInt(), anyInt(), anyInt(), any(CloseableLayout.ClosePosition.class), anyBoolean());
-        verify(mockBridgeListener).onUseCustomClose(true);
-    }
-
-    @Test
-    public void runCommand_resize_withoutAllowCustomClose_shouldCallListener()
+    public void runCommand_resize_shouldCallListener()
             throws MraidCommandException {
         attachWebViews();
         subjectBanner.setClicked(true);
@@ -371,75 +301,33 @@ public class MraidBridgeTest {
 
         subjectBanner.runCommand(MraidJavascriptCommand.RESIZE, params);
 
-        verify(mockBridgeListener).onResize(anyInt(), anyInt(), anyInt(), anyInt(), any(CloseableLayout.ClosePosition.class), anyBoolean());
-        verify(mockBridgeListener).onUseCustomClose(false);
+        verify(mockBridgeListener).onResize(anyInt(), anyInt(), anyInt(), anyInt(), anyBoolean());
     }
 
     @Test
-    public void runCommand_expand_withAllowCustomClose_shouldCallListener()
-            throws MraidCommandException {
-        subjectBanner = new MraidBridge(PlacementType.INLINE, mockNativeCommandHandler, true);
-        subjectBanner.setMraidBridgeListener(mockBridgeListener);
-        subjectInterstitial = new MraidBridge(PlacementType.INTERSTITIAL, mockNativeCommandHandler, true);
-        subjectInterstitial.setMraidBridgeListener(mockBridgeListener);
-        attachWebViews();
-        subjectBanner.setClicked(true);
-        Map<String, String> params = new HashMap<>();
-        params.put("shouldUseCustomClose", "true");
-
-        subjectBanner.runCommand(MraidJavascriptCommand.EXPAND, params);
-
-        verify(mockBridgeListener).onExpand(null, true);
-    }
-
-    @Test
-    public void runCommand_expand_withoutAllowCustomClose_shouldCallListener()
+    public void runCommand_expand_shouldCallListener()
             throws MraidCommandException {
         attachWebViews();
         subjectBanner.setClicked(true);
         Map<String, String> params = new HashMap<>();
-        params.put("shouldUseCustomClose", "true");
 
         subjectBanner.runCommand(MraidJavascriptCommand.EXPAND, params);
 
-        verify(mockBridgeListener).onExpand(null, false);
+        verify(mockBridgeListener).onExpand(null);
     }
 
     @Test
-    public void runCommand_expand_withUrl_withAllowCustomClose_shouldCallListener()
-            throws MraidCommandException {
-        subjectBanner = new MraidBridge(PlacementType.INLINE, mockNativeCommandHandler, true);
-        subjectBanner.setMraidBridgeListener(mockBridgeListener);
-        subjectInterstitial = new MraidBridge(PlacementType.INTERSTITIAL, mockNativeCommandHandler, true);
-        subjectInterstitial.setMraidBridgeListener(mockBridgeListener);
-        attachWebViews();
-        subjectBanner.setClicked(true);
-        Map<String, String> params = new HashMap<>();
-        params.put("url", "https://valid-url");
-        params.put("shouldUseCustomClose", "true");
-
-        subjectBanner.runCommand(MraidJavascriptCommand.EXPAND, params);
-
-        ArgumentCaptor<URI> uriCaptor = ArgumentCaptor.forClass(URI.class);
-        verify(mockBridgeListener).onExpand(
-                uriCaptor.capture(), eq(true));
-        assertThat(uriCaptor.getValue().toString()).isEqualTo("https://valid-url");
-    }
-
-    @Test
-    public void runCommand_expand_withUrl_withoutAllowCustomClose_shouldCallListener()
+    public void runCommand_expand_withUrl_shouldCallListener()
             throws MraidCommandException {
         attachWebViews();
         subjectBanner.setClicked(true);
         Map<String, String> params = new HashMap<>();
         params.put("url", "https://valid-url");
-        params.put("shouldUseCustomClose", "true");
 
         subjectBanner.runCommand(MraidJavascriptCommand.EXPAND, params);
 
         ArgumentCaptor<URI> uriCaptor = ArgumentCaptor.forClass(URI.class);
-        verify(mockBridgeListener).onExpand(
-                uriCaptor.capture(), eq(false));
+        verify(mockBridgeListener).onExpand(uriCaptor.capture());
         assertThat(uriCaptor.getValue().toString()).isEqualTo("https://valid-url");
     }
 

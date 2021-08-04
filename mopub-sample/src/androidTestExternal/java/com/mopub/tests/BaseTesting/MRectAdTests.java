@@ -20,6 +20,7 @@ import org.junit.runner.RunWith;
 import static androidx.test.espresso.matcher.ViewMatchers.hasChildCount;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static com.mopub.framework.base.BasePage.pressBack;
 import static org.hamcrest.Matchers.allOf;
 import static org.junit.Assert.assertTrue;
 
@@ -81,5 +82,6 @@ public class MRectAdTests extends MoPubBaseTestCase {
         adDetailPage.clickElement(bannerElement);
 
         assertWebViewUrl(WEB_PAGE_LINK);
+        pressBack();
     }
 }

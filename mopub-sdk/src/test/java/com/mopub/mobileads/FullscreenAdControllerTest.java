@@ -11,17 +11,23 @@ import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.RelativeLayout;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.mopub.common.CloseableLayout;
+import com.mopub.common.Constants;
 import com.mopub.common.DataKeys;
 import com.mopub.common.FullAdType;
 import com.mopub.common.test.support.SdkTestRunner;
+import com.mopub.network.MoPubImageLoader;
+import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
+import com.mopub.network.TrackingRequest;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,9 +42,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 
-import static com.mopub.mobileads.AdData.DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS;
-import static com.mopub.mobileads.AdData.MILLIS_IN_SECOND;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -55,8 +61,6 @@ import static org.robolectric.Shadows.shadowOf;
 @RunWith(SdkTestRunner.class)
 public class FullscreenAdControllerTest {
     private static final String EXPECTED_HTML_DATA = "htmlData";
-    private static final int REWARDED_DURATION_IN_SECONDS = 25;
-    private static final int SHOW_CLOSE_BUTTON_DELAY = REWARDED_DURATION_IN_SECONDS * MILLIS_IN_SECOND;
     private static final String COMPANION_RESOURCE = "resource";
     private static final int COMPANION_WIDTH = 300;
     private static final int COMPANION_HEIGHT = 250;
@@ -77,18 +81,27 @@ public class FullscreenAdControllerTest {
     private List<VastTracker> companionClickTrackers;
     private List<VastTracker> companionCreativeViewTrackers;
     private BroadcastReceiver broadcastReceiver;
+    private CreativeExperienceSettings creativeExperienceSettings;
+    private JSONObject ceSettingsJsonObject;
 
     @Mock
     Intent mockIntent;
     @Mock
     Bundle mockBundle;
+    @Mock
+    MoPubRequestQueue mockRequestQueue;
+    @Mock
+    MoPubImageLoader mockImageLoader;
+    @Mock
+    CloseableLayout mockCloseableLayout;
+    @Mock
+    ImageView mockImageView;
 
     @Before
     public void setUp() throws Exception {
         Networking.clearForTesting();
 
         activity = spy(Robolectric.buildActivity(Activity.class).create().get());
-
 
         companionClickTrackers = new ArrayList<>();
         companionClickTrackers.add(new VastTracker("click1", VastTracker.MessageType.TRACKING_URL, false));
@@ -118,19 +131,28 @@ public class FullscreenAdControllerTest {
         vastCompanionAdConfigs = new HashSet<>();
         vastCompanionAdConfigs.add(vastCompanionAdConfig);
         broadcastIdentifier = 112233;
+
+        ceSettingsJsonObject = new JSONObject(CreativeExperienceSettingsParserTest.CE_SETTINGS_STRING);
+        creativeExperienceSettings = CreativeExperienceSettingsParser
+                .parse(ceSettingsJsonObject, false);
         adData = new AdData.Builder()
                 .adPayload(EXPECTED_HTML_DATA)
                 .broadcastIdentifier(broadcastIdentifier)
-                .rewardedDurationSeconds(REWARDED_DURATION_IN_SECONDS)
                 .vastVideoConfig(vastVideoConfig.toJsonString())
                 .dspCreativeId(DSP_CREATIVE_ID)
                 .fullAdType(FullAdType.MRAID)
+                .creativeExperienceSettings(creativeExperienceSettings)
                 .build();
         final Bundle bundle = new Bundle();
         bundle.putParcelable(DataKeys.AD_DATA_KEY, adData);
         when(mockIntent.getExtras()).thenReturn(bundle);
 
+        Networking.setRequestQueueForTesting(mockRequestQueue);
+        Networking.setImageLoaderForTesting(mockImageLoader);
+
         subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+        subject.setCloseableLayout(mockCloseableLayout);
+        subject.setImageView(mockImageView);
     }
 
     @After
@@ -139,86 +161,38 @@ public class FullscreenAdControllerTest {
         Networking.clearForTesting();
     }
 
+    // region constructor
     @Test
-    public void constructor_withRewardedTrue_shouldInitializeShowCloseButtonDelay() {
-        adData.setRewarded(true);
-
+    public void constructor_shouldSetShowCountdownTimerToMainAdConfigShowCountdownTimer() throws JSONException {
+        setShowCd(ceSettingsJsonObject, true, true);
         subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
 
-        assertThat(subject.getShowCloseButtonDelayMillis()).isEqualTo(SHOW_CLOSE_BUTTON_DELAY);
+        assertTrue(subject.getShowCountdownTimer());
     }
 
     @Test
-    public void constructor_whenRewardedDurationIsNegative_shouldUseDefaultRewardedDuration() {
-        adData.setRewarded(true);
-        adData.setRewardedDurationSeconds(-3);
-
-        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
-
-        assertThat(subject.getShowCloseButtonDelayMillis())
-                .isEqualTo(DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS);
-    }
-
-    @Test
-    public void constructor_whenRewardedDurationIsLongerThanDefault_shouldUseRewardedDuration() {
-        adData.setRewarded(true);
-        adData.setRewardedDurationSeconds(90);
-
-        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
-
-        assertThat(subject.getShowCloseButtonDelayMillis()).isEqualTo(90 * 1000);
-    }
-
-    @Test
-    public void constructor_shouldSetCloseableLayoutToVisible() {
-        assertThat(subject.getCloseableLayout().isCloseVisible()).isTrue();
-    }
-
-    @Test
-    public void constructor_withRewardedTrue_shouldSetCloseableLayoutToInvisible_shouldSetBackButtonEnabledFalse() {
-        adData.setRewarded(true);
-
-        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
-
-        assertThat(subject.getCloseableLayout().isCloseVisible()).isFalse();
-        assertThat(subject.backButtonEnabled()).isFalse();
-    }
-
-    @Test
-    public void constructor_withRewardedFalse_shouldSetCloseableLayoutToVisible_shouldSetBackButtonEnabledTrue() {
-        adData.setRewarded(false);
-
-        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
-
-        assertThat(subject.getCloseableLayout().isCloseVisible()).isTrue();
-        assertThat(subject.backButtonEnabled()).isTrue();
-    }
-
-    @Test
-    public void constructor_shouldInitializeRadialCountdownWidget_shouldInitializeCountdownRunnable() {
-        adData.setRewarded(true);
-
-        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
-
-        RadialCountdownWidget radialCountdownWidget = subject.getRadialCountdownWidget();
-        assertThat(subject.isCalibrationDone()).isEqualTo(true);
-        assertThat(radialCountdownWidget.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(radialCountdownWidget.getImageViewDrawable().getInitialCountdownMilliseconds())
-                .isEqualTo(SHOW_CLOSE_BUTTON_DELAY);
-        assertThat(subject.getCountdownRunnable()).isNotNull();
-    }
-
-    @Test
-    public void constructor_withJsonImage_shouldSetImageView_shouldSetClickDestinationUrl() {
+    public void constructor_withJsonImage_shouldSetImageView_shouldSetClickDestinationUrl_shouldSetImageViewOnClickListener() {
         adData.setFullAdType(FullAdType.JSON);
         adData.setAdPayload(IMAGE_JSON);
 
         subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
 
         assertNotNull(subject.getImageView());
-        assertThat(subject.getCloseableLayout().getChildAt(0)).isEqualTo(subject.getImageView());
-        assertThat(subject.getImageClickDestinationUrl()).isEqualTo(IMAGE_CLICKDESTINATION_URL);
-        assertThat(subject.getState()).isEqualTo(FullscreenAdController.ControllerState.IMAGE);
+        assertEquals(subject.getImageView(), subject.getCloseableLayout().getChildAt(0));
+        assertEquals(IMAGE_CLICKDESTINATION_URL, subject.getImageClickDestinationUrl());
+        assertEquals(FullscreenAdController.ControllerState.IMAGE, subject.getState());
+        assertTrue(subject.getImageView().hasOnClickListeners());
+    }
+
+    @Test
+    public void constructor_withRewardedJsonImage_shouldNotShowCloseButton() {
+        adData.setFullAdType(FullAdType.JSON);
+        adData.setAdPayload(IMAGE_JSON);
+        adData.setRewarded(true);
+
+        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+
+        assertFalse(subject.getCloseableLayout().isCloseVisible());
     }
 
     @Test
@@ -242,6 +216,93 @@ public class FullscreenAdControllerTest {
         assertThat(subject.getVideoViewController()).isInstanceOf(VastVideoViewController.class);
         assertThat(subject.getState()).isEqualTo(FullscreenAdController.ControllerState.VIDEO);
     }
+
+    @Test
+    public void constructor_whenCountdownTimeIsLessThanOrEqualToZero_shouldShowCloseButton_shouldSetBackButtonEnabledTrue_shouldNotInitializeCountdownTimer() {
+        // these ce settings ensure the calculated countdown time = 0
+        creativeExperienceSettings = CreativeExperienceSettings.getDefaultSettings(false);
+        adData.setCreativeExperienceSettings(creativeExperienceSettings);
+
+        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+
+        assertEquals(0, subject.getCountdownTimeMillis());
+        assertTrue(subject.getCloseableLayout().isCloseVisible());
+        assertTrue(subject.backButtonEnabled());
+        assertNull(subject.getRadialCountdownWidget());
+    }
+
+    @Test
+    public void constructor_whenCountdownTimeIsGreaterThanZero_whenShowCountdownTimerIsTrue_whenShowCountdownTimerDelayIsLessThanCountdownTime_shouldSetShowCountdownTimerDelayToMainAdConfigCountdownTimerDelay() throws JSONException {
+        setShowCd(ceSettingsJsonObject, true, true);
+
+        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+
+        /*
+        mShowCountdownTimerDelayMillis = adData.getCreativeExperienceSettings().getMainAdConfig()
+            .getCountdownTimerDelaySecs() * MILLIS_IN_SECOND;
+         */
+        CreativeExperienceSettings ceSettings = adData.getCreativeExperienceSettings();
+        assertNotNull(ceSettings.getMainAdConfig().getMinTimeUntilNextActionSecs());
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        assertTrue(subject.getShowCountdownTimer());
+        assertTrue(subject.getShowCountdownTimerDelaysMillis() < subject.getCountdownTimeMillis());
+        assertEquals(ceSettings.getMainAdConfig().getCountdownTimerDelaySecs() * 1000,
+                subject.getShowCountdownTimerDelaysMillis());
+    }
+
+    @Test
+    public void constructor_whenCountdownTimeIsGreaterThanZero_whenShowCountdownTimerFalse_shouldSetShowCountdownTimerDelayToCountdownTime_shouldSetShowCountdownTimerToFalse() throws JSONException {
+        setShowCd(ceSettingsJsonObject, true, false);
+
+        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+
+        /*
+        if (!mShowCountdownTimer || mShowCountdownTimerDelayMillis >= mCountdownTimeMillis) {
+            // Countdown timer is never shown
+            mShowCountdownTimerDelayMillis = mCountdownTimeMillis;
+            mShowCountdownTimer = false;
+        }
+        */
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        assertEquals(subject.getCountdownTimeMillis(), subject.getShowCountdownTimerDelaysMillis());
+        assertFalse(subject.getShowCountdownTimer());
+    }
+
+    @Test
+    public void constructor_whenCountdownTimeIsGreaterThanZero_whenShowCountdownTimerDelayIsGreaterThanOrEqualToCountdownTime_shouldSetShowCountdownTimerDelayToCountdownTime_shouldSetShowCountdownTimerToFalse() throws JSONException {
+        // mainAdConfig.countdownTimerDelaySecs >= max(adTimeRemainingSecs, timeUntilNextActionSecs) = 30
+        setShowCdDelay(ceSettingsJsonObject, true, 30);
+
+        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+
+        /*
+        if (!mShowCountdownTimer || mShowCountdownTimerDelayMillis >= mCountdownTimeMillis) {
+            // Countdown timer is never shown
+            mShowCountdownTimerDelayMillis = mCountdownTimeMillis;
+            mShowCountdownTimer = false;
+        }
+        */
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        assertEquals(subject.getCountdownTimeMillis(), subject.getShowCountdownTimerDelaysMillis());
+        assertFalse(subject.getShowCountdownTimer());
+    }
+
+    @Test
+    public void constructor_whenCountdownTimeIsGreaterThanZero_shouldInitializeRadialCountdownWidget_shouldInitializeCountdownRunnable_shouldNotShowCloseButton() {
+        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        RadialCountdownWidget radialCountdownWidget = subject.getRadialCountdownWidget();
+        assertNotNull(radialCountdownWidget);
+        assertTrue(subject.isCalibrationDone());
+        assertEquals(View.INVISIBLE, radialCountdownWidget.getVisibility());
+        assertEquals(subject.getCountdownTimeMillis(),
+                radialCountdownWidget.getImageViewDrawable().getInitialCountdownMilliseconds());
+        assertNotNull(subject.getCountdownRunnable());
+        assertFalse(subject.getCloseableLayout().isCloseVisible());
+        assertFalse(subject.backButtonEnabled());
+    }
+    // endregion constructor
 
     @Test
     public void pause_shouldStopRunnables() {
@@ -283,7 +344,7 @@ public class FullscreenAdControllerTest {
         RadialCountdownWidget radialCountdownWidget = subject.getRadialCountdownWidget();
 
         assertThat(subject.getCloseableLayout().isCloseVisible()).isFalse();
-        assertThat(radialCountdownWidget.getVisibility()).isEqualTo(View.VISIBLE);
+        assertThat(radialCountdownWidget.getVisibility()).isEqualTo(View.INVISIBLE);
         assertThat(subject.isShowCloseButtonEventFired()).isFalse();
         assertThat(subject.isRewarded()).isFalse();
         subject.resume();
@@ -297,42 +358,8 @@ public class FullscreenAdControllerTest {
     }
 
     @Test
-    public void useCustomCloseChangedTrue_withRewardedFalse_shouldHideCloseButton() {
-        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
-        subject.setCloseableLayout(mockCloseableLayout);
-
-        subject.useCustomCloseChanged(true);
-
-        verify(mockCloseableLayout).setCloseVisible(false);
-    }
-
-    @Test
-    public void useCustomCloseChangedTrue_withRewardedTrue_shouldDoNothing() {
-        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
-        subject.setCloseableLayout(mockCloseableLayout);
-        adData.setRewarded(true);
-
-        subject.useCustomCloseChanged(true);
-
-        verify(mockCloseableLayout, never()).setCloseVisible(false);
-    }
-
-    @Test
-    public void useCustomCloseChangedFalse_withShowCloseButtonEventFired_shouldShowCloseButton() {
-        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
-        subject.setCloseableLayout(mockCloseableLayout);
-        subject.showCloseButton();
-        subject.useCustomCloseChanged(true);
-
-        subject.useCustomCloseChanged(false);
-
-        verify(mockCloseableLayout).setCloseVisible(false);
-        verify(mockCloseableLayout, times(2)).setCloseVisible(true);
-    }
-
-    @Test
     public void onCompanionAdReady_withVastCompanionAdConfig_withBlurredLastVideoFrame_shouldSetUpCompanionAd() {
-        subject.onCompanionAdsReady(vastCompanionAdConfigs, VIDEO_DURATION_MS);
+        subject.onCompanionAdReady(vastCompanionAdConfig, VIDEO_DURATION_MS);
 
         final ImageView blurredLastVideoFrameImageView = subject.getImageView();
         assertNull(blurredLastVideoFrameImageView.getParent());
@@ -342,86 +369,7 @@ public class FullscreenAdControllerTest {
         assertThat(blurredLastVideoFrameImageViewShadow.getOnClickListener()).isNotNull();
         assertNull(subject.getImageClickDestinationUrl());
         assertNotNull(subject.getBlurLastVideoFrameTask());
-        final VideoCtaButtonWidget videoCtaButtonWidget = subject.getVideoCtaButtonWidget();
-        assertNotNull(videoCtaButtonWidget);
-        assertTrue(videoCtaButtonWidget.hasOnClickListeners());
-        assertThat(videoCtaButtonWidget.getVisibility()).isEqualTo(View.VISIBLE);
         assertThat(subject.getSelectedVastCompanionAdConfig()).isEqualTo(vastCompanionAdConfig);
-    }
-
-    @Test
-    public void onCompanionAdsReady_withAllTypes_shouldChooseHtmlCompanionAd() {
-        final List<VastCompanionAdConfig> companionAdConfigs = new ArrayList<>();
-        VastResource[] vastResources = new VastResource[4];
-        vastResources[0] = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.STATIC_RESOURCE,
-                VastResource.CreativeType.IMAGE,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-        vastResources[1] = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.STATIC_RESOURCE,
-                VastResource.CreativeType.JAVASCRIPT,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-        vastResources[2] = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.HTML_RESOURCE,
-                VastResource.CreativeType.NONE,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-        vastResources[3] = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.IFRAME_RESOURCE,
-                VastResource.CreativeType.JAVASCRIPT,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-        for (final VastResource vastResource : vastResources) {
-            companionAdConfigs.add(new VastCompanionAdConfig(
-                    COMPANION_WIDTH,
-                    COMPANION_HEIGHT,
-                    vastResource,
-                    COMPANION_CLICKTHROUGH_URL,
-                    companionClickTrackers,
-                    companionCreativeViewTrackers,
-                    null));
-        }
-
-        subject.onCompanionAdsReady(new HashSet<>(companionAdConfigs), VIDEO_DURATION_MS);
-
-        assertThat(subject.getSelectedVastCompanionAdConfig()).isEqualTo(companionAdConfigs.get(2));
-        assertNotNull(subject.getMoPubWebViewController());
-        assertNotNull(subject.getMoPubWebViewController().mWebView);
-        assertNull(subject.getImageView());
-    }
-
-
-    @Test
-    public void onCompanionAdsReady_withImage_shouldChooseImageCompanionAd() {
-        VastResource vastResource = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.STATIC_RESOURCE,
-                VastResource.CreativeType.IMAGE,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-        vastCompanionAdConfig = new VastCompanionAdConfig(
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT,
-                vastResource,
-                COMPANION_CLICKTHROUGH_URL,
-                companionClickTrackers,
-                companionCreativeViewTrackers,
-                null);
-        vastCompanionAdConfigs.add(vastCompanionAdConfig);
-
-        subject.onCompanionAdsReady(vastCompanionAdConfigs, VIDEO_DURATION_MS);
-
-        assertThat(subject.getSelectedVastCompanionAdConfig()).isEqualTo(vastCompanionAdConfig);
-        assertNotNull(subject.getImageView());
-        assertThat(subject.getImageView().getVisibility()).isEqualTo(View.VISIBLE);
-        assertTrue(subject.getImageView().hasOnClickListeners());
-        assertNull(subject.getVideoCtaButtonWidget());
     }
 
     @Test
@@ -481,7 +429,7 @@ public class FullscreenAdControllerTest {
         };
         LocalBroadcastManager.getInstance(activity).registerReceiver(broadcastReceiver,
                 new EventForwardingBroadcastReceiver(null, broadcastIdentifier).getIntentFilter());
-        subject.onCompanionAdsReady(vastCompanionAdConfigs, VIDEO_DURATION_MS);
+        subject.onCompanionAdReady(vastCompanionAdConfig, VIDEO_DURATION_MS);
 
         subject.onAdClicked(activity, adData);
 
@@ -490,20 +438,7 @@ public class FullscreenAdControllerTest {
 
     @Test
     public void onAdClicked_withStaticImageCompanion_shouldBroadcastClick() throws InterruptedException {
-        VastResource vastResource = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.STATIC_RESOURCE,
-                VastResource.CreativeType.IMAGE,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-        vastCompanionAdConfig = new VastCompanionAdConfig(
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT,
-                vastResource,
-                COMPANION_CLICKTHROUGH_URL,
-                companionClickTrackers,
-                companionCreativeViewTrackers,
-                null);
+        setCompanionResource(VastResource.Type.STATIC_RESOURCE, VastResource.CreativeType.IMAGE);
         vastCompanionAdConfigs.clear();
         vastCompanionAdConfigs.add(vastCompanionAdConfig);
         final Semaphore semaphore = new Semaphore(0);
@@ -518,7 +453,7 @@ public class FullscreenAdControllerTest {
         };
         LocalBroadcastManager.getInstance(activity).registerReceiver(broadcastReceiver,
                 new EventForwardingBroadcastReceiver(null, broadcastIdentifier).getIntentFilter());
-        subject.onCompanionAdsReady(vastCompanionAdConfigs, VIDEO_DURATION_MS);
+        subject.onCompanionAdReady(vastCompanionAdConfig, VIDEO_DURATION_MS);
 
         subject.onAdClicked(activity, adData);
 
@@ -527,20 +462,7 @@ public class FullscreenAdControllerTest {
 
     @Test
     public void onAdClicked_withJavascriptCompanion_shouldBroadcastClick() throws InterruptedException {
-        VastResource vastResource = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.STATIC_RESOURCE,
-                VastResource.CreativeType.JAVASCRIPT,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-        vastCompanionAdConfig = new VastCompanionAdConfig(
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT,
-                vastResource,
-                COMPANION_CLICKTHROUGH_URL,
-                companionClickTrackers,
-                companionCreativeViewTrackers,
-                null);
+        setCompanionResource(VastResource.Type.STATIC_RESOURCE, VastResource.CreativeType.JAVASCRIPT);
         vastCompanionAdConfigs.clear();
         vastCompanionAdConfigs.add(vastCompanionAdConfig);
         final Semaphore semaphore = new Semaphore(0);
@@ -555,7 +477,7 @@ public class FullscreenAdControllerTest {
         };
         LocalBroadcastManager.getInstance(activity).registerReceiver(broadcastReceiver,
                 new EventForwardingBroadcastReceiver(null, broadcastIdentifier).getIntentFilter());
-        subject.onCompanionAdsReady(vastCompanionAdConfigs, VIDEO_DURATION_MS);
+        subject.onCompanionAdReady(vastCompanionAdConfig, VIDEO_DURATION_MS);
 
         subject.onAdClicked(activity, adData);
 
@@ -564,20 +486,7 @@ public class FullscreenAdControllerTest {
 
     @Test
     public void onAdClicked_withHtmlCompanion_shouldBroadcastClick() throws InterruptedException {
-        VastResource vastResource = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.HTML_RESOURCE,
-                VastResource.CreativeType.NONE,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-        vastCompanionAdConfig = new VastCompanionAdConfig(
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT,
-                vastResource,
-                COMPANION_CLICKTHROUGH_URL,
-                companionClickTrackers,
-                companionCreativeViewTrackers,
-                null);
+        setCompanionResource(VastResource.Type.HTML_RESOURCE, VastResource.CreativeType.NONE);
         vastCompanionAdConfigs.clear();
         vastCompanionAdConfigs.add(vastCompanionAdConfig);
         final Semaphore semaphore = new Semaphore(0);
@@ -592,7 +501,7 @@ public class FullscreenAdControllerTest {
         };
         LocalBroadcastManager.getInstance(activity).registerReceiver(broadcastReceiver,
                 new EventForwardingBroadcastReceiver(null, broadcastIdentifier).getIntentFilter());
-        subject.onCompanionAdsReady(vastCompanionAdConfigs, VIDEO_DURATION_MS);
+        subject.onCompanionAdReady(vastCompanionAdConfig, VIDEO_DURATION_MS);
 
         subject.onAdClicked(activity, adData);
 
@@ -601,20 +510,7 @@ public class FullscreenAdControllerTest {
 
     @Test
     public void onAdClicked_withIframeCompanion_shouldBroadcastClick() throws InterruptedException {
-        VastResource vastResource = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.IFRAME_RESOURCE,
-                VastResource.CreativeType.NONE,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-        vastCompanionAdConfig = new VastCompanionAdConfig(
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT,
-                vastResource,
-                COMPANION_CLICKTHROUGH_URL,
-                companionClickTrackers,
-                companionCreativeViewTrackers,
-                null);
+        setCompanionResource(VastResource.Type.IFRAME_RESOURCE, VastResource.CreativeType.NONE);
         vastCompanionAdConfigs.clear();
         vastCompanionAdConfigs.add(vastCompanionAdConfig);
         final Semaphore semaphore = new Semaphore(0);
@@ -629,13 +525,14 @@ public class FullscreenAdControllerTest {
         };
         LocalBroadcastManager.getInstance(activity).registerReceiver(broadcastReceiver,
                 new EventForwardingBroadcastReceiver(null, broadcastIdentifier).getIntentFilter());
-        subject.onCompanionAdsReady(vastCompanionAdConfigs, VIDEO_DURATION_MS);
+        subject.onCompanionAdReady(vastCompanionAdConfig, VIDEO_DURATION_MS);
 
         subject.onAdClicked(activity, adData);
 
         semaphore.acquire();
     }
 
+    // region onVideoFinish
     @Test
     public void onVideoFinish_withNullCloseableLayout_shouldFinishActivity_shouldNotChangeVideoTimeElapsed() {
         subject.setCloseableLayout(null);
@@ -667,6 +564,10 @@ public class FullscreenAdControllerTest {
         subject.setOnVideoFinishCalled(false);
         subject.setVideoTimeElapsed(Integer.MIN_VALUE);
 
+        // This needs a real CloseableLayout
+        final CloseableLayout closeableLayout = new CloseableLayout(activity, null);
+        subject.setCloseableLayout(closeableLayout);
+
         subject.onVideoFinish(Integer.MAX_VALUE);
 
         assertThat(subject.getVideoTimeElapsed()).isEqualTo(Integer.MAX_VALUE);
@@ -691,6 +592,10 @@ public class FullscreenAdControllerTest {
         subject.setVideoViewController(mockVideoViewController);
 
         subject.setSelectedVastCompanionAdConfig(vastCompanionAdConfig);
+
+        // This needs a real CloseableLayout
+        final CloseableLayout closeableLayout = new CloseableLayout(activity, null);
+        subject.setCloseableLayout(closeableLayout);
 
         subject.onVideoFinish(Integer.MAX_VALUE);
 
@@ -781,210 +686,224 @@ public class FullscreenAdControllerTest {
     }
 
     @Test
-    public void onVideoFinish_withBlurredLastFrameType_withIsRewardedTrue_withRewardedDurationLessThanZero_shouldSetShowCloseButtonDelayMillisToDefault_shouldSetCloseAlwaysInteractableFalse_shouldSetCloseVisibleFalse() {
-
-        adData = new AdData.Builder()
-                .adPayload(EXPECTED_HTML_DATA)
-                .broadcastIdentifier(broadcastIdentifier)
-                .rewardedDurationSeconds(-1) // specific to this test
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .dspCreativeId(DSP_CREATIVE_ID)
-                .fullAdType(FullAdType.MRAID)
-                .isRewarded(true)
-                .build();
-        final Bundle bundle = new Bundle();
-        bundle.putParcelable(DataKeys.AD_DATA_KEY, adData);
-        when(mockIntent.getExtras()).thenReturn(bundle);
-
-        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
-
-        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
-        subject.setCloseableLayout(mockCloseableLayout);
-
-        final ImageView mockImageView = mock(ImageView.class);
-        subject.setImageView(mockImageView);
-
-        VastResource vastResource = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.BLURRED_LAST_FRAME,
-                VastResource.CreativeType.IMAGE,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-
-        VastCompanionAdConfig companionAdConfig = new VastCompanionAdConfig(
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT,
-                vastResource,
-                COMPANION_CLICKTHROUGH_URL,
-                companionClickTrackers,
-                companionCreativeViewTrackers,
-                null);
-
-        subject.setSelectedVastCompanionAdConfig(companionAdConfig);
+    public void onVideoFinish_shouldSetShowCountdownTimerToEndCardShowCdValue() throws JSONException {
+        setShowCd(ceSettingsJsonObject, false, true);
+        // Using an interactive resource to ensure show cd timer delay < show close button delay
+        setCompanionResource(VastResource.Type.HTML_RESOURCE, VastResource.CreativeType.NONE);
 
         subject.onVideoFinish(Integer.MAX_VALUE);
 
-        verify(mockCloseableLayout).removeAllViews();
-        verify(mockCloseableLayout).setOnCloseListener(any(CloseableLayout.OnCloseListener.class));
-
-        /*
-        if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
-                VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType()) ||
-                VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType())) {
-         */
-
-        assertThat(subject.getState()).isEqualTo(FullscreenAdController.ControllerState.IMAGE);
-
-        // once from our call, once from an internal call
-        verify(mockImageView, times(2)).setLayoutParams(any());
-        verify(mockCloseableLayout).addView(any(RelativeLayout.class));
-
-        // After the if/else
-        verify(mockCloseableLayout).setCloseAlwaysInteractable(false);
-        verify(mockCloseableLayout).setCloseVisible(false);
-
-        verify(activity).setContentView(mockCloseableLayout);
-
-        assertThat(subject.getShowCloseButtonDelayMillis()).isEqualTo(DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS);
+        // mShowCountdownTimer = endCardAdConfig.getShowCountdownTimer();
+        assertTrue(subject.getShowCountdownTimer());
     }
 
     @Test
-    public void onVideoFinish_withBlurredLastFrameType_withIsRewardedTrue_withRewardedDurationZero_shouldSetShowCloseButtonDelayMillisToRewardedDuration_shouldSetCloseAlwaysInteractableFalse_shouldSetCloseVisibleFalse() {
+    public void onVideoFinish_whenCountdownTimeLessThanOrEqualToZero_shouldSetCloseAlwaysInteractableTrue_shouldShowCloseButton_shouldNotInitializeCountdownTimer_shouldHandleImpression() {
+        // these ce settings ensure the calculated countdown time = 0
+        creativeExperienceSettings = CreativeExperienceSettings.getDefaultSettings(true);
+        adData.setCreativeExperienceSettings(creativeExperienceSettings);
+        setCompanionResource(VastResource.Type.STATIC_RESOURCE, VastResource.CreativeType.IMAGE);
 
-        adData = new AdData.Builder()
-                .adPayload(EXPECTED_HTML_DATA)
-                .broadcastIdentifier(broadcastIdentifier)
-                .rewardedDurationSeconds(0) // specific to this test
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .dspCreativeId(DSP_CREATIVE_ID)
-                .fullAdType(FullAdType.MRAID)
-                .isRewarded(true)
-                .build();
-        final Bundle bundle = new Bundle();
-        bundle.putParcelable(DataKeys.AD_DATA_KEY, adData);
-        when(mockIntent.getExtras()).thenReturn(bundle);
+        final ImageButton mockImageButton = mock(ImageButton.class);
+        when(mockCloseableLayout.findViewById(com.mopub.mobileads.base.R.id.mopub_closeable_layout_close_button))
+                .thenReturn(mockImageButton);
 
-        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
+        final VideoCtaButtonWidget mockVideoCtaButtonWidget = mock(VideoCtaButtonWidget.class);
+        when(mockCloseableLayout.findViewById(com.mopub.mobileads.base.R.id.mopub_fullscreen_video_cta_button))
+                .thenReturn(mockVideoCtaButtonWidget);
 
-        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
-        subject.setCloseableLayout(mockCloseableLayout);
-
-        final ImageView mockImageView = mock(ImageView.class);
-        subject.setImageView(mockImageView);
-
-        VastResource vastResource = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.BLURRED_LAST_FRAME,
-                VastResource.CreativeType.IMAGE,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-
-        VastCompanionAdConfig companionAdConfig = new VastCompanionAdConfig(
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT,
-                vastResource,
-                COMPANION_CLICKTHROUGH_URL,
-                companionClickTrackers,
-                companionCreativeViewTrackers,
-                null);
-
-        subject.setSelectedVastCompanionAdConfig(companionAdConfig);
-
-        subject.setVideoTimeElapsed(1); // for if (timeElapsed >= mShowCloseButtonDelayMillis
+        final RadialCountdownWidget radialCW = new RadialCountdownWidget(activity, null);
+        when(mockCloseableLayout.findViewById(com.mopub.mobileads.base.R.id.mopub_fullscreen_radial_countdown))
+                .thenReturn(radialCW);
 
         subject.onVideoFinish(Integer.MAX_VALUE);
 
-        verify(mockCloseableLayout).removeAllViews();
-        verify(mockCloseableLayout).setOnCloseListener(any(CloseableLayout.OnCloseListener.class));
-
-        /*
-        if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
-                VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType()) ||
-                VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType())) {
-         */
-
-        assertThat(subject.getState()).isEqualTo(FullscreenAdController.ControllerState.IMAGE);
-
-        // once from our call, once from an internal call
-        verify(mockImageView, times(2)).setLayoutParams(any());
-        verify(mockCloseableLayout).addView(any(RelativeLayout.class));
-
-        // After the if/else
-        verify(mockCloseableLayout).setCloseAlwaysInteractable(false);
-        verify(mockCloseableLayout).setCloseVisible(false);
-
-        verify(activity).setContentView(mockCloseableLayout);
-
-        assertThat(subject.getShowCloseButtonDelayMillis()).isEqualTo(0); // adData.getRewardedDurationSeconds() * MILLIS_IN_SECOND
-
-        // for if (timeElapsed >= mShowCloseButtonDelayMillis
+        assertEquals(0, subject.getCountdownTimeMillis());
         verify(mockCloseableLayout).setCloseAlwaysInteractable(true);
+        verify(mockCloseableLayout).setCloseVisible(true);
+        assertEquals(View.GONE, subject.getRadialCountdownWidget().getVisibility());
+
+        // Called twice for two creative view trackers
+        verify(mockRequestQueue, times(2)).add(any(TrackingRequest.class));
     }
 
     @Test
-    public void onVideoFinish_withBlurredLastFrameType_withIsRewardedFalse_shouldSetCloseAlwaysInteractableTrue() {
-
-        adData = new AdData.Builder()
-                .adPayload(EXPECTED_HTML_DATA)
-                .broadcastIdentifier(broadcastIdentifier)
-                .rewardedDurationSeconds(REWARDED_DURATION_IN_SECONDS)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .dspCreativeId(DSP_CREATIVE_ID)
-                .fullAdType(FullAdType.MRAID)
-                .isRewarded(true)
-                .build();
-        final Bundle bundle = new Bundle();
-        bundle.putParcelable(DataKeys.AD_DATA_KEY, adData);
-        when(mockIntent.getExtras()).thenReturn(bundle);
-
-        subject = new FullscreenAdController(activity, mockBundle, mockIntent, adData);
-
-        final CloseableLayout mockCloseableLayout = mock(CloseableLayout.class);
-        subject.setCloseableLayout(mockCloseableLayout);
-
-        final ImageView mockImageView = mock(ImageView.class);
-        subject.setImageView(mockImageView);
-
-        VastResource vastResource = new VastResource(
-                COMPANION_RESOURCE,
-                VastResource.Type.STATIC_RESOURCE,
-                VastResource.CreativeType.IMAGE,
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT);
-
-        VastCompanionAdConfig companionAdConfig = new VastCompanionAdConfig(
-                COMPANION_WIDTH,
-                COMPANION_HEIGHT,
-                vastResource,
-                COMPANION_CLICKTHROUGH_URL,
-                companionClickTrackers,
-                companionCreativeViewTrackers,
-                null);
-
-        subject.setSelectedVastCompanionAdConfig(companionAdConfig);
+    public void onVideoFinish_whenCountdownTimeGreaterThanZero_whenShowCountdownTimerIsTrue_whenShowCountdownTimerDelayIsLessThanCountdownTime_shouldSetShowCountdownTimerDelayToEndCardConfigShowCountdownDelay() throws JSONException {
+        setShowCd(ceSettingsJsonObject, false, true);
+        // Using an interactive resource to ensure show cd timer delay < show close button delay
+        setCompanionResource(VastResource.Type.HTML_RESOURCE, VastResource.CreativeType.NONE);
 
         subject.onVideoFinish(Integer.MAX_VALUE);
 
-        verify(mockCloseableLayout).removeAllViews();
-        verify(mockCloseableLayout).setOnCloseListener(any(CloseableLayout.OnCloseListener.class));
+        // mShowCountdownTimerDelayMillis = endCardAdConfig.getCountdownTimerDelaySecs() * MILLIS_IN_SECOND;
+        CreativeExperienceAdConfig endCardConfig = creativeExperienceSettings.getEndCardConfig();
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        assertTrue(subject.getShowCountdownTimer());
+        assertTrue(subject.getShowCountdownTimerDelaysMillis() < subject.getCountdownTimeMillis());
+        assertEquals(endCardConfig.getCountdownTimerDelaySecs() * 1000,
+                subject.getShowCountdownTimerDelaysMillis());
+    }
+
+    @Test
+    public void onVideoFinish_whenCloseButtonDelayGreaterThanZero_whenShowCountdownTimerFalse_shouldSetShowCountdownTimerDelayToCountdownTime_shouldSetShowCountdownTimerToFalse() throws JSONException {
+        setShowCd(ceSettingsJsonObject, false, false);
+        setCompanionResource(VastResource.Type.STATIC_RESOURCE, VastResource.CreativeType.IMAGE);
+
+        // This needs a real CloseableLayout
+        final CloseableLayout closeableLayout = new CloseableLayout(activity, null);
+        subject.setCloseableLayout(closeableLayout);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
 
         /*
-        if (VastResource.Type.STATIC_RESOURCE.equals(vastResource.getType()) &&
-                VastResource.CreativeType.IMAGE.equals(vastResource.getCreativeType()) ||
-                VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType())) {
+        if (!mShowCountdownTimer || ...) {
+            // Countdown timer is never shown
+            mShowCountdownTimerDelayMillis = mCountdownTimeMillis;
+            mShowCountdownTimer = false;
+         }
          */
-
-        assertThat(subject.getState()).isEqualTo(FullscreenAdController.ControllerState.IMAGE);
-
-        // once from our call, once from an internal call
-        verify(mockImageView, times(2)).setLayoutParams(any());
-        verify(mockCloseableLayout).addView(any(RelativeLayout.class));
-
-        // After the if/else
-        // for if (mAdData.isRewarded()) else
-        verify(activity).setContentView(mockCloseableLayout);
-        verify(mockCloseableLayout).setCloseAlwaysInteractable(true);
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        assertFalse(subject.getShowCountdownTimer());
+        assertEquals(subject.getCountdownTimeMillis(), subject.getShowCountdownTimerDelaysMillis());
     }
+
+    @Test
+    public void onVideoFinish_withCloseButtonDelayGreaterThanZero_whenShowCountdownTimerDelayIsGreaterThanOrEqualToCountdownTime_shouldSetShowCountdownTimerDelayToCountdownTime_shouldSetShowCountdownTimerToFalse() {
+        setCompanionResource(VastResource.Type.STATIC_RESOURCE, VastResource.CreativeType.IMAGE);
+
+        // This needs a real CloseableLayout
+        final CloseableLayout closeableLayout = new CloseableLayout(activity, null);
+        subject.setCloseableLayout(closeableLayout);
+
+        // Current CE settings will set mShowCountdownTimerDelayMillis = 5000, mCountdownTimeMillis = 2000
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        /*
+        if (... || mShowCountdownTimerDelayMillis >= mCountdownTimeMillis) {
+            // Countdown timer is never shown
+            mShowCountdownTimerDelayMillis = mCountdownTimeMillis;
+            mShowCountdownTimer = false;
+        }
+         */
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        assertFalse(subject.getShowCountdownTimer());
+        assertEquals(subject.getCountdownTimeMillis(), subject.getShowCountdownTimerDelaysMillis());
+    }
+
+    @Test
+    public void onVideoFinish_whenCountdownTimeGreaterThanZero_shouldInitializeRadialCountdownWidget_shouldInitializeAndStartCountdownRunnable_shouldNotShowCloseButton_shouldHandleImpression() {
+        setCompanionResource(VastResource.Type.STATIC_RESOURCE, VastResource.CreativeType.IMAGE);
+
+        final ImageButton mockImageButton = mock(ImageButton.class);
+        when(mockCloseableLayout.findViewById(com.mopub.mobileads.base.R.id.mopub_closeable_layout_close_button))
+                .thenReturn(mockImageButton);
+
+        final VideoCtaButtonWidget mockVideoCtaButtonWidget = mock(VideoCtaButtonWidget.class);
+        when(mockCloseableLayout.findViewById(com.mopub.mobileads.base.R.id.mopub_fullscreen_video_cta_button))
+                .thenReturn(mockVideoCtaButtonWidget);
+
+        final RadialCountdownWidget radialCW = new RadialCountdownWidget(activity, null);
+        when(mockCloseableLayout.findViewById(com.mopub.mobileads.base.R.id.mopub_fullscreen_radial_countdown))
+                .thenReturn(radialCW);
+
+        subject.onVideoFinish(Integer.MAX_VALUE);
+
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        verify(mockCloseableLayout).setCloseAlwaysInteractable(false);
+        verify(mockCloseableLayout).setCloseVisible(false);
+
+        RadialCountdownWidget radialCountdownWidget = subject.getRadialCountdownWidget();
+        assertNotNull(radialCountdownWidget);
+        assertTrue(subject.isCalibrationDone());
+        assertEquals(subject.getCountdownTimeMillis(),
+                radialCountdownWidget.getImageViewDrawable().getInitialCountdownMilliseconds());
+        assertNotNull(subject.getCountdownRunnable());
+        assertTrue(subject.getCountdownRunnable().isRunning());
+        // Called twice for two creative view trackers
+        verify(mockRequestQueue, times(2)).add(any(TrackingRequest.class));
+    }
+
+    /* Inside updateCountdown
+    // Make the countdown timer visible if the show countdown timer delay has passed
+    if (!mShowCloseButtonEventFired && mShowCountdownTimer
+            && mRadialCountdownWidget.getVisibility() != View.VISIBLE
+            && currentElapsedTimeMillis >= mShowCountdownTimerDelayMillis) {
+        mRadialCountdownWidget.setVisibility(View.VISIBLE);
+    }
+    */
+    @Test
+    public void onVideoFinish_whenShowCloseButtonNotFired_shouldNotChangeCountdownVisibility() {
+        setCompanionResource(VastResource.Type.STATIC_RESOURCE, VastResource.CreativeType.IMAGE);
+
+        assertFalse(subject.isShowCloseButtonEventFired());
+
+        // This needs a real CloseableLayout
+        final CloseableLayout closeableLayout = new CloseableLayout(activity, null);
+        subject.setCloseableLayout(closeableLayout);
+
+        subject.onVideoFinish(1000);
+
+        assertTrue(subject.isCalibrationDone());
+        RadialCountdownWidget radialCountdownWidget = subject.getRadialCountdownWidget();
+        assertNotNull(radialCountdownWidget);
+        assertEquals(View.INVISIBLE, radialCountdownWidget.getVisibility());
+    }
+
+    @Test
+    public void onVideoFinish_whenShowCountdownTimerFalse_shouldNotChangeCountdownVisibility() throws JSONException {
+        setShowCd(ceSettingsJsonObject, false, false);
+        setCompanionResource(VastResource.Type.STATIC_RESOURCE, VastResource.CreativeType.IMAGE);
+
+        // This needs a real CloseableLayout
+        final CloseableLayout closeableLayout = new CloseableLayout(activity, null);
+        subject.setCloseableLayout(closeableLayout);
+
+        subject.onVideoFinish(1000);
+
+        assertTrue(subject.isCalibrationDone());
+        RadialCountdownWidget radialCountdownWidget = subject.getRadialCountdownWidget();
+        assertNotNull(radialCountdownWidget);
+        assertEquals(View.INVISIBLE, radialCountdownWidget.getVisibility());
+    }
+
+    @Test
+    public void onVideoFinish_whenTimeElapsedIsLessThanShowCountdownTimerDelay_shouldNotMakeCountdownVisible() throws JSONException {
+        setShowCd(ceSettingsJsonObject, false, true);
+        setCompanionResource(VastResource.Type.STATIC_RESOURCE, VastResource.CreativeType.IMAGE);
+
+        // This needs a real CloseableLayout
+        final CloseableLayout closeableLayout = new CloseableLayout(activity, null);
+        subject.setCloseableLayout(closeableLayout);
+
+        subject.onVideoFinish(1000);
+
+        assertTrue(subject.getCurrentTimeElapsedMillis() <
+                subject.getShowCountdownTimerDelaysMillis());
+        assertTrue(subject.isCalibrationDone());
+        RadialCountdownWidget radialCountdownWidget = subject.getRadialCountdownWidget();
+        assertNotNull(radialCountdownWidget);
+        assertEquals(View.INVISIBLE, radialCountdownWidget.getVisibility());
+    }
+
+    @Test
+    public void onVideoFinish_whenTimeElapsedIsGreaterThanOrEqualToShowCountdownTimerDelay_whenShowCloseButtonEventNotFired_whenCountdownTimerIsNotVisible_whenShowCountdownTimerTrue_shouldMakeCountdownVisible() throws JSONException {
+        setShowCd(ceSettingsJsonObject, false, true);
+        setShowCdDelay(ceSettingsJsonObject, false, 0);
+        setCompanionResource(VastResource.Type.STATIC_RESOURCE, VastResource.CreativeType.IMAGE);
+
+        // This needs a real CloseableLayout
+        final CloseableLayout closeableLayout = new CloseableLayout(activity, null);
+        subject.setCloseableLayout(closeableLayout);
+
+        subject.onVideoFinish(1000);
+
+        assertTrue(subject.isCalibrationDone());
+        RadialCountdownWidget radialCountdownWidget = subject.getRadialCountdownWidget();
+        assertNotNull(radialCountdownWidget);
+        assertEquals(View.VISIBLE, radialCountdownWidget.getVisibility());
+    }
+
+    // endregion onVideoFinish
 
     @Test
     public void destroy_withBlurLastVideoFrameTaskStillPending_shouldCancelTask() {
@@ -1008,5 +927,54 @@ public class FullscreenAdControllerTest {
         subject.destroy();
 
         verify(mockBlurLastVideoFrameTask).cancel(anyBoolean());
+    }
+
+    private void setShowCd(JSONObject ceSettings,
+                           boolean isMainAd,
+                           boolean showCd) throws JSONException {
+        String key = isMainAd ? Constants.CE_MAIN_AD : Constants.CE_END_CARD;
+        JSONObject adConfig = ceSettings.getJSONObject(key);
+        adConfig.remove(Constants.CE_SHOW_COUNTDOWN_TIMER);
+        adConfig.put(Constants.CE_SHOW_COUNTDOWN_TIMER, showCd ? "1" :"0");
+        ceSettings.remove(key);
+        ceSettings.put(key, adConfig);
+        creativeExperienceSettings = CreativeExperienceSettingsParser
+                .parse(ceSettings, false);
+        adData.setCreativeExperienceSettings(creativeExperienceSettings);
+    }
+
+    private void setShowCdDelay(JSONObject ceSettings,
+                                boolean isMainAd,
+                                int delay) throws JSONException {
+        String key = isMainAd ? Constants.CE_MAIN_AD : Constants.CE_END_CARD;
+        JSONObject adConfig = ceSettings.getJSONObject(key);
+        adConfig.remove(Constants.CE_COUNTDOWN_TIMER_DELAY);
+        adConfig.put(Constants.CE_COUNTDOWN_TIMER_DELAY, delay);
+        ceSettings.remove(key);
+        ceSettings.put(key, adConfig);
+        creativeExperienceSettings = CreativeExperienceSettingsParser
+                .parse(ceSettings, false);
+        adData.setCreativeExperienceSettings(creativeExperienceSettings);
+    }
+
+    void setCompanionResource(VastResource.Type resourceType,
+                              VastResource.CreativeType creativeType) {
+        VastResource vastResource = new VastResource(
+                COMPANION_RESOURCE,
+                resourceType,
+                creativeType,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+
+        VastCompanionAdConfig companionAdConfig  = new VastCompanionAdConfig(
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT,
+                vastResource,
+                COMPANION_CLICKTHROUGH_URL,
+                companionClickTrackers,
+                companionCreativeViewTrackers,
+                null);
+
+        subject.setSelectedVastCompanionAdConfig(companionAdConfig);
     }
 }

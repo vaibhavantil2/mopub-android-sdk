@@ -5,6 +5,7 @@
 package com.mopub.mobileads;
 
 import android.content.Context;
+import android.util.AttributeSet;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
@@ -20,31 +21,16 @@ public class RadialCountdownWidget extends ImageView {
     @NonNull private RadialCountdownDrawable mRadialCountdownDrawable;
     private int mLastProgressMilliseconds;
 
-    public RadialCountdownWidget(@NonNull final Context context) {
-        super(context);
-
-        setId(View.generateViewId());
-
-        final int sideLength = Dips.dipsToIntPixels(DrawableConstants.RadialCountdown.SIDE_LENGTH_DIPS, context);
-        final int topMargin = Dips.dipsToIntPixels(DrawableConstants.RadialCountdown.TOP_MARGIN_DIPS, context);
-        final int rightMargin = Dips.dipsToIntPixels(DrawableConstants.RadialCountdown.RIGHT_MARGIN_DIPS, context);
-        final int padding = Dips.dipsToIntPixels(DrawableConstants.RadialCountdown.PADDING_DIPS, context);
+    public RadialCountdownWidget(Context context, AttributeSet attrs) {
+        super(context, attrs, 0);
 
         mRadialCountdownDrawable = new RadialCountdownDrawable(context);
         setImageDrawable(mRadialCountdownDrawable);
-        setPadding(padding, padding, padding, padding);
-
-        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(
-                sideLength,
-                sideLength);
-        layoutParams.setMargins(0, topMargin, rightMargin, 0);
-        layoutParams.addRule(RelativeLayout.ALIGN_PARENT_TOP | RelativeLayout.ALIGN_PARENT_RIGHT);
-        setLayoutParams(layoutParams);
     }
 
-    public void calibrateAndMakeVisible(final int initialCountdownMilliseconds) {
+    public void calibrate(final int initialCountdownMilliseconds) {
         mRadialCountdownDrawable.setInitialCountdown(initialCountdownMilliseconds);
-        setVisibility(VISIBLE);
+        setVisibility(INVISIBLE);
     }
 
     public void updateCountdownProgress(final int initialCountdownMilliseconds, final int currentProgressMilliseconds) {

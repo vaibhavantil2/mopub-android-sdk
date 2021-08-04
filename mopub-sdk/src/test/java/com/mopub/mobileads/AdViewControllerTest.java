@@ -11,19 +11,24 @@ import android.graphics.Point;
 import android.location.Location;
 import android.net.ConnectivityManager;
 import android.net.Uri;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
 
 import com.mopub.common.AdFormat;
+import com.mopub.common.CESettingsCacheService;
 import com.mopub.common.MoPub;
 import com.mopub.common.SdkConfiguration;
+import com.mopub.common.factories.MethodBuilderFactory;
+import com.mopub.common.privacy.ConsentData;
 import com.mopub.common.privacy.ConsentStatus;
 import com.mopub.common.privacy.PersonalInfoManager;
-import com.mopub.common.test.support.SdkTestRunner;
+import com.mopub.common.util.AsyncTasks;
 import com.mopub.common.util.Reflection;
 import com.mopub.common.util.test.support.TestMethodBuilderFactory;
+import com.mopub.mobileads.factories.BaseAdFactory;
 import com.mopub.mobileads.test.support.MoPubShadowConnectivityManager;
 import com.mopub.mobileads.test.support.MoPubShadowTelephonyManager;
 import com.mopub.mobileads.test.support.TestBaseAdFactory;
@@ -42,13 +47,21 @@ import com.mopub.network.Networking;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.rule.PowerMockRule;
 import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
+import org.robolectric.android.util.concurrent.RoboExecutorService;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowSystemClock;
@@ -59,10 +72,13 @@ import java.util.Collections;
 
 import static com.mopub.common.MoPubRequestMatcher.isUrl;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -71,9 +87,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
-@RunWith(SdkTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
 @Config(shadows = {MoPubShadowTelephonyManager.class, MoPubShadowConnectivityManager.class})
+@PowerMockIgnore({ "org.mockito.*", "org.robolectric.*", "android.*", "org.json.*", "javax.net.ssl.SSLSocketFactory"})
+@PrepareForTest(CESettingsCacheService.class)
 public class AdViewControllerTest {
 
     private static final int[] HTML_ERROR_CODES = new int[]{400, 401, 402, 403, 404, 405, 407, 408,
@@ -85,15 +104,22 @@ public class AdViewControllerTest {
     @Mock private MoPubView mockMoPubView;
     @Mock private MoPubRequestQueue mockRequestQueue;
     @Mock private ImpressionData mockImpressionData;
-    private Reflection.MethodBuilder methodBuilder;
 
     private AdResponse response;
     private Activity activity;
 
     private PersonalInfoManager mockPersonalInfoManager;
 
+    @Rule
+    public PowerMockRule rule = new PowerMockRule();
+
     @Before
     public void setup() throws Exception {
+        MockitoAnnotations.initMocks(this);
+
+        MethodBuilderFactory.setInstance(new TestMethodBuilderFactory());
+        BaseAdFactory.setInstance(new TestBaseAdFactory());
+
         activity = Robolectric.buildActivity(Activity.class).create().get();
         Shadows.shadowOf(activity).grantPermissions(android.Manifest.permission.ACCESS_NETWORK_STATE);
 
@@ -102,6 +128,9 @@ public class AdViewControllerTest {
 
         mockPersonalInfoManager = mock(PersonalInfoManager.class);
         when(mockPersonalInfoManager.getPersonalInfoConsentStatus()).thenReturn(ConsentStatus.UNKNOWN);
+        ConsentData mockConsentData = mock(ConsentData.class);
+        when(mockPersonalInfoManager.getConsentData()).thenReturn(mockConsentData);
+
         new Reflection.MethodBuilder(null, "setPersonalInfoManager")
                 .setStatic(MoPub.class)
                 .setAccessible()
@@ -114,8 +143,6 @@ public class AdViewControllerTest {
 
         subject = new AdViewController(activity, mockMoPubView);
 
-        methodBuilder = TestMethodBuilderFactory.getSingletonMock();
-        reset(methodBuilder);
         response = new AdResponse.Builder()
                 .setAdUnitId(mAdUnitId)
                 .setBaseAdClassName("customEvent")
@@ -127,12 +154,41 @@ public class AdViewControllerTest {
                 .setFailoverUrl("failUrl")
                 .setResponseBody("testResponseBody")
                 .setServerExtras(Collections.<String, String>emptyMap())
+                .setRewarded(false)
+                .setCreativeExperienceSettings(CreativeExperienceSettings.getDefaultSettings(false))
                 .build();
+
+        PowerMockito.mockStatic(CESettingsCacheService.class);
+        PowerMockito.doAnswer(invocation -> {
+            CESettingsCacheService.CESettingsCacheListener cacheListener = invocation
+                    .getArgumentAt(1,  CESettingsCacheService.CESettingsCacheListener.class);
+            cacheListener.onHashReceived("0");
+            return null;
+        }).when(CESettingsCacheService.class, "getCESettingsHash",
+                anyString(),
+                any(CESettingsCacheService.CESettingsCacheListener.class),
+                any(Context.class));
+
+        PowerMockito.doAnswer(invocation -> {
+            CESettingsCacheService.CESettingsCacheListener cacheListener = invocation
+                    .getArgumentAt(1,  CESettingsCacheService.CESettingsCacheListener.class);
+            cacheListener.onSettingsReceived(CreativeExperienceSettings.getDefaultSettings(false));
+            return null;
+        }).when(CESettingsCacheService.class, "getCESettings",
+                anyString(),
+                any(CESettingsCacheService.CESettingsCacheListener.class),
+                any(Context.class));
+
+        AsyncTasks.setExecutor(new RoboExecutorService());
+        shadowOf(Looper.getMainLooper()).idle();
     }
 
     @After
     public void tearDown() throws Exception {
-        reset(methodBuilder);
+        // Unpause the main looper in case a test terminated while the looper was paused.
+        ShadowLooper.unPauseMainLooper();
+        // Drain the Main Looper in case a test has unexecuted runnables
+        shadowOf(Looper.getMainLooper()).idle();
         new Reflection.MethodBuilder(null, "resetMoPub")
                 .setStatic(MoPub.class)
                 .setAccessible()
@@ -168,9 +224,10 @@ public class AdViewControllerTest {
     @Test
     public void invalidateAdapter_withNonNullAdapter_shouldCallAdapterInvalidate() {
         final AdViewController subjectSpy = spy(subject);
-        final AdAdapter mockAdAdapter = mock(AdAdapter.class);
+        final FullscreenAdAdapter mockAdAdapter = mock(FullscreenAdAdapter.class);
         when(subjectSpy.getAdAdapter()).thenReturn(mockAdAdapter);
 
+        doCallRealMethod().when(subjectSpy).invalidateAdapter();
         subjectSpy.invalidateAdapter();
 
         verify(mockAdAdapter).invalidate();
@@ -255,6 +312,22 @@ public class AdViewControllerTest {
     }
 
     @Test
+    public void generateAdUrl_withSetCeSettingsHash_shouldSetCeSettingsHash() {
+        subject.setCeSettingsHash("12345");
+
+        final String adUrl = subject.generateAdUrl();
+
+        assertThat(getParameterFromRequestUrl(adUrl, "ce_settings_hash_key")).isEqualTo("12345");
+    }
+
+    @Test
+    public void generateAdUrl_withoutSetCeSettingsHash_shouldSetCeSettingsHashToZero() {
+        final String adUrl = subject.generateAdUrl();
+
+        assertThat(getParameterFromRequestUrl(adUrl, "ce_settings_hash_key")).isEqualTo("0");
+    }
+
+    @Test
     public void adDidFail_shouldScheduleRefreshTimer_shouldCallMoPubViewAdFailed() {
         ShadowLooper.pauseMainLooper();
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(0);
@@ -264,6 +337,7 @@ public class AdViewControllerTest {
 
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(1);
         verify(mockMoPubView).onAdLoadFailed(MoPubErrorCode.ADAPTER_CONFIGURATION_ERROR);
+        ShadowLooper.unPauseMainLooper();
     }
 
     @Test
@@ -277,11 +351,13 @@ public class AdViewControllerTest {
 
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(0);
         verify(mockMoPubView, never()).onAdFailed(any(MoPubErrorCode.class));
+        ShadowLooper.unPauseMainLooper();
     }
 
 
     @Test
     public void scheduleRefreshTimer_shouldNotScheduleIfRefreshTimeIsNull() {
+        subject.setAdUnitId("adUnitId");
         response = response.toBuilder().setRefreshTimeMilliseconds(null).build();
         subject.onAdLoadSuccess(response);
         ShadowLooper.pauseMainLooper();
@@ -290,10 +366,12 @@ public class AdViewControllerTest {
         subject.scheduleRefreshTimerIfEnabled();
 
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(1);
+        ShadowLooper.unPauseMainLooper();
     }
 
     @Test
     public void scheduleRefreshTimer_shouldNotScheduleIfRefreshTimeIsZero() {
+        subject.setAdUnitId("adUnitId");
         response = response.toBuilder().setRefreshTimeMilliseconds(0).build();
         subject.onAdLoadSuccess(response);
         ShadowLooper.pauseMainLooper();
@@ -302,13 +380,14 @@ public class AdViewControllerTest {
         subject.scheduleRefreshTimerIfEnabled();
 
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(1);
+        ShadowLooper.unPauseMainLooper();
     }
 
     @Test
     public void scheduleRefreshTimerIfEnabled_shouldCancelOldRefreshAndScheduleANewOne() {
+        subject.setAdUnitId("adUnitId");
         response = response.toBuilder().setRefreshTimeMilliseconds(30).build();
         subject.onAdLoadSuccess(response);
-        ShadowLooper.pauseMainLooper();
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(2);
 
         subject.scheduleRefreshTimerIfEnabled();
@@ -322,6 +401,7 @@ public class AdViewControllerTest {
 
     @Test
     public void scheduleRefreshTimer_shouldNotScheduleRefreshIfAutoRefreshIsOff() {
+        subject.setAdUnitId("adUnitId");
         response = response.toBuilder().setRefreshTimeMilliseconds(30).build();
         subject.onAdLoadSuccess(response);
 
@@ -333,6 +413,7 @@ public class AdViewControllerTest {
         subject.scheduleRefreshTimerIfEnabled();
 
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(1);
+        ShadowLooper.unPauseMainLooper();
     }
 
     @Test
@@ -348,6 +429,7 @@ public class AdViewControllerTest {
 
         ShadowLooper.idleMainLooper(1);
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(0);
+        ShadowLooper.unPauseMainLooper();
     }
 
     @Test
@@ -429,11 +511,17 @@ public class AdViewControllerTest {
 
     @Test
     public void disablingAutoRefresh_shouldCancelRefreshTimers() {
+        subject.setAdUnitId("adUnitId");
         response = response.toBuilder().setRefreshTimeMilliseconds(30).build();
         subject.onAdLoadSuccess(response);
         ShadowLooper.pauseMainLooper();
 
+        assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(2);
+
         subject.loadAd();
+
+        ShadowLooper.unPauseMainLooper();
+
         subject.setShouldAllowAutoRefresh(true);
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(2);
 
@@ -516,7 +604,7 @@ public class AdViewControllerTest {
         // mAdUnitId is null at initialization
         spyAdViewController.loadAd();
 
-        verify(spyAdViewController, atLeastOnce()).adDidFail(any(MoPubErrorCode.class));
+        verify(spyAdViewController, atLeastOnce()).adDidFail(MoPubErrorCode.MISSING_AD_UNIT_ID);
     }
 
     @Test
@@ -539,6 +627,27 @@ public class AdViewControllerTest {
         spyAdViewController.loadAd();
 
         verify(spyAdViewController, atLeastOnce()).adDidFail(MoPubErrorCode.NO_CONNECTION);
+    }
+
+    @Test
+    public void loadAd_whenCeSettingsCacheListenerReceivesHash_shouldSetHashToCachedHash_shouldLoadAd() throws Exception {
+        final AdViewController spyAdViewController = spy(subject);
+        spyAdViewController.setAdUnitId("adUnitId");
+
+        PowerMockito.doAnswer(invocation -> {
+            CESettingsCacheService.CESettingsCacheListener cacheListener = invocation
+                    .getArgumentAt(1,  CESettingsCacheService.CESettingsCacheListener.class);
+            cacheListener.onHashReceived("12345");
+            return null;
+        }).when(CESettingsCacheService.class, "getCESettingsHash",
+                anyString(),
+                any(CESettingsCacheService.CESettingsCacheListener.class),
+                any(Context.class));
+
+        spyAdViewController.loadAd();
+
+        assertEquals("12345", spyAdViewController.getCeSettingsHash());
+        verify(spyAdViewController, atLeastOnce()).loadNonJavascript(anyString(), any(MoPubError.class));
     }
 
     @Test
@@ -568,6 +677,7 @@ public class AdViewControllerTest {
 
     @Test
     public void loadFailUrl_shouldLoadFailUrl() {
+        subject.setAdUnitId("adUnitId");
         subject.mAdLoader = new AdLoader("failUrl", AdFormat.BANNER, "adUnitId", activity, mock(AdLoader.Listener.class));
 
         subject.onAdLoadSuccess(response);
@@ -711,17 +821,122 @@ public class AdViewControllerTest {
     }
 
     @Test
-    public void onAdLoadError_withMoPubNetworkErrorIncludingRefreshTime_shouldSetNewRefreshTime() {
-        subject.setRefreshTimeMillis(54321);
+    public void onAdLoadSuccess_withNullAdUnitId_shouldCallOnAdDidFail_shouldNotLoadAd() {
+        CreativeExperienceSettings responseSettings = CreativeExperienceSettingsParser
+                .parse(CreativeExperienceSettingsParserTest.getCeSettingsJSONObject(), true);
+        response = response.toBuilder()
+                .setRefreshTimeMilliseconds(null)
+                .setCreativeExperienceSettings(responseSettings)
+                .build();
 
-        subject.onAdLoadError(
-                new MoPubNetworkError.Builder("network error with specified refresh time")
-                        .reason(MoPubNetworkError.Reason.NO_FILL)
-                        .refreshTimeMillis(1000)
-                        .build()
-        );
+        final AdViewController spyAdViewController = spy(subject);
+        // mAdUnitId is null at initialization
+        spyAdViewController.onAdLoadSuccess(response);
 
-        assertThat(subject.getRefreshTimeMillis()).isEqualTo(1000);
+        verify(spyAdViewController, atLeastOnce()).adDidFail(MoPubErrorCode.MISSING_AD_UNIT_ID);
+        verify(spyAdViewController, never()).loadAd();
+    }
+
+    @Test
+    public void onAdLoadSuccess_withEmptyAdUnitId_shouldCallOnAdDidFail_shouldNotLoadAd() {
+        CreativeExperienceSettings responseSettings = CreativeExperienceSettingsParser
+                .parse(CreativeExperienceSettingsParserTest.getCeSettingsJSONObject(), true);
+        response = response.toBuilder()
+                .setRefreshTimeMilliseconds(null)
+                .setCreativeExperienceSettings(responseSettings)
+                .build();
+
+        final AdViewController spyAdViewController = spy(subject);
+        spyAdViewController.setAdUnitId("");
+        spyAdViewController.onAdLoadSuccess(response);
+
+        verify(spyAdViewController, atLeastOnce()).adDidFail(MoPubErrorCode.MISSING_AD_UNIT_ID);
+        verify(spyAdViewController, never()).loadAd();
+    }
+
+    @Test
+    public void onAdLoadSuccess_whenAdResponseContainsNewCeSettings_shouldCacheNewSettings_shouldUseNewSettings_shouldLoadAd() {
+        CreativeExperienceSettings responseSettings = CreativeExperienceSettingsParser.parse(
+                CreativeExperienceSettingsParserTest.getCeSettingsJSONObject(), false);
+        response = response.toBuilder()
+                .setRefreshTimeMilliseconds(null)
+                .setCreativeExperienceSettings(responseSettings)
+                .build();
+
+        final AdViewController spyAdViewController = spy(subject);
+        spyAdViewController.setAdUnitId("adUnitId");
+        spyAdViewController.onAdLoadSuccess(response);
+
+        // Verify attempt to cache new settings
+        PowerMockito.verifyStatic(CESettingsCacheService.class);
+        CESettingsCacheService.putCESettings("adUnitId", responseSettings,
+                spyAdViewController.getContext());
+        // Verify new settings are used
+        assertEquals(responseSettings, spyAdViewController.getCreativeExperienceSettings());
+        // Verify ad loaded
+        verify(spyAdViewController).loadBaseAd();
+    }
+
+    @Test
+    public void onAdLoadSuccess_whenAdResponseDoesNotContainNewCeSettings_shouldGetSettingsFromCache_shouldUseCachedSettings_shouldLoadAd() throws Exception {
+        response = response.toBuilder()
+                .setRefreshTimeMilliseconds(null)
+                .setCreativeExperienceSettings(CreativeExperienceSettings.getDefaultSettings(false))
+                .build();
+
+        CreativeExperienceSettings cachedSettings = CreativeExperienceSettingsParser
+                .parse(CreativeExperienceSettingsParserTest.getCeSettingsJSONObject(), false);
+        PowerMockito.doAnswer(invocation -> {
+            CESettingsCacheService.CESettingsCacheListener cacheListener = invocation
+                    .getArgumentAt(1,  CESettingsCacheService.CESettingsCacheListener.class);
+            cacheListener.onSettingsReceived(cachedSettings);
+            return null;
+        }).when(CESettingsCacheService.class, "getCESettings",
+                anyString(),
+                any(CESettingsCacheService.CESettingsCacheListener.class),
+                any(Context.class));
+
+        final AdViewController spyAdViewController = spy(subject);
+        spyAdViewController.setAdUnitId("adUnitId");
+        spyAdViewController.onAdLoadSuccess(response);
+
+        // Verify cached settings are used
+        CreativeExperienceSettings ceSettingsUnderTest = spyAdViewController
+                .getCreativeExperienceSettings();
+        assertEquals(cachedSettings, ceSettingsUnderTest);
+        // Verify ad loaded
+        verify(spyAdViewController).loadBaseAd();
+    }
+
+    @Test
+    public void onAdLoadSuccess_whenAdResponseDoesNotContainNewCeSettings_shouldGetSettingsFromCache_whenSettingsAreNull_shouldUseDefaultSettings_shouldLoadAd() throws Exception {
+        CreativeExperienceSettings defaultSettings = CreativeExperienceSettings
+                .getDefaultSettings(false);
+        response = response.toBuilder()
+                .setRefreshTimeMilliseconds(null)
+                .setCreativeExperienceSettings(defaultSettings)
+                .build();
+
+        PowerMockito.doAnswer(invocation -> {
+            CESettingsCacheService.CESettingsCacheListener cacheListener = invocation
+                    .getArgumentAt(1,  CESettingsCacheService.CESettingsCacheListener.class);
+            cacheListener.onSettingsReceived(null);
+            return null;
+        }).when(CESettingsCacheService.class, "getCESettings",
+                anyString(),
+                any(CESettingsCacheService.CESettingsCacheListener.class),
+                any(Context.class));
+
+        final AdViewController spyAdViewController = spy(subject);
+        spyAdViewController.setAdUnitId("adUnitId");
+        spyAdViewController.onAdLoadSuccess(response);
+
+        // Verify default settings are used
+        CreativeExperienceSettings ceSettingsUnderTest = spyAdViewController
+                .getCreativeExperienceSettings();
+        assertEquals(defaultSettings, ceSettingsUnderTest);
+        // Verify ad loaded
+        verify(spyAdViewController).loadBaseAd();
     }
 
     @Test
@@ -836,8 +1051,12 @@ public class AdViewControllerTest {
         subject.setAdResponse(response);
         subject.setMoPubAd(null);
         AdViewController subjectSpy = spy(subject);
+
         subjectSpy.loadBaseAd();
-        verify(subjectSpy, times(1)).loadFailUrl(MoPubErrorCode.INTERNAL_ERROR);
+
+        // loadFailUrl is actually invoked once by loadBaseAd, and calling verify below invokes it
+        // the second time
+        verify(subjectSpy, times(2)).loadFailUrl(MoPubErrorCode.INTERNAL_ERROR);
     }
 
     @Test
@@ -845,8 +1064,12 @@ public class AdViewControllerTest {
         response = response.toBuilder().setBaseAdClassName(null).build();
         subject.setAdResponse(response);
         AdViewController subjectSpy = spy(subject);
+
         subjectSpy.loadBaseAd();
-        verify(subjectSpy, times(1)).loadFailUrl(MoPubErrorCode.ADAPTER_NOT_FOUND);
+
+        // loadFailUrl is actually invoked once by loadBaseAd, and calling verify below invokes it
+        // the second time
+        verify(subjectSpy, times(2)).loadFailUrl(MoPubErrorCode.ADAPTER_NOT_FOUND);
     }
 
     @Test
@@ -854,8 +1077,12 @@ public class AdViewControllerTest {
         response = response.toBuilder().setBaseAdClassName("").build();
         subject.setAdResponse(response);
         AdViewController subjectSpy = spy(subject);
+
         subjectSpy.loadBaseAd();
-        verify(subjectSpy, times(1)).loadFailUrl(MoPubErrorCode.ADAPTER_NOT_FOUND);
+
+        // loadFailUrl is actually invoked once by loadBaseAd, and calling verify below invokes it
+        // the second time
+        verify(subjectSpy, times(2)).loadFailUrl(MoPubErrorCode.ADAPTER_NOT_FOUND);
     }
 
     @Test
@@ -865,6 +1092,7 @@ public class AdViewControllerTest {
         final String baseClassName = "mopub_base_class_inline";
         response = response.toBuilder().setBaseAdClassName(baseClassName).build();
         subject.setAdResponse(response);
+
         subject.loadBaseAd();
 
         final AdAdapter adAdapter = subject.getAdAdapter();

@@ -20,13 +20,11 @@ import com.mopub.common.IntentActions;
 import com.mopub.common.Preconditions;
 import com.mopub.common.logging.MoPubLog;
 
-import java.util.Set;
-
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 
 public abstract class BaseVideoViewController {
     private final Context mContext;
-    private final RelativeLayout mLayout;
+    protected RelativeLayout mLayout;
     @NonNull private final BaseVideoViewControllerListener mBaseVideoViewControllerListener;
     @Nullable private Long mBroadcastIdentifier;
 
@@ -37,8 +35,8 @@ public abstract class BaseVideoViewController {
         void onStartActivityForResult(final Class<? extends Activity> clazz,
                 final int requestCode,
                 final Bundle extras);
-        void onCompanionAdsReady(@NonNull final Set<VastCompanionAdConfig> vastCompanionAdConfigs,
-                                 final int videoDurationMs);
+        void onCompanionAdReady(@Nullable final VastCompanionAdConfig selectedVastCompanionAdConfig,
+                                final int videoDurationMs);
     }
 
     protected BaseVideoViewController(final Context context,
@@ -56,7 +54,6 @@ public abstract class BaseVideoViewController {
         final RelativeLayout.LayoutParams adViewLayout = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
         adViewLayout.addRule(RelativeLayout.CENTER_IN_PARENT);
-        mLayout.addView(getVideoView(), 0, adViewLayout);
         mBaseVideoViewControllerListener.onSetContentView(mLayout);
     }
 
@@ -87,6 +84,10 @@ public abstract class BaseVideoViewController {
 
     public ViewGroup getLayout() {
         return mLayout;
+    }
+
+    public void setLayout(final RelativeLayout layout) {
+        mLayout = layout;
     }
 
     protected void videoError(boolean shouldFinish) {

@@ -24,6 +24,8 @@ import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.util.Json;
 import com.mopub.common.util.ResponseHeader;
 import com.mopub.mobileads.AdTypeTranslator;
+import com.mopub.mobileads.CreativeExperienceSettings;
+import com.mopub.mobileads.CreativeExperienceSettingsParser;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -133,6 +135,11 @@ public class MultiAdResponse implements Iterator<AdResponse> {
             MoPubLog.setLogLevel(MoPubLog.LogLevel.DEBUG);
         }
 
+        boolean isRewarded = extractBooleanHeader(jsonObject, ResponseHeader.REWARDED, false);
+
+        JSONObject creativeExperienceSettings = extractJsonObjectHeader(jsonObject,
+                ResponseHeader.CREATIVE_EXPERIENCE_SETTINGS);
+        
         JSONArray adResponses = jsonObject.getJSONArray(ResponseHeader.AD_RESPONSES.getKey());
         int ADS_PER_RESPONSE = 3;
         List<AdResponse> list = new ArrayList<>(ADS_PER_RESPONSE);
@@ -146,7 +153,9 @@ public class MultiAdResponse implements Iterator<AdResponse> {
                         adUnitId,
                         adFormat,
                         adUnitFormat,
-                        requestId);
+                        requestId,
+                        isRewarded,
+                        creativeExperienceSettings);
                 if (!AdType.CLEAR.equals(singleAdResponse.getAdType())) {
                     list.add(singleAdResponse);
                     continue;
@@ -230,12 +239,16 @@ public class MultiAdResponse implements Iterator<AdResponse> {
                                                       @Nullable final String adUnitId,
                                                       @NonNull final AdFormat adFormat,
                                                       @NonNull final String adUnitFormat,
-                                                      @Nullable final String requestId) throws JSONException, MoPubNetworkError {
+                                                      @Nullable final String requestId,
+                                                      @NonNull final Boolean isRewarded,
+                                                      @Nullable final JSONObject ceSettingsJSONObject)
+            throws JSONException, MoPubNetworkError {
         Preconditions.checkNotNull(appContext);
         Preconditions.checkNotNull(networkResponse);
         Preconditions.checkNotNull(jsonObject);
         Preconditions.checkNotNull(adFormat);
         Preconditions.checkNotNull(adUnitFormat);
+        Preconditions.checkNotNull(isRewarded);
 
         MoPubLog.log(RESPONSE_RECEIVED, jsonObject.toString());
 
@@ -414,9 +427,6 @@ public class MultiAdResponse implements Iterator<AdResponse> {
             serverExtras.put(DataKeys.CREATIVE_ORIENTATION_KEY, extractHeader(jsonHeaders, ResponseHeader.ORIENTATION));
         }
 
-        final boolean allowCustomClose = extractBooleanHeader(jsonHeaders, ResponseHeader.ALLOW_CUSTOM_CLOSE, false);
-        builder.setAllowCustomClose(allowCustomClose);
-
         if (AdType.STATIC_NATIVE.equals(adTypeString)) {
             final String impressionMinVisiblePercent = extractPercentHeaderString(jsonHeaders,
                     ResponseHeader.IMPRESSION_MIN_VISIBLE_PERCENT);
@@ -478,13 +488,15 @@ public class MultiAdResponse implements Iterator<AdResponse> {
                 ResponseHeader.REWARDED_CURRENCIES);
         final String rewardedVideoCompletionUrl = extractHeader(jsonHeaders,
                 ResponseHeader.REWARDED_VIDEO_COMPLETION_URL);
-        final Integer rewardedDuration = extractIntegerHeader(jsonHeaders,
-                ResponseHeader.REWARDED_DURATION);
         builder.setRewardedAdCurrencyName(rewardedVideoCurrencyName);
         builder.setRewardedAdCurrencyAmount(rewardedVideoCurrencyAmount);
         builder.setRewardedCurrencies(rewardedCurrencies);
         builder.setRewardedAdCompletionUrl(rewardedVideoCompletionUrl);
-        builder.setRewardedDuration(rewardedDuration);
+        builder.setRewarded(isRewarded);
+
+        final CreativeExperienceSettings ceSettings =
+                CreativeExperienceSettingsParser.parse(ceSettingsJSONObject, isRewarded);
+        builder.setCreativeExperienceSettings(ceSettings);
 
         return builder.build();
     }

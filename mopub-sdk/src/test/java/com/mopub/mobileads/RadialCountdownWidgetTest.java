@@ -11,6 +11,7 @@ import android.view.View;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.mobileads.resource.RadialCountdownDrawable;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,20 +33,18 @@ public class RadialCountdownWidgetTest {
     @Before
     public void setUp() throws Exception {
         context = Robolectric.buildActivity(Activity.class).create().get();
-        subject = new RadialCountdownWidget(context);
+        subject = new RadialCountdownWidget(context, null);
         radialCountdownDrawableSpy = spy(subject.getImageViewDrawable());
         subject.setImageViewDrawable(radialCountdownDrawableSpy);
     }
 
     @Test
-    public void calibrateAndMakeVisible_shouldSetInitialCountdownAndMakeVisible() throws Exception {
-        subject.setVisibility(View.INVISIBLE);
+    public void calibrate_shouldSetInitialCountdownAndMakeInvisible() {
+        subject.calibrate(10000);
 
-        subject.calibrateAndMakeVisible(10000);
-
-        assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
+        Assert.assertEquals(View.INVISIBLE, subject.getVisibility());
+        Assert.assertEquals(10000, radialCountdownDrawableSpy.getInitialCountdownMilliseconds());
         verify(radialCountdownDrawableSpy).setInitialCountdown(10000);
-        assertThat(radialCountdownDrawableSpy.getInitialCountdownMilliseconds()).isEqualTo(10000);
     }
 
     @Test

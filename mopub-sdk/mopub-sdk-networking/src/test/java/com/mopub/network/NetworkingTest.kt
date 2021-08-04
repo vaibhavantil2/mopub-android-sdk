@@ -8,6 +8,11 @@ import android.app.Activity
 import android.net.SSLCertificateSocketFactory
 import android.webkit.WebSettings
 
+import com.mopub.volley.CacheDispatcher
+import com.mopub.volley.RequestQueue
+
+import junit.framework.Assert.*
+
 import org.fest.assertions.api.Assertions.assertThat
 import org.junit.*
 import org.junit.runner.RunWith
@@ -114,11 +119,37 @@ class NetworkingTest {
     }
 
     @Test
-    fun getRequestQueue_shouldInitializeNewRequestQueue() {
-        Networking.getRequestQueue(context)
+    fun getRequestQueue_whenUrlRewriterIsNotNull_shouldInitializeNewRequestQueue_shouldSaveInstance() {
+        Networking.urlRewriter = object : MoPubUrlRewriter {}
 
+        val requestQueue = Networking.getRequestQueue(context)
+
+        // Verify request queue initialization
         verifyStatic()
         Networking.getUserAgent(context.applicationContext)
+        // Verify the request queue instance is saved
+        assertEquals(Networking.requestQueue, requestQueue)
+        // verify the cache dispatcher is not null since requestQueue.start() is called
+        val cacheDispatcherField = RequestQueue::class.java.getDeclaredField("mCacheDispatcher")
+        cacheDispatcherField.isAccessible = true
+        val volleyCacheDispatcher = cacheDispatcherField
+            .get(requestQueue.getVolleyRequestQueue()) as? CacheDispatcher
+        assertNotNull(volleyCacheDispatcher)
+    }
+
+    @Test
+    fun getRequestQueue_whenUrlRewriterIsNull_shouldReturnUnusableRequestQueue_shouldNotSaveInstance() {
+        Networking.urlRewriter = null
+
+        val volleyRequestQueue = Networking.getRequestQueue(context).getVolleyRequestQueue()
+
+        // Verify the request queue instance is not saved
+        assertNull(Networking.requestQueue)
+        // Verify the cache dispatcher is null since requestQueue.start() is not called
+        val cacheDispatcherField = RequestQueue::class.java.getDeclaredField("mCacheDispatcher")
+        cacheDispatcherField.isAccessible = true
+        val volleyCacheDispatcher = cacheDispatcherField.get(volleyRequestQueue) as? CacheDispatcher
+        assertNull(volleyCacheDispatcher)
     }
 
     @Test

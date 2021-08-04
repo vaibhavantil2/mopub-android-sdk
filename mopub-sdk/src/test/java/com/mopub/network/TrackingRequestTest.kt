@@ -17,6 +17,7 @@ import com.mopub.common.test.support.SdkTestRunner
 import com.mopub.mobileads.VastErrorCode
 import com.mopub.mobileads.VastTracker
 import com.mopub.network.Networking.setRequestQueueForTesting
+import junit.framework.Assert.*
 
 import org.junit.Assert
 import org.junit.Before
@@ -41,6 +42,24 @@ class TrackingRequestTest {
     fun setup() {
         context = Robolectric.buildActivity(Activity::class.java).create().get()
         setRequestQueueForTesting(mockRequestQueue)
+        Networking.urlRewriter = PlayServicesUrlRewriter()
+    }
+
+    @Test
+    fun getParams_withMoPubRequest_shouldReturnParamMap() {
+        TrackingRequest.makeTrackingHttpRequest(url, context)
+
+        verify(mockRequestQueue).add(trackingRequestCaptor.capture())
+        assertNotNull(trackingRequestCaptor.firstValue.getParams())
+    }
+
+    @Test
+    fun getParams_withNonMoPubRequest_shouldReturnNull() {
+        val nonMoPubUrl = "https://www.abcdefg.com/xyz"
+        TrackingRequest.makeTrackingHttpRequest(nonMoPubUrl, context)
+
+        verify(mockRequestQueue).add(trackingRequestCaptor.capture())
+        assertNull(trackingRequestCaptor.firstValue.getParams())
     }
 
     @Test

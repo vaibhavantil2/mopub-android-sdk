@@ -14,6 +14,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import static com.mopub.framework.base.BasePage.clickCellOnList;
+import static com.mopub.framework.base.BasePage.pressBack;
 
 @RunWith(AndroidJUnit4.class)
 @LargeTest
@@ -50,6 +51,7 @@ public class ReleaseInterstitial extends MoPubBaseTestCase {
         adDetailPage.pressShowAdButton();// Click includes wait of 2 sec for UI update
         isShownInFullscreen();
         hasClickthrough(android.R.id.content);
+        pressBack();
     }
 
     //Trying the new thing
@@ -62,6 +64,7 @@ public class ReleaseInterstitial extends MoPubBaseTestCase {
         adDetailPage.pressShowAdButton();// Click includes wait of 2 sec for UI update
         isShownInFullscreen();
         hasClickthrough(android.R.id.content);
+        pressBack();
     }
 
     @Test
@@ -73,6 +76,7 @@ public class ReleaseInterstitial extends MoPubBaseTestCase {
         adDetailPage.pressShowAdButton();// Click includes wait of 2 sec for UI update
         isShownInFullscreen();
         hasClickthrough(android.R.id.content);
+        pressBack();
     }
 
     @Test
@@ -84,6 +88,7 @@ public class ReleaseInterstitial extends MoPubBaseTestCase {
         adDetailPage.pressShowAdButton();// Click includes wait of 2 sec for UI update
         isShownInFullscreen();
         hasClickthrough(android.R.id.content);
+        pressBack();
     }
 
     private enum InterstitialTestAdUnits {

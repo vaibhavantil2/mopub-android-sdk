@@ -15,6 +15,8 @@ import com.mopub.network.MoPubRequestUtils;
 import com.mopub.network.MoPubResponse;
 import com.mopub.network.MoPubRetryPolicy;
 
+import java.util.Map;
+
 /**
  * The actual class making the rewarded ad completion request. Since we actually only care about the
  * status code of the request, that's the only thing that is delivered.
@@ -39,6 +41,15 @@ public class RewardedAdCompletionRequest extends MoPubRequest<Integer> {
         setShouldCache(false);
         setRetryPolicy(retryPolicy);
         mListener = listener;
+    }
+
+    @Nullable
+    @Override
+    protected Map<String, String> getParams() {
+        if (!MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return null;
+        }
+        return super.getParams();
     }
 
     @NonNull

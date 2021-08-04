@@ -5,15 +5,24 @@
 package com.mopub.mobileads.factories
 
 import android.content.Context
+import android.widget.RelativeLayout
 import androidx.media2.widget.VideoView
+import com.mopub.mobileads.base.R
 
 open class VideoViewFactory {
 
     companion object {
         var instance = VideoViewFactory()
 
-        fun create(context: Context): VideoView { return instance.internalCreate(context) }
+        fun create(context: Context, layout: RelativeLayout?): VideoView {
+            return instance.internalCreate(context, layout)
+        }
     }
 
-    open fun internalCreate(context: Context): VideoView { return VideoView(context) }
+    open fun internalCreate(context: Context, layout: RelativeLayout?): VideoView {
+        return when {
+            layout != null -> layout.findViewById<VideoView>(R.id.mopub_vast_video_view)
+            else -> VideoView(context)
+        }
+    }
 }

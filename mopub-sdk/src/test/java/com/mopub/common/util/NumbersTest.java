@@ -62,7 +62,7 @@ public class NumbersTest {
     }
 
     @Test
-    public void convertMillisecondsToSecondsRoundedUp_shouldReturnLongMillisecondsAsRoundedUpLongSeconds() throws Exception {
+    public void convertMillisecondsToSecondsRoundedUp_shouldReturnLongMillisecondsAsRoundedUpLongSeconds() {
         assertThat(Numbers.convertMillisecondsToSecondsRoundedUp(0)).isEqualTo(0);
 
         assertThat(Numbers.convertMillisecondsToSecondsRoundedUp(1)).isEqualTo(1);

@@ -22,6 +22,7 @@ import androidx.media2.common.SessionPlayer;
 import androidx.media2.player.MediaPlayer;
 import androidx.media2.widget.VideoView;
 
+import com.mopub.common.Constants;
 import com.mopub.common.ExternalViewabilitySessionManager;
 import com.mopub.common.MoPubBrowser;
 import com.mopub.common.VideoEvent;
@@ -36,7 +37,10 @@ import com.mopub.network.MoPubRequestQueue;
 import com.mopub.network.Networking;
 
 import org.apache.maven.artifact.ant.shaded.ReflectionUtils;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,15 +49,16 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.api.mockito.verification.PrivateMethodVerification;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowRelativeLayout;
 import org.robolectric.shadows.ShadowTextView;
 import org.robolectric.shadows.ShadowView;
 import org.robolectric.shadows.httpclient.FakeHttp;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import kotlin.UninitializedPropertyAccessException;
 
@@ -66,11 +71,13 @@ import static com.mopub.common.MoPubRequestMatcher.isUrlStartingWith;
 import static com.mopub.mobileads.BaseVideoViewController.BaseVideoViewControllerListener;
 import static com.mopub.mobileads.EventForwardingBroadcastReceiverTest.getIntentForActionAndIdentifier;
 import static com.mopub.mobileads.VastVideoViewController.CURRENT_POSITION;
-import static com.mopub.mobileads.VastVideoViewController.DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON;
-import static com.mopub.mobileads.VastVideoViewController.MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON;
 import static com.mopub.mobileads.VastVideoViewController.RESUMED_VAST_CONFIG;
 import static com.mopub.mobileads.VastVideoViewController.VAST_VIDEO_CONFIG;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
@@ -103,6 +110,11 @@ public class VastVideoViewControllerTest {
     private static final String CLICKTHROUGH_URL = "deeplink+://navigate?" +
             "&primaryUrl=bogus%3A%2F%2Furl" +
             "&fallbackUrl=" + Uri.encode(RESOLVED_CLICKTHROUGH_URL);
+    private static final String COMPANION_RESOURCE = "resource";
+    private static final int COMPANION_WIDTH = 300;
+    private static final int COMPANION_HEIGHT = 250;
+    private List<VastTracker> companionClickTrackers;
+    private List<VastTracker> companionCreativeViewTrackers;
 
     /**
      * A list of macros to include in all trackers
@@ -117,6 +129,7 @@ public class VastVideoViewControllerTest {
     private int expectedBrowserRequestCode;
     private VastVideoConfig vastVideoConfig;
     private String expectedUserAgent;
+    private CreativeExperienceSettings creativeExperienceSettings;
 
     @Mock
     private BaseVideoViewControllerListener baseVideoViewControllerListener;
@@ -131,7 +144,6 @@ public class VastVideoViewControllerTest {
 
     private VastVideoViewCountdownRunnable spyCountdownRunnable;
     private VastVideoViewProgressRunnable spyProgressRunnable;
-    private VideoView spyVideoView;
 
     @Before
     public void setUp() throws Exception {
@@ -166,8 +178,12 @@ public class VastVideoViewControllerTest {
         vastVideoConfig.addErrorTrackers(
                 Collections.singletonList(new VastTracker.Builder("error" + MACRO_TAGS).build()));
         vastVideoConfig.setClickThroughUrl(CLICKTHROUGH_URL);
-        vastVideoConfig.addClickTrackers(
-                VastUtils.stringsToVastTrackers("click_1" + MACRO_TAGS, "click_2" + MACRO_TAGS));
+
+        companionClickTrackers = VastUtils.stringsToVastTrackers("click_1" + MACRO_TAGS, "click_2" + MACRO_TAGS);
+        companionCreativeViewTrackers = VastUtils.stringsToVastTrackers(COMPANION_CREATIVE_VIEW_URL_1,
+                COMPANION_CREATIVE_VIEW_URL_2);
+
+        vastVideoConfig.addClickTrackers(companionClickTrackers);
 
         VastCompanionAdConfig landscapeVastCompanionAdConfig = new VastCompanionAdConfig(
                 300,
@@ -177,7 +193,7 @@ public class VastVideoViewControllerTest {
                         VastResource.CreativeType.IMAGE, 300, 250),
                 COMPANION_CLICK_DESTINATION_URL,
                 VastUtils.stringsToVastTrackers(COMPANION_CLICK_TRACKING_URL_1, COMPANION_CLICK_TRACKING_URL_2),
-                VastUtils.stringsToVastTrackers(COMPANION_CREATIVE_VIEW_URL_1, COMPANION_CREATIVE_VIEW_URL_2),
+                companionCreativeViewTrackers,
                 null
         );
         vastVideoConfig.addVastCompanionAdConfig(landscapeVastCompanionAdConfig);
@@ -196,8 +212,11 @@ public class VastVideoViewControllerTest {
 
         vastVideoConfig.setVastIconConfig(vastIconConfig);
 
+        creativeExperienceSettings = CreativeExperienceSettingsParser
+                .parse(CreativeExperienceSettingsParserTest.getCeSettingsJSONObject(), false);
         final AdData adData = new AdData.Builder()
                 .vastVideoConfig(vastVideoConfig.toJsonString())
+                .creativeExperienceSettings(creativeExperienceSettings)
                 .build();
         bundle.putParcelable(AD_DATA_KEY, adData);
 
@@ -323,11 +342,10 @@ public class VastVideoViewControllerTest {
     }
 
     @Test
-    public void constructor_shouldNotChangeCloseButtonDelay() throws Exception {
+    public void constructor_shouldNotChangeCountdownTime() throws Exception {
         initializeSubject();
 
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(
-                DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON);
+        assertEquals(0, subject.getCountdownTimeMillis());
     }
 
     @Test
@@ -519,6 +537,17 @@ public class VastVideoViewControllerTest {
     }
 
     @Test
+    public void constructor_withNonNullAdData_shouldSetCreativeExperienceSettings_shouldSetShowCountdownTimerToMainAdConfigShowCountdownTimerValue() throws IllegalAccessException {
+        initializeSubject();
+
+        assertEquals(creativeExperienceSettings, subject.creativeExperienceSettings);
+        assertEquals(
+                creativeExperienceSettings.getMainAdConfig().getShowCountdownTimer(),
+                subject.getShowCountdownTimer()
+        );
+    }
+
+    @Test
     public void onCreate_shouldFireImpressionTracker() throws Exception {
         initializeSubject();
 
@@ -600,26 +629,12 @@ public class VastVideoViewControllerTest {
         verify(baseVideoViewControllerListener, never()).onVideoFinish(anyInt());
     }
 
-    @Test
-    public void onTouch_withTouchUp_whenVideoLessThan16Seconds_andClickBeforeEnd_shouldDoNothing() throws Exception {
-        initializeSubject();
-        setVideoViewParams(15990, 15999);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        Robolectric.getForegroundThreadScheduler().unPause();
-
-        subject.getClickThroughListener().onTouch(null, GestureUtils.createActionUp(0, 0));
-
-        Intent nextStartedActivity = ShadowApplication.getInstance().getNextStartedActivity();
-        assertThat(nextStartedActivity).isNull();
-    }
+    // region onTouch
 
     @Test
-    public void onTouch_withTouchUp_whenVideoLessThan16Seconds_andClickAfterEnd_shouldTrackClick_shouldStartMoPubBrowser() throws Exception {
+    public void onTouch_withTouchUp_withClickthroughUrl_shouldTrackClick_shouldStartMoPubBrowser() throws Exception {
         initializeSubject();
-        setVideoViewParams(15999, 15999);
+        setVideoViewParams(1000, 15999);
         subject.onResume();
 
         final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
@@ -640,26 +655,10 @@ public class VastVideoViewControllerTest {
     }
 
     @Test
-    public void onTouch_withTouchUp_whenVideoLongerThan16Seconds_andClickBefore5Seconds_shouldDoNothing() throws Exception {
+    public void onTouch_withTouchUp_withNullClickthroughUrl_shouldDoNothing() throws Exception {
         initializeSubject();
-        setVideoViewParams(4999, 100000);
-        subject.onResume();
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        Robolectric.getForegroundThreadScheduler().unPause();
-
-        subject.getClickThroughListener().onTouch(null, GestureUtils.createActionUp(0, 0));
-
-        Intent nextStartedActivity = ShadowApplication.getInstance().getNextStartedActivity();
-        assertThat(nextStartedActivity).isNull();
-    }
-
-    @Test
-    public void onTouch_withTouchUp_whenVideoLongerThan16Seconds_andClickAfter5Seconds_shouldStartMoPubBrowser() throws Exception {
-        initializeSubject();
-        setVideoViewParams(5001, 100000);
+        setVideoViewParams(1000, 15999);
+        subject.getVastVideoConfig().setClickThroughUrl(null);
         subject.onResume();
 
         final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
@@ -671,12 +670,26 @@ public class VastVideoViewControllerTest {
 
         Robolectric.getBackgroundThreadScheduler().advanceBy(0);
         final Intent startedActivity = shadowOf((Activity) context).peekNextStartedActivity();
-        assertThat(startedActivity.getComponent().getClassName())
-                .isEqualTo(MoPubBrowser.class.getName());
-        assertThat(startedActivity.getStringExtra(MoPubBrowser.DESTINATION_URL_KEY)).isEqualTo(
-                RESOLVED_CLICKTHROUGH_URL);
-        verify((Activity) context).startActivityForResult(any(Intent.class),
-                eq(expectedBrowserRequestCode));
+        assertNull(startedActivity);
+    }
+
+    @Test
+    public void onTouch_withTouchUp_withEmptyClickthroughUrl_shouldDoNothing() throws Exception {
+        initializeSubject();
+        setVideoViewParams(1000, 15999);
+        subject.getVastVideoConfig().setClickThroughUrl("");
+        subject.onResume();
+
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+
+        Robolectric.getForegroundThreadScheduler().unPause();
+
+        subject.getClickThroughListener().onTouch(null, GestureUtils.createActionUp(0, 0));
+
+        Robolectric.getBackgroundThreadScheduler().advanceBy(0);
+        final Intent startedActivity = shadowOf((Activity) context).peekNextStartedActivity();
+        assertNull(startedActivity);
     }
 
     @Test
@@ -740,459 +753,217 @@ public class VastVideoViewControllerTest {
         assertThat(result).isTrue();
     }
 
+    // endregion onTouch
+
+    // region onPrepared
+
+    // region onPrepared - selectVastCompanionAd()
     @Test
-    public void onPrepared_whenDurationIsLessThanMaxVideoDurationForCloseButton_shouldSetShowCloseButtonDelayToDuration() throws Exception {
+    public void onPrepared_selectVastCompanionAd_withAllTypes_shouldSelectHtmlCompanionAd() throws IllegalAccessException {
+        final List<VastCompanionAdConfig> companionAdConfigs = new ArrayList<>();
+        VastResource[] vastResources = new VastResource[4];
+        vastResources[0] = new VastResource(
+                COMPANION_RESOURCE,
+                VastResource.Type.STATIC_RESOURCE,
+                VastResource.CreativeType.IMAGE,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+        vastResources[1] = new VastResource(
+                COMPANION_RESOURCE,
+                VastResource.Type.STATIC_RESOURCE,
+                VastResource.CreativeType.JAVASCRIPT,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+        vastResources[2] = new VastResource(
+                COMPANION_RESOURCE,
+                VastResource.Type.HTML_RESOURCE,
+                VastResource.CreativeType.NONE,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+        vastResources[3] = new VastResource(
+                COMPANION_RESOURCE,
+                VastResource.Type.IFRAME_RESOURCE,
+                VastResource.CreativeType.JAVASCRIPT,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+        for (final VastResource vastResource : vastResources) {
+            companionAdConfigs.add(new VastCompanionAdConfig(
+                    COMPANION_WIDTH,
+                    COMPANION_HEIGHT,
+                    vastResource,
+                    CLICKTHROUGH_URL,
+                    companionClickTrackers,
+                    companionCreativeViewTrackers,
+                    null));
+        }
+
         initializeSubject();
-        setVideoViewParams(0, 1000);
+        subject.setVastCompanionAdConfigsForTesting(companionAdConfigs);
 
         final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
         mockMediaPlayer.prepare().isDone();
 
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(1000);
-    }
-
-    @Test
-    public void onPrepared_whenDurationIsGreaterThanMaxVideoDurationForCloseButton_shouldNotSetShowCloseButtonDelay() throws Exception {
-        initializeSubject();
-        setVideoViewParams(0, MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON + 1);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(
-                DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON);
-    }
-
-    @Test
-    public void onPrepared_whenPercentSkipOffsetSpecified_shouldSetShowCloseButtonDelayToSkipOffset() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("25%");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, 10000);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(2500);
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNotEmpty();
-    }
-
-    @Test
-    public void onPrepared_whenAbsoluteSkipOffsetSpecified_shouldSetShowCloseButtonDelayToSkipOffset() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("00:00:03");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, 10000);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(3000);
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNotEmpty();
-    }
-
-    @Test
-    public void onPrepared_whenAbsoluteSkipOffsetWithMillisecondsSpecified_shouldSetShowCloseButtonDelayToSkipOffset() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("00:00:03.141");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, 10000);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(3141);
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNotEmpty();
-    }
-
-    @Test
-    public void onPrepared_whenSkipOffsetIsNull_shouldNotSetShowCloseButtonDelay() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset(null);
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON + 1);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(
-                DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON);
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNullOrEmpty();
-    }
-
-    @Test
-    public void onPrepared_whenSkipOffsetHasInvalidAbsoluteFormat_shouldNotSetShowCloseButtonDelay() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("123:4:56.7");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON + 1);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(
-                DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON);
-    }
-
-    @Test
-    public void onPrepared_whenSkipOffsetHasInvalidPercentFormat_shouldNotSetShowCloseButtonDelay() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("101%");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON + 1);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(
-                DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON);
-    }
-
-    @Test
-    public void onPrepared_whenSkipOffsetHasInvalidFractionalPercentFormat_shouldNotSetShowCloseButtonDelay() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("3.14%");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON + 1);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(
-                DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON);
-    }
-
-    @Test
-    public void onPrepared_whenSkipOffsetIsNegative_shouldNotSetShowCloseButtonDelay() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("-00:00:03");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON + 1);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(
-                DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON);
-    }
-
-    @Test
-    public void onPrepared_whenSkipOffsetIsZero_shouldSetShowCloseButtonDelayToZero() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("00:00:00");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON + 1);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(0);
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNotEmpty();
-    }
-
-    @Test
-    public void onPrepared_whenSkipOffsetIsLongerThanDurationForShortVideo_shouldSetShowCloseButtonDelay() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("00:00:11");   // 11s
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, 10000);    // 10s: short video
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(10 * 1000);
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNotEmpty();
-    }
-
-    @Test
-    public void onPrepared_whenSkipOffsetIsLongerThanDurationForLongVideo_shouldSetShowCloseButtonDelay() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("00:00:21");   // 21s
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, 20000);    // 20s: long video
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(20 * 1000);
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNotEmpty();
-    }
-
-    @Test
-    public void onPrepared_whenSkipOffset100Percent_shouldSetShowCloseButtonDelayToVideoDuration() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("100%");   // 20000 ms
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, 20000);    // 20s: long video
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(20000);
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNotEmpty();
-    }
-
-    @Test
-    public void onPrepared_whenSkipOffsetGreaterThan100Percent_shouldSetShowCloseButtonDelayToDefault() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("101%");   // 20200 ms
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, 20000);    // 20s: long video
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNotEmpty();
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON);
-    }
-
-    @Test
-    public void onPrepared_whenRewarded_withCompanion_shouldSetShowCloseButtonDelayToAdDataDuration() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        final VastCompanionAdConfig companionAdConfig = new VastCompanionAdConfig(
-                300,
-                250,
-                new VastResource(COMPANION_IMAGE_URL,
-                        VastResource.Type.STATIC_RESOURCE,
-                        VastResource.CreativeType.IMAGE, 300, 250),
-                COMPANION_CLICK_DESTINATION_URL,
-                Collections.emptyList(),
-                Collections.emptyList(),
-                null
+        VastCompanionAdConfig expectedSelectedVastCompanionAdConfig = companionAdConfigs.get(2);
+        verify(baseVideoViewControllerListener).onCompanionAdReady(
+                expectedSelectedVastCompanionAdConfig,
+                subject.getDuration()
         );
-        vastVideoConfig.addVastCompanionAdConfig(companionAdConfig);
-        vastVideoConfig.setSkipOffset("00:00:05");
-        vastVideoConfig.setRewarded(true);
-        final int expectedCloseDurationSeconds = 30;
+    }
 
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .rewardedDurationSeconds(expectedCloseDurationSeconds)
-                .isRewarded(true)
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
+    @Test
+    public void onPrepared_selectVastCompanionAd_withImage_shouldSelectImageCompanionAd() throws IllegalAccessException {
+        final List<VastCompanionAdConfig> companionAdConfigs = new ArrayList<>();
+        VastResource vastResource = new VastResource(
+                COMPANION_RESOURCE,
+                VastResource.Type.STATIC_RESOURCE,
+                VastResource.CreativeType.IMAGE,
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT);
+        VastCompanionAdConfig vastCompanionAdConfig = new VastCompanionAdConfig(
+                COMPANION_WIDTH,
+                COMPANION_HEIGHT,
+                vastResource,
+                CLICKTHROUGH_URL,
+                companionClickTrackers,
+                companionCreativeViewTrackers,
+                null);
+        companionAdConfigs.add(vastCompanionAdConfig);
 
         initializeSubject();
-        setVideoViewParams(0, 20000);    // 20s long video
+        subject.setVastCompanionAdConfigsForTesting(companionAdConfigs);
 
         final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
         mockMediaPlayer.prepare().isDone();
 
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(expectedCloseDurationSeconds * 1000);
+        verify(baseVideoViewControllerListener).onCompanionAdReady(
+                vastCompanionAdConfig,
+                subject.getDuration()
+        );
     }
+    // endregion onPrepared - selectVastCompanionAd()
 
     @Test
-    public void onPrepared_whenRewarded_withVideoLengthShorterThanRewardedDuration_withNoCompanion_shouldSetShowCloseButtonDelayToVideoDuration() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("00:00:05");
-        vastVideoConfig.setRewarded(true);
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .rewardedDurationSeconds(30)
-                .isRewarded(true)
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
+    public void onPrepared_whenCountdownTimeIsLessThanOrEqualToZero_shouldNotSetShowCountdownTimerDelay() throws Exception {
         initializeSubject();
-        setVideoViewParams(0, 20000);    // 20s long video
+        // Setting duration to 0 ensures the countdown time formula returns 0
+        setVideoViewParams(0, 0);
 
         final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
         mockMediaPlayer.prepare().isDone();
 
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(20000);
+        assertEquals(0, subject.getCountdownTimeMillis());
+        assertEquals(0, subject.getShowCountdownTimerDelayMillis());
     }
 
     @Test
-    public void onPrepared_whenRewarded_withVideoLengthLongerThanRewardedDuration_withNoCompanion_shouldSetShowCloseButtonDelayToAdDataDuration() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("00:00:05");
-        vastVideoConfig.setRewarded(true);
-        final int expectedCloseDurationSeconds = 30;
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .rewardedDurationSeconds(expectedCloseDurationSeconds)
-                .isRewarded(true)
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
+    public void onPrepared_whenCountdownTimeIsGreaterThanZero_whenShowCountdownTimerIsTrue_shouldSetShowCountdownTimerDelayToMainAdConfigCountdownTimerDelay() throws Exception {
         initializeSubject();
-        setVideoViewParams(0, 35000);    // 35s long video
 
         final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
         mockMediaPlayer.prepare().isDone();
 
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(expectedCloseDurationSeconds * 1000);
+        /*
+        showCountdownTimerDelayMillis =
+                creativeExperienceSettings.mainAdConfig.countdownTimerDelaySecs * MILLIS_IN_SECOND
+         */
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        assertTrue(subject.getShowCountdownTimer());
+        assertEquals(
+                creativeExperienceSettings.getMainAdConfig().getCountdownTimerDelaySecs() * 1000,
+                subject.getShowCountdownTimerDelayMillis()
+        );
     }
 
     @Test
-    public void onPrepared_shouldCalibrateAndMakeVisibleRadialCountdownWidget() throws Exception {
+    public void onPrepared_whenCountdownTimeIsGreaterThanZero_whenShowCountdownTimerIsFalse_shouldSetShowCountdownTimerDelayToCountdownTime() throws Exception {
+        JSONObject ceSettingsObject =  new JSONObject(CreativeExperienceSettingsParserTest.CE_SETTINGS_STRING);
+        setMainAdShowCd(ceSettingsObject, false);
+        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
+        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
+                .creativeExperienceSettings(creativeExperienceSettings)
+                .build();
+        bundle.putParcelable(AD_DATA_KEY, newAdData);
+
+        initializeSubject();
+
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+
+        /*
+        if (!showCountdownTimer || showCountdownTimerDelayMillis >= countdownTimeMillis) {
+            // Countdown timer is never shown
+            showCountdownTimerDelayMillis = countdownTimeMillis
+            showCountdownTimer = false
+        }
+         */
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        assertFalse(subject.getShowCountdownTimer());
+        assertEquals(
+                subject.getCountdownTimeMillis(),
+                subject.getShowCountdownTimerDelayMillis()
+        );
+    }
+
+    @Test
+    public void onPrepared_whenCountdownTimeIsGreaterThanZero_whenShowCountdownTimerDelayIsGreaterThanOrEqualToCountdownTime_shouldSetShowCountdownTimerDelayToCountdownTime_shouldSetShowCountdownTimerToFalse() throws Exception {
+        JSONObject ceSettings =  new JSONObject(CreativeExperienceSettingsParserTest.CE_SETTINGS_STRING);
+        setMainAdShowCd(ceSettings, true);
+        setMainAdShowCdDelay(ceSettings, 10);
+        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
+        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
+                .creativeExperienceSettings(creativeExperienceSettings)
+                .build();
+        bundle.putParcelable(AD_DATA_KEY, newAdData);
+
+        initializeSubject();
+        // Make sure we are not entering the block because of !showCountdownTimer
+        assertTrue(creativeExperienceSettings.getMainAdConfig().getShowCountdownTimer());
+
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+
+        /*
+        if (!showCountdownTimer || showCountdownTimerDelayMillis >= countdownTimeMillis) {
+            // Countdown timer is never shown
+            showCountdownTimerDelayMillis = countdownTimeMillis
+            showCountdownTimer = false
+        }
+         */
+        assertTrue(subject.getCountdownTimeMillis() > 0);
+        assertFalse(subject.getShowCountdownTimer());
+        assertEquals(
+                subject.getCountdownTimeMillis(),
+                subject.getShowCountdownTimerDelayMillis()
+        );
+    }
+
+    @Test
+    public void onPrepared_shouldCalibrateAndMakeProgressBarVisible_shouldCalibrateRadialCountdownWidget() throws Exception {
         VastVideoConfig vastVideoConfig = new VastVideoConfig();
         vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("00:00:05");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
 
         initializeSubject();
-        setVideoViewParams(0, 10000);
 
         final RadialCountdownWidget radialCountdownWidgetSpy = spy(subject.getRadialCountdownWidget());
         subject.setRadialCountdownWidget(radialCountdownWidgetSpy);
 
-        assertThat(subject.isCalibrationDone()).isFalse();
-        assertThat(radialCountdownWidgetSpy.getVisibility()).isEqualTo(View.INVISIBLE);
-
-        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
-        mockMediaPlayer.prepare().isDone();
-
-        assertThat(subject.isCalibrationDone()).isTrue();
-        assertThat(radialCountdownWidgetSpy.getVisibility()).isEqualTo(View.VISIBLE);
-        verify(radialCountdownWidgetSpy).calibrateAndMakeVisible(5000);
-    }
-
-    @Test
-    public void onPrepared_shouldCalibrateAndMakeVisibleProgressBarWidget() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("00:00:05");
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
-        initializeSubject();
-        setVideoViewParams(0, 10000);
-
         final VastVideoProgressBarWidget progressBarWidgetSpy = spy(subject.getProgressBarWidget());
         subject.setProgressBarWidget(progressBarWidgetSpy);
 
-        assertThat(subject.isCalibrationDone()).isFalse();
-        assertThat(progressBarWidgetSpy.getVisibility()).isEqualTo(View.INVISIBLE);
+        assertFalse(subject.isCalibrationDone());
+        Assert.assertEquals(View.INVISIBLE, radialCountdownWidgetSpy.getVisibility());
 
         final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
         mockMediaPlayer.prepare().isDone();
 
-        assertThat(subject.isCalibrationDone()).isTrue();
-        assertThat(progressBarWidgetSpy.getVisibility()).isEqualTo(View.VISIBLE);
-        verify(progressBarWidgetSpy).calibrateAndMakeVisible(10000, 5000);
+        assertTrue(subject.isCalibrationDone());
+        Assert.assertEquals(View.INVISIBLE, radialCountdownWidgetSpy.getVisibility());
+        verify(radialCountdownWidgetSpy).calibrate(anyInt());
+        Assert.assertEquals(View.VISIBLE, progressBarWidgetSpy.getVisibility());
+        verify(progressBarWidgetSpy).calibrateAndMakeVisible(anyInt(), anyInt());
     }
+
+    // endregion onPrepared
 
     @Test
     public void onCompletion_shouldMarkVideoAsFinished() throws Exception {
@@ -1525,6 +1296,8 @@ public class VastVideoViewControllerTest {
         bundle.putSerializable(VAST_VIDEO_CONFIG, vastVideoConfig);
 
         initializeSubject();
+        // Advance the scheduler to clear the layout inflation runnable
+        Robolectric.getForegroundThreadScheduler().advanceToLastPostedRunnable();
         setVideoViewParams(0, 100);
 
         subject.onResume();
@@ -1546,6 +1319,8 @@ public class VastVideoViewControllerTest {
         bundle.putSerializable(VAST_VIDEO_CONFIG, vastVideoConfig);
 
         initializeSubject();
+        // Advance the scheduler to clear the layout inflation runnable
+        Robolectric.getForegroundThreadScheduler().advanceToLastPostedRunnable();
         setVideoViewParams(1999, 100000);
         subject.onResume();
 
@@ -1579,6 +1354,8 @@ public class VastVideoViewControllerTest {
         bundle.putSerializable(VAST_VIDEO_CONFIG, vastVideoConfig);
 
         initializeSubject();
+        // Advance the scheduler to clear the layout inflation runnable
+        Robolectric.getForegroundThreadScheduler().advanceToLastPostedRunnable();
         setVideoViewParams(2000, 100000);
         subject.onResume();
         assertThat(Robolectric.getForegroundThreadScheduler().size()).isEqualTo(2);
@@ -1608,6 +1385,8 @@ public class VastVideoViewControllerTest {
         bundle.putSerializable(VAST_VIDEO_CONFIG, vastVideoConfig);
 
         initializeSubject();
+        // Advance the scheduler to clear the layout inflation runnable
+        Robolectric.getForegroundThreadScheduler().advanceToLastPostedRunnable();
         setVideoViewParams(26, 100);
         subject.onResume();
 
@@ -1642,6 +1421,8 @@ public class VastVideoViewControllerTest {
         bundle.putParcelable(AD_DATA_KEY, newAdData);
 
         initializeSubject();
+        // Advance the scheduler to clear the layout inflation runnable
+        Robolectric.getForegroundThreadScheduler().advanceToLastPostedRunnable();
         setVideoViewParams(51, 100);
 
         subject.onResume();
@@ -1679,6 +1460,8 @@ public class VastVideoViewControllerTest {
         bundle.putParcelable(AD_DATA_KEY, newAdData);
 
         initializeSubject();
+        // Advance the scheduler to clear the layout inflation runnable
+        Robolectric.getForegroundThreadScheduler().advanceToLastPostedRunnable();
         setVideoViewParams(76, 100);
 
         subject.onResume();
@@ -1757,74 +1540,141 @@ public class VastVideoViewControllerTest {
         }
     }
 
-    @Test
-    public void videoRunnablesRun_whenCurrentPositionIsGreaterThanShowCloseButtonDelay_shouldShowCloseButton() throws Exception {
-
-        initializeSubject();
-        setVideoViewParams(5001, 5002);
-        subject.onResume();
-
-        assertThat(subject.getShouldAllowClose()).isFalse();
-        Robolectric.getForegroundThreadScheduler().unPause();
-
-        assertThat(subject.getShouldAllowClose()).isTrue();
-    }
+    // region videoRunnablesRun - updateCountdown()
 
     @Test
-    public void videoRunnablesRun_whenCurrentPositionIsGreaterThanSkipOffset_shouldShowCloseButton() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("25%");    // skipoffset is at 2.5s
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
+    public void videoRunnablesRun_whenCalibrationDone_whenCurrentPositionIsGreaterThanOrEqualToCountdownTime_shouldShowCloseButton() throws Exception {
         initializeSubject();
-        setVideoViewParams(2501, 10000); // duration is 10s, current position is 1ms after skipoffset
+        // VastSkipThreshold { skipMin = 30, skipAfter = 5 }
+        // duration is 30s, current position is 1ms after the 5s skip after threshold
+        setVideoViewParams(5001, 30000);
         subject.onResume();
 
         final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
         mockMediaPlayer.prepare().isDone();
 
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(2500);
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNotEmpty();
-
-        assertThat(subject.getShouldAllowClose()).isFalse();
+        /*
+        if (forceCloseable || (isCalibrationDone && (getCurrentPosition() >= countdownTimeMillis))
+        ) {
+            radialCountdownWidget.visibility = GONE
+            closeButtonWidget.visibility = VISIBLE
+            shouldAllowClose = true
+        }
+         */
+        assertTrue(subject.isCalibrationDone());
+        assertEquals(5000, subject.getCountdownTimeMillis());
+        assertFalse(subject.getShouldAllowClose());
         Robolectric.getForegroundThreadScheduler().unPause();
 
-        assertThat(subject.getShouldAllowClose()).isTrue();
+        assertEquals(View.GONE, subject.radialCountdownWidget.getVisibility());
+        assertEquals(View.VISIBLE, subject.getCloseButtonWidget().getVisibility());
+        assertTrue(subject.getShouldAllowClose());
     }
 
     @Test
-    public void videoRunnablesRun_whenCurrentPositionIsLessThanSkipOffset_shouldNotShowCloseButton() throws Exception {
-        final VastVideoConfig vastVideoConfig = new VastVideoConfig();
-        vastVideoConfig.setDiskMediaFileUrl("disk_video_path");
-        vastVideoConfig.setSkipOffset("00:00:03");   // skipoffset is at 3s
-
-        final AdData currentAdData = bundle.getParcelable(AD_DATA_KEY);
-        final AdData newAdData = new AdData.Builder().fromAdData(currentAdData)
-                .vastVideoConfig(vastVideoConfig.toJsonString())
-                .build();
-        bundle.putParcelable(AD_DATA_KEY, newAdData);
-
+    public void videoRunnablesRun_whenCurrentPositionIsLessThanCountdownTime_shouldNotShowCloseButton() throws Exception {
         initializeSubject();
-        setVideoViewParams(2999, 10000); // duration is 10s, current position is 1ms before skipoffset
+        // VastSkipThreshold { skipMin = 30, skipAfter = 5 }
+        // duration is 30s, current position is 1ms before the 5s skip after threshold
+        setVideoViewParams(4999, 30000);
         subject.onResume();
 
         final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
         mockMediaPlayer.prepare().isDone();
 
-        assertThat(subject.getShowCloseButtonDelay()).isEqualTo(3000);
-        assertThat(subject.getVastVideoConfig().getSkipOffset()).isNotEmpty();
-
-        assertThat(subject.getShouldAllowClose()).isFalse();
+        /*
+        if (forceCloseable || (isCalibrationDone && (getCurrentPosition() >= countdownTimeMillis))
+        ) {
+            radialCountdownWidget.visibility = GONE
+            closeButtonWidget.visibility = VISIBLE
+            shouldAllowClose = true
+        }
+         */
+        assertEquals(5000, subject.getCountdownTimeMillis());
+        assertFalse(subject.getShouldAllowClose());
         Robolectric.getForegroundThreadScheduler().unPause();
 
-        assertThat(subject.getShouldAllowClose()).isFalse();
+        assertEquals(View.VISIBLE, subject.radialCountdownWidget.getVisibility());
+        assertEquals(View.GONE, subject.getCloseButtonWidget().getVisibility());
+        assertFalse(subject.getShouldAllowClose());
     }
+
+    @Test
+    public void videoRunnablesRun_whenShowCountdownTimerIsTrue_whenCountdownTimerIsNotVisible_whenCurrentPositionIsGreaterThanOrEqualToShowCountdownTimerDelay_shouldShowCountdownTimer() throws Exception {
+        initializeSubject();
+        setVideoViewParams(4000, 30000); // cd_delay_secs = 4
+        subject.onResume();
+
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+
+        /*
+        // Make the countdown timer visible if the show countdown timer delay has passed
+        if (showCountdownTimer
+            && !radialCountdownWidget.isVisible
+            && getCurrentPosition() >= showCountdownTimerDelayMillis
+        ) {
+            radialCountdownWidget.visibility = VISIBLE
+        }
+        */
+        assertTrue(subject.getShowCountdownTimer());
+        assertTrue(subject.getCurrentPosition() >= subject.getShowCountdownTimerDelayMillis());
+        Robolectric.getForegroundThreadScheduler().unPause();
+
+        assertEquals(View.VISIBLE, subject.getRadialCountdownWidget().getVisibility());
+    }
+
+    @Test
+    public void videoRunnablesRun_whenCurrentPositionIsLessThanShowCountdownTimerDelay_shouldNotShowCountdownTimer() throws Exception {
+        initializeSubject();
+        setVideoViewParams(3999, 30000); // cd_delay_secs = 4
+        subject.onResume();
+
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+
+        /*
+        // Make the countdown timer visible if the show countdown timer delay has passed
+        if (showCountdownTimer
+            && !radialCountdownWidget.isVisible
+            && getCurrentPosition() >= showCountdownTimerDelayMillis
+        ) {
+            radialCountdownWidget.visibility = VISIBLE
+        }
+        */
+        assertTrue(subject.getShowCountdownTimer());
+        assertTrue(subject.getCurrentPosition() < subject.getShowCountdownTimerDelayMillis());
+        Robolectric.getForegroundThreadScheduler().unPause();
+
+        assertEquals(View.INVISIBLE, subject.getRadialCountdownWidget().getVisibility());
+    }
+
+    @Test
+    public void videoRunnablesRun_whenShowCountdownTimerIsFalse_shouldNotShowCountdownTimer() throws Exception {
+        initializeSubject();
+        setVideoViewParams(4000, 30000); // cd_delay_secs = 4
+        subject.setShowCountdownTimer(false);
+        subject.onResume();
+
+        final MediaPlayer mockMediaPlayer = TestMediaPlayerFactory.Companion.getMockMediaPlayer();
+        mockMediaPlayer.prepare().isDone();
+
+        /*
+        // Make the countdown timer visible if the show countdown timer delay has passed
+        if (showCountdownTimer
+            && !radialCountdownWidget.isVisible
+            && getCurrentPosition() >= showCountdownTimerDelayMillis
+        ) {
+            radialCountdownWidget.visibility = VISIBLE
+        }
+        */
+        assertFalse(subject.getShowCountdownTimer());
+        Robolectric.getForegroundThreadScheduler().unPause();
+
+        assertEquals(View.INVISIBLE, subject.getRadialCountdownWidget().getVisibility());
+    }
+
+    // endregion videoRunnablesRun - updateCountdown
 
     @Test
     public void onPause_shouldStopRunnables() throws Exception {
@@ -2333,5 +2183,27 @@ public class VastVideoViewControllerTest {
         for (VastAbsoluteProgressTracker tracker : vastVideoConfig.getAbsoluteTrackers()) {
             tracker.setTracked();
         }
+    }
+
+    private void setMainAdShowCd(JSONObject ceSettings,
+                                 boolean showCd) throws JSONException {
+        JSONObject mainAd = ceSettings.getJSONObject(Constants.CE_MAIN_AD);
+        mainAd.remove(Constants.CE_SHOW_COUNTDOWN_TIMER);
+        mainAd.put(Constants.CE_SHOW_COUNTDOWN_TIMER, showCd ? "1" : "0");
+        ceSettings.remove(Constants.CE_MAIN_AD);
+        ceSettings.put(Constants.CE_MAIN_AD, mainAd);
+        creativeExperienceSettings = CreativeExperienceSettingsParser
+                .parse(ceSettings, false);
+    }
+
+    private void setMainAdShowCdDelay(JSONObject ceSettings,
+                                      int delay) throws JSONException {
+        JSONObject mainAd = ceSettings.getJSONObject(Constants.CE_MAIN_AD);
+        mainAd.remove(Constants.CE_COUNTDOWN_TIMER_DELAY);
+        mainAd.put(Constants.CE_COUNTDOWN_TIMER_DELAY, delay);
+        ceSettings.remove(Constants.CE_MAIN_AD);
+        ceSettings.put(Constants.CE_MAIN_AD, mainAd);
+        creativeExperienceSettings = CreativeExperienceSettingsParser
+                .parse(ceSettings, false);
     }
 }

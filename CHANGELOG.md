@@ -1,3 +1,16 @@
+## Version 5.18.0 (August 4, 2021)
+- **Features**
+  - Change when the close button and countdown timer are presented.
+  - Add InMobi, Fyber, Ogury, and Mintegral as supported networks.
+  - Switch to using XML instead of programmatic layouts for fullscreen ads.
+  - Show the reward selection pop-up dialog regardless of number of reward choices in the sample app.
+
+- **Bug Fixes**
+  - Fix NPEs in `MoPubInline` caused by `InteractionListener`
+  - Fix OM SDK `OutOfMemoryError` crash.
+  - Fix custom deeplinks not opening on Android 11.
+  - Prevent pre-initialization use of some public APIs from corrupting ad requests.
+
 ## Version 5.17.0 (May 11, 2021)
 - **Features**
   - SDK binary artifacts are uploaded to Maven Central Repository. 

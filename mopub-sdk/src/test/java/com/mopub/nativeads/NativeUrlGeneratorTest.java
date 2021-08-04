@@ -14,6 +14,7 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.Uri;
+import android.os.Build;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
@@ -390,7 +391,12 @@ public class NativeUrlGeneratorTest {
                 "https://ads.mopub.com/m/ad?id=" +
                         AD_UNIT_ID +
                         "&nv=" + Uri.encode(MoPub.SDK_VERSION) +
+                        "&os=" + "android" +
                         "&dn=unknown%2Crobolectric%2Crobolectric" +
+                        "&osv=" + Build.VERSION.RELEASE +
+                        "&make=" + Build.MANUFACTURER +
+                        "&model=" + Build.MODEL +
+                        "&hwv=" + Build.HARDWARE +
                         "&bundle=" + TEST_BUNDLE +
                         "&z=-0700" +
                         "&o=p" +
@@ -410,7 +416,8 @@ public class NativeUrlGeneratorTest {
                         "&mid=mp_tmpl_mopub_id" +
                         "&gdpr_applies=0" +
                         "&current_consent_status=unknown" +
-                        "&vv=4&vver=1.3.16-Mopub");
+                        "&vv=4&vver=1.3.16-Mopub" +
+                        "&ce_settings_hash_key=0");
     }
 
     @Test

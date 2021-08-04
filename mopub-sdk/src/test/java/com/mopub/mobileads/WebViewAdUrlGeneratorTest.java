@@ -279,6 +279,7 @@ public class WebViewAdUrlGeneratorTest {
                 .withCurrentConsentStatus(ConsentStatus.UNKNOWN.getValue())
                 .withBackoffMs(99)
                 .withBackoffReason("some_reason")
+                .withCeSettingsHash("12345")
                 .build();
 
         shadowTelephonyManager.setNetworkOperator("123456");
@@ -297,6 +298,7 @@ public class WebViewAdUrlGeneratorTest {
                 .withAdUnitId("adUnitId")
                 .withKeywords("keywordsKey:keywordsValue")
                 .withUserDataKeywords("userDataKey:userDataValue")
+                .withCeSettingsHash("12345")
                 .generateUrlString("ads.mopub.com");
 
         // Only compare the seconds since millis can be off
@@ -789,6 +791,24 @@ public class WebViewAdUrlGeneratorTest {
         assertEquals(getParameterFromRequestUrl(adUrl, "w_ver"), "WebViewAdUrlGeneratorTestVersion");
     }
 
+    @Test
+    public void generateAdUrl_withCeSettingsHash_shouldIncludeCeSettingsHash() {
+        String adUrl = subject
+                .withCeSettingsHash("12345")
+                .generateUrlString("ads.mopub.com");
+
+        assertEquals(getParameterFromRequestUrl(adUrl, "ce_settings_hash_key"), "12345");
+    }
+
+    @Test
+    public void generateAdUrl_withEmptyCeSettingsHash_shouldIncludeDefaultCeSettingsHash() {
+        String adUrl = subject
+                .withCeSettingsHash("")
+                .generateUrlString("ads.mopub.com");
+
+        assertEquals(getParameterFromRequestUrl(adUrl, "ce_settings_hash_key"), "0");
+    }
+
     private String getParameterFromRequestUrl(String requestString, String key) {
         Uri requestUri = Uri.parse(requestString);
         String parameter = requestUri.getQueryParameter(key);
@@ -836,6 +856,7 @@ public class WebViewAdUrlGeneratorTest {
         private String consentedVendorListVersion = "";
         private String backoffMs = "";
         private String backoffReason = "";
+        private String ceSettingsHash = "0";
 
         public AdUrlBuilder(String expectedUdid) {
             this.expectedUdid = expectedUdid;
@@ -846,9 +867,12 @@ public class WebViewAdUrlGeneratorTest {
                     "?v=6" +
                     paramIfNotEmpty("id", adUnitId) +
                     "&nv=" + Uri.encode(MoPub.SDK_VERSION) +
-                    "&dn=" + Build.MANUFACTURER +
-                    "%2C" + Build.MODEL +
-                    "%2C" + Build.PRODUCT +
+                    "&os=" + "android" +
+                    "&dn=" + Build.MANUFACTURER + "%2C" + Build.MODEL + "%2C" + Build.PRODUCT +
+                    "&osv=" + Build.VERSION.RELEASE +
+                    "&make=" + Build.MANUFACTURER +
+                    "&model=" + Build.MODEL +
+                    "&hwv=" + Build.HARDWARE +
                     "&bundle=" + "testBundle" +
                     paramIfNotEmpty("q", keywordsQuery) +
                     paramIfNotEmpty("user_data_q", userDataQuery) +
@@ -881,6 +905,7 @@ public class WebViewAdUrlGeneratorTest {
                     paramIfNotEmpty("backoff_reason", backoffReason) +
                     "&vv=4" +
                     "&vver=1.3.16-Mopub" +
+                    paramIfNotEmpty("ce_settings_hash_key", ceSettingsHash) +
                     "&mr=1";
         }
 
@@ -972,6 +997,11 @@ public class WebViewAdUrlGeneratorTest {
 
         AdUrlBuilder withBackoffReason(@Nullable final String backoffReason) {
             this.backoffReason = backoffReason;
+            return this;
+        }
+
+        AdUrlBuilder withCeSettingsHash(String ceSettingsHash) {
+            this.ceSettingsHash = ceSettingsHash;
             return this;
         }
 

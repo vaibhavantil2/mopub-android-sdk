@@ -87,6 +87,7 @@ public class ClientMetadata {
     private final String mDeviceModel;
     private final String mDeviceProduct;
     private final String mDeviceOsVersion;
+    private final String mDeviceHardware;
     private final String mSdkVersion;
     private final String mAppVersion;
     private final String mAppPackageName;
@@ -141,6 +142,7 @@ public class ClientMetadata {
         mDeviceModel = Build.MODEL;
         mDeviceProduct = Build.PRODUCT;
         mDeviceOsVersion = Build.VERSION.RELEASE;
+        mDeviceHardware = Build.HARDWARE;
 
         mSdkVersion = MoPub.SDK_VERSION;
 
@@ -455,6 +457,13 @@ public class ClientMetadata {
             }
         }
         return languageCode;
+    }
+
+    /**
+     * @return the device hardware.
+     */
+    public String getDeviceHardware() {
+        return mDeviceHardware;
     }
 
     @Deprecated

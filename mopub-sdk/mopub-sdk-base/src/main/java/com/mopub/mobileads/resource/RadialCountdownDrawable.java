@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.util.Dips;
 import com.mopub.common.util.Numbers;
+import com.mopub.mobileads.base.R;
 
 public class RadialCountdownDrawable extends BaseWidgetDrawable {
     @NonNull private final Paint mBackgroundPaint;
@@ -29,7 +30,8 @@ public class RadialCountdownDrawable extends BaseWidgetDrawable {
 
     public RadialCountdownDrawable(@NonNull final Context context) {
         mCircleStrokeWidth = Dips.dipsToIntPixels(DrawableConstants.RadialCountdown.CIRCLE_STROKE_WIDTH_DIPS, context);
-        final float textSizePixels = Dips.dipsToFloatPixels(DrawableConstants.RadialCountdown.TEXT_SIZE_SP, context);
+        final float textSizePixels = context.getResources()
+                .getDimensionPixelSize(R.dimen.radial_countdown_text_size);
 
         // Background
         mBackgroundPaint = new Paint();

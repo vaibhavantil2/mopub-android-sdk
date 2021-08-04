@@ -20,7 +20,6 @@ import com.mopub.common.util.DeviceUtils
 import java.io.File
 
 object Networking {
-    @VisibleForTesting
     private const val CACHE_DIRECTORY_NAME = "mopub-volley-cache"
     private val DEFAULT_USER_AGENT: String
 
@@ -39,13 +38,15 @@ object Networking {
     // for more information.
     @JvmStatic
     @Volatile
+    @get:VisibleForTesting
     var requestQueue: MoPubRequestQueue? = null
         private set
     @Volatile
     private var userAgent: String? = null
     @Volatile
     private var imageLoader: MoPubImageLoader? = null
-    private var urlRewriter : MoPubUrlRewriter = object : MoPubUrlRewriter {}
+    @JvmStatic
+    var urlRewriter : MoPubUrlRewriter? = null
 
     /**
      * Gets the previously cached WebView user agent. This returns the default userAgent if the
@@ -66,36 +67,39 @@ object Networking {
     val scheme: String
         get() = Constants.HTTPS
 
-
     @JvmStatic
-    fun getUrlRewriter(): MoPubUrlRewriter {
-        return urlRewriter
-    }
-
-    @JvmStatic
-    @JvmOverloads
-    fun getRequestQueue(context: Context, moPubUrlRewriter: MoPubUrlRewriter = urlRewriter) =
+    fun getRequestQueue(context: Context) =
         // Double-check locking to initialize.
         requestQueue ?: synchronized(Networking::class) {
-            requestQueue ?: {
+            requestQueue ?: run {
                 val socketFactory = CustomSSLSocketFactory.getDefault(Constants.TEN_SECONDS_MILLIS)
                 val userAgent = getUserAgent(context.applicationContext)
                 val volleyCacheDir = File(context.cacheDir.path + File.separator + CACHE_DIRECTORY_NAME)
 
-                urlRewriter = moPubUrlRewriter
-
-                MoPubRequestQueue(userAgent, socketFactory, moPubUrlRewriter, volleyCacheDir).also {
-                    requestQueue = it
-                    it.start()
+                urlRewriter?.let { moPubUrlRewriter ->
+                    return@run MoPubRequestQueue(
+                        userAgent,
+                        socketFactory,
+                        moPubUrlRewriter,
+                        volleyCacheDir
+                    ).also {
+                        requestQueue = it
+                        it.start()
+                    }
                 }
-            }()
+
+                // If the url rewriter is null, return a request queue with the default url rewriter.
+                // Do not start it. This request queue is unusable.
+                val tempUrlRewriter = object : MoPubUrlRewriter {}
+                return@run MoPubRequestQueue(userAgent, socketFactory, tempUrlRewriter, volleyCacheDir)
+            }
         }
 
     @JvmStatic
     fun getImageLoader(context: Context) =
         // Double-check locking to initialize.
         imageLoader ?: synchronized(Networking::class) {
-            imageLoader ?: {
+            imageLoader ?: run {
                 val queue = getRequestQueue(context)
                 val cacheSize = DeviceUtils.memoryCacheSizeBytes(context)
                 val imageCache = object : LruCache<String, Bitmap>(cacheSize) {
@@ -103,7 +107,6 @@ object Networking {
                         return value.rowBytes * value.height
                     }
                 }
-
                 MoPubImageLoader(queue, object : MoPubImageLoader.ImageCache {
                     override fun getBitmap(key: String) = imageCache.get(key)
                     override fun putBitmap(key: String, bitmap: Bitmap) {
@@ -112,9 +115,8 @@ object Networking {
                 }).also {
                     imageLoader = it
                 }
-            }()
+            }
         }
-
 
     /**
      * Caches and returns the WebView user agent to be used across all SDK requests. This is

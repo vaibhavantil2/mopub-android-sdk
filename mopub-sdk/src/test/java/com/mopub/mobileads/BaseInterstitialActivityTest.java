@@ -60,7 +60,8 @@ public class BaseInterstitialActivityTest {
     public void onDestroy_shouldCleanUpContentView() throws Exception {
         subject = Robolectric.buildActivity(TestInterstitialActivity.class, intent).create().destroy().get();
 
-        assertThat(getContentView(subject).getChildCount()).isEqualTo(0);
+        // the close button should still be present
+        assertThat(getContentView(subject).getChildCount()).isEqualTo(1);
     }
 
     @Test

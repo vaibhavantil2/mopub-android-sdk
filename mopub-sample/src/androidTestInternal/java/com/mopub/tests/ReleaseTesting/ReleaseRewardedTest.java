@@ -56,28 +56,24 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
     private static final String CLOSE_BUTTON_CLASS_NAME = VastVideoCloseButtonWidget.class.getCanonicalName();
     private static final String CLOSEABLE_LAYOUT_CLASS_NAME = CloseableLayout.class.getCanonicalName();
 
-/*    @Test
+/*
+    @Test
     public void mraidEndCard_shouldShowEndCard() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_MRAID_END_CARD.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
         // video playing validation
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.INVISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
 
         Utils.waitFor(VIDEO_LENGTH); // wait for video to finish
 
         // MRAID end card validation
-        assertFalse(findViewSafe(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(CTA_BUTTON_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME)));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(MRAID_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), LONG_DELAY));
     }
 */
@@ -88,21 +84,15 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
         adDetailPage.pressShowAdButton();
 
         // video playing validation
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.INVISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
 
         Utils.waitFor(VIDEO_LENGTH);
 
         // HTML end card validation
-        assertFalse(findViewSafe(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(CTA_BUTTON_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME)));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(MRAID_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), LONG_DELAY));
 
         adDetailPage.clickElement(onView(allOf(withId(android.R.id.content), hasChildCount(1))));
@@ -112,28 +102,24 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
         assertTrue(findViewSafe(allOf(withCanonicalClassName(MRAID_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), LONG_DELAY));
     }
 
-/*    @Test
+/*
+    @Test
     public void mraidEndCardFunction_shouldShowEndCard_shouldClickthrough() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_MRAID_END_CARD_FUNCTION.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
         // video playing validation
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.INVISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
 
         Utils.waitFor(VIDEO_LENGTH);
 
         // MRAID end card validation
-        assertFalse(findViewSafe(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(CTA_BUTTON_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME)));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(MRAID_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), LONG_DELAY));
 
         adDetailPage.clickElement(onView(allOf(withId(android.R.id.content), hasChildCount(1))));
@@ -147,22 +133,21 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
     public void noEndCard_videoDurationLess_shouldNotShowEndCard_shouldClickthrough() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_NO_END_CARD_DURATION_LESS.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
         // video playing validation
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.INVISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
 
         Utils.waitFor(25000);
 
         // blur last frame validation
-        assertFalse(findViewSafe(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME)));
         assertFalse(findViewSafe(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME)));
-        assertFalse(findViewSafe(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME)));
+        assertFalse(findViewSafe(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME)));
         assertFalse(findViewSafe(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME)));
         assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME)));
         assertTrue(findViewSafe(new BlurLastFrameMatcher(), LONG_DELAY));
@@ -180,15 +165,14 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
         adDetailPage.pressLoadAdButton();
         adDetailPage.pressShowAdButton();
 
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        // video playing validation
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.INVISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
 
         Utils.waitFor(31000);
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), SHORT_DELAY));
 
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), SHORT_DELAY));
 
@@ -204,18 +188,17 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
     public void noEndCard_videoDurationMore_shouldNotShowEndCard_shouldShowBlurFrame_shouldClickthrough() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_NO_END_CARD_DURATION_MORE.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        // video playing validation
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.INVISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
 
         Utils.waitFor(40000);
-
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), SHORT_DELAY));
 
         adDetailPage.clickElement(onView(withCanonicalClassName(CTA_BUTTON_CLASS_NAME)));
         assertWebView(CLICK_URL);
@@ -225,36 +208,40 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
         assertTrue(findViewSafe(new BlurLastFrameMatcher(), LONG_DELAY));
     }
 
-    @Test(expected = PerformException.class)
+    @Test
     public void noEndCard_videoDurationMore_shouldClickthrough_beforeVideoComplete() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_NO_END_CARD_DURATION_MORE.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        // video playing validation
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.INVISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
+        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME)));
 
         Utils.waitFor(10000);
 
         adDetailPage.clickElement(onView(withId(android.R.id.content)));
         assertWebView(CLICK_URL);
+        pressBack();
     }
 
     @Test
     public void imageEndCard_videoDurationLess_shouldShowEndCard() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_END_CARD_DURATION_LESS.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        // video playing validation
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.INVISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
 
         assertFalse(findViewSafe(allOf(withCanonicalClassName(IMAGEVIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), SHORT_DELAY));
@@ -268,13 +255,14 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
     public void imageEndCard_videoDurationEqual_shouldShowEndCard() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_END_CARD_DURATION_EQUAL.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        // video playing validation
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.INVISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
 
         assertFalse(findViewSafe(allOf(withCanonicalClassName(IMAGEVIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), SHORT_DELAY));
@@ -287,19 +275,17 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
     public void imageEndCard_videoDurationMore_shouldShowEndCard_shouldClickThrough() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_END_CARD_DURATION_MORE.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), SHORT_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        // video playing validation
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.INVISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
 
-        Utils.waitFor(3000);
-        assertFalse(findViewSafe(allOf(withCanonicalClassName(IMAGEVIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), SHORT_DELAY));
-
-        Utils.waitFor(25000);
+        Utils.waitFor(28000);
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), SHORT_DELAY));
         adDetailPage.clickElement(onView(withCanonicalClassName(CTA_BUTTON_CLASS_NAME)));
         assertWebView(CLICK_URL);
@@ -317,14 +303,16 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
     public void noEndCard_shouldShowBlurFrame_noClickthrough() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_NO_END_CARD_NO_CLICKTHROUGH.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        // video playing validation
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
+        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME)));
 
         Utils.waitFor(VIDEO_LENGTH);
 
@@ -332,21 +320,23 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
 
         adDetailPage.clickElement(onView(new BlurLastFrameMatcher()));
         assertWebView(CLICK_URL);
+        pressBack();
     }
 
     @Test(expected = PerformException.class)
     public void imageEndCard_noClickthrough() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_END_CARD_NO_CLICKTHROUGH.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
         // video playing validation
-        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(VIDEO_VIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(PROGRESS_BAR_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CTA_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(CLOSE_BUTTON_CLASS_NAME), withEffectiveVisibility(Visibility.GONE))));
+        assertFalse(findViewSafe(withCanonicalClassName(MRAID_CLASS_NAME)));
 
         Utils.waitFor(VIDEO_LENGTH);
 
@@ -355,44 +345,31 @@ public class ReleaseRewardedTest extends MoPubBaseTestCase {
 
         adDetailPage.clickElement(onView(allOf(withCanonicalClassName(IMAGEVIEW_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
         assertWebView(CLICK_URL);
-    }
-
-    @Test(expected = PerformException.class)
-    public void staticImage_shouldShow_shouldShowCountdownWidget_noClickthrough() {
-        clickCellOnList(RewardedTestAdUnits.REWARDED_STATIC_IMAGE.getAdName());
-        adDetailPage.pressLoadAdButton();
-        adDetailPage.pressShowAdButton();
-
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), LONG_DELAY));
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(MRAID_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE))));
-
-        Utils.waitFor(30000);
-
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.GONE)), LONG_DELAY));
-
-        adDetailPage.clickElement(onView(allOf(withId(android.R.id.content), hasChildCount(1))));
-        assertWebView(CLICK_URL);
+        pressBack();
     }
 
     @Test
-    public void htmlVideo_shouldHideCountdownWidgetAfterVideoComplete() {
+    public void htmlVideo_shouldReturnToVideoAfterClick() {
         clickCellOnList(RewardedTestAdUnits.REWARDED_HTML_VIDEO.getAdName());
         adDetailPage.pressLoadAdButton();
+        adDetailPage.selectReward("1 Coins");
         adDetailPage.pressShowAdButton();
 
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), LONG_DELAY));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(MRAID_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), SHORT_DELAY));
 
+        // in the middle of the video
         Utils.waitFor(VIDEO_LENGTH / 2);
         adDetailPage.clickElement(onView(allOf(withId(android.R.id.content), hasChildCount(1))));
         assertWebView(CLICK_URL);
         pressBack();
-
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), LONG_DELAY));
         assertTrue(findViewSafe(allOf(withCanonicalClassName(MRAID_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), SHORT_DELAY));
 
+        // after complete
         Utils.waitFor(VIDEO_LENGTH / 2);
-        assertTrue(findViewSafe(allOf(withCanonicalClassName(RADIAL_COUNTDOWN_CLASS_NAME), withEffectiveVisibility(Visibility.GONE)), LONG_DELAY));
+        adDetailPage.clickElement(onView(allOf(withId(android.R.id.content), hasChildCount(1))));
+        assertWebView(CLICK_URL);
+        pressBack();
+        assertTrue(findViewSafe(allOf(withCanonicalClassName(MRAID_CLASS_NAME), withEffectiveVisibility(Visibility.VISIBLE)), SHORT_DELAY));
     }
 
     private enum RewardedTestAdUnits {

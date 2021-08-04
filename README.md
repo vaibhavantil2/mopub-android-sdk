@@ -30,7 +30,7 @@ The MoPub SDK is available via:
     }
 
     dependencies {
-        implementation('com.mopub:mopub-sdk:5.17.0@aar') {
+        implementation('com.mopub:mopub-sdk:5.18.0@aar') {
             transitive = true
         }
     }
@@ -51,17 +51,17 @@ The MoPub SDK is available via:
         // ... other project dependencies
 
         // For banners
-        implementation('com.mopub:mopub-sdk-banner:5.17.0@aar') {
+        implementation('com.mopub:mopub-sdk-banner:5.18.0@aar') {
             transitive = true
         }
         
         // For interstitials and rewarded ads
-        implementation('com.mopub:mopub-sdk-fullscreen:5.17.0@aar') {
+        implementation('com.mopub:mopub-sdk-fullscreen:5.18.0@aar') {
             transitive = true
         }
 
         // For native static (images).
-        implementation('com.mopub:mopub-sdk-native-static:5.17.0@aar') {
+        implementation('com.mopub:mopub-sdk-native-static:5.18.0@aar') {
             transitive = true
         }
     }
@@ -90,13 +90,16 @@ The MoPub SDK is available via:
 Please view the [changelog](https://github.com/mopub/mopub-android-sdk/blob/master/CHANGELOG.md) for a complete list of additions, fixes, and enhancements in the latest release.
 
 - **Features**
-  - SDK binary artifacts are uploaded to Maven Central Repository. 
-  - Update AndroidX Media2 dependencies from version 1.1.1 to 1.1.3.
-  - Improve MoPub SDK modularization with 'mopub-sdk-networking' and 'mopub-sdk-util' libraries.
-  - Add ProGuard rules for AudioFocusHandler and MediaPlayer.
+  - Change when the close button and countdown timer are presented.
+  - Add InMobi, Fyber, Ogury, and Mintegral as supported networks.
+  - Switch to using XML instead of programmatic layouts for fullscreen ads.
+  - Show the reward selection pop-up dialog regardless of number of reward choices in the sample app.
 
 - **Bug Fixes**
-  - Fix rare audio focus handling issue when application is in the background.
+  - Fix NPEs in `MoPubInline` caused by `InteractionListener`
+  - Fix OM SDK `OutOfMemoryError` crash.
+  - Fix custom deeplinks not opening on Android 11.
+  - Prevent pre-initialization use of some public APIs from corrupting ad requests.
 
 ## Requirements
 

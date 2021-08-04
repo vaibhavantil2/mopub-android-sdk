@@ -17,7 +17,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 
-import com.mopub.common.CloseableLayout.ClosePosition;
 import com.mopub.common.ViewabilityManager;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.Utils;
@@ -28,7 +27,6 @@ import com.mopub.mobileads.WebViewCacheService;
 import com.mopub.mraid.MraidBridge.MraidBridgeListener;
 import com.mopub.mraid.MraidBridge.MraidWebView;
 import com.mopub.mraid.MraidController.OrientationBroadcastReceiver;
-import com.mopub.mraid.MraidController.UseCustomCloseListener;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -67,7 +65,6 @@ public class MraidControllerTest {
     @Mock private MoPubWebViewController.ScreenMetricsWaiter mockScreenMetricsWaiter;
     @Mock private MoPubWebViewController.ScreenMetricsWaiter.WaitRequest mockWaitRequest;
     @Mock private BaseHtmlWebView.BaseWebViewListener mockWebViewListener;
-    @Mock private UseCustomCloseListener mockUseCustomCloseListener;
     @Mock private OrientationBroadcastReceiver mockOrientationBroadcastReceiver;
     @Captor private ArgumentCaptor<MraidBridgeListener> bridgeListenerCaptor;
     @Captor private ArgumentCaptor<MraidBridgeListener> twoPartBridgeListenerCaptor;
@@ -185,18 +182,18 @@ public class MraidControllerTest {
     @Test
     public void handleResize_shouldBeIgnoredWhenLoadingOrHidden() throws MraidCommandException {
         subject.setViewStateForTesting(ViewState.LOADING);
-        subject.handleResize(100, 200, 0, 0, ClosePosition.TOP_RIGHT, true);
+        subject.handleResize(100, 200, 0, 0, true);
         assertThat(subject.getViewState()).isEqualTo(ViewState.LOADING);
 
         subject.setViewStateForTesting(ViewState.HIDDEN);
-        subject.handleResize(100, 200, 0, 0, ClosePosition.TOP_RIGHT, true);
+        subject.handleResize(100, 200, 0, 0,  true);
         assertThat(subject.getViewState()).isEqualTo(ViewState.HIDDEN);
     }
 
     @Test(expected = MraidCommandException.class)
     public void handleResize_shouldThrowExceptionWhenExpanded() throws MraidCommandException {
         subject.setViewStateForTesting(ViewState.EXPANDED);
-        subject.handleResize(100, 200, 0, 0, ClosePosition.TOP_RIGHT, true);
+        subject.handleResize(100, 200, 0, 0, true);
     }
 
     @Test(expected = MraidCommandException.class)
@@ -211,7 +208,7 @@ public class MraidControllerTest {
         subject.fillContent("fake_html_data", null, null);
         subject.handlePageLoad();
 
-        subject.handleResize(100, 200, 0, 0, ClosePosition.TOP_RIGHT, true);
+        subject.handleResize(100, 200, 0, 0, true);
     }
 
     @Test
@@ -221,8 +218,9 @@ public class MraidControllerTest {
         subject.handlePageLoad();
         subject.setRootViewSize(100, 100);
 
-        subject.handleResize(100, 100, 0, 0, ClosePosition.TOP_RIGHT, true);
-        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(2);
+        // the close button should still be present
+        subject.handleResize(100, 100, 0, 0, true);
+        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(3);
         assertThat(((ViewGroup)subject.getAdContainer()).getChildCount()).isEqualTo(0);
         assertThat(subject.getViewState()).isEqualTo(ViewState.RESIZED);
     }
@@ -234,7 +232,7 @@ public class MraidControllerTest {
         subject.handlePageLoad();
         subject.setRootViewSize(100, 100);
 
-        subject.handleResize(50, 50, 0, 0, ClosePosition.TOP_RIGHT, /* allowOffscreen */ false);
+        subject.handleResize(50, 50, 0, 0, /* allowOffscreen */ false);
         assertThat(subject.getViewState()).isEqualTo(ViewState.RESIZED);
     }
 
@@ -245,59 +243,35 @@ public class MraidControllerTest {
         subject.handlePageLoad();
         subject.setRootViewSize(100, 100);
 
-        subject.handleResize(101, 101, 0, 0, ClosePosition.TOP_RIGHT, /* allowOffscreen */ false);
+        subject.handleResize(101, 101, 0, 0, /* allowOffscreen */ false);
     }
 
     @Test(expected = MraidCommandException.class)
-    public void handleResize_allowOffscreen_largeView_closeButtonTopRight_shouldThrowException()
+    public void handleResize_allowOffscreen_largeView_shouldThrowException()
             throws MraidCommandException {
         // Move to DEFAULT state
         subject.handlePageLoad();
         subject.setRootViewSize(100, 100);
 
-        subject.handleResize(150, 150, 0, 0, ClosePosition.TOP_RIGHT, /* allowOffscreen */ true);
-    }
-
-    @Test
-    public void handleResize_allowOffscreen_closeButtonTopLeft_shouldNotThrowException()
-            throws MraidCommandException {
-        // Move to DEFAULT state
-        subject.handlePageLoad();
-        subject.setRootViewSize(100, 100);
-
-        subject.handleResize(150, 150, 0, 0, ClosePosition.TOP_LEFT, /* allowOffscreen */ true);
-        assertThat(subject.getViewState()).isEqualTo(ViewState.RESIZED);
+        subject.handleResize(150, 150, 0, 0, /* allowOffscreen */ true);
     }
 
     @Test(expected = MraidCommandException.class)
-    public void handleResize_allowOffscreen_largeOffset_closeButtonBottomRight_shouldThrowException()
+    public void handleResize_allowOffscreen_largeOffset_shouldThrowException()
             throws MraidCommandException {
         // Move to DEFAULT state
         subject.handlePageLoad();
         subject.setRootViewSize(100, 1000);
 
         // Throws an exception because the close button overlaps the edge
-        subject.handleResize(100, 100, 25, 25, ClosePosition.BOTTOM_RIGHT, /* allowOffscreen */
-                true);
-    }
-
-    @Test
-    public void handleResize_allowOffscreen_largeOffset_closeButtonBottomLeft_shouldNotThrowException()
-            throws MraidCommandException {
-        // Move to DEFAULT state
-        subject.handlePageLoad();
-        subject.setRootViewSize(100, 1000);
-
-        subject.handleResize(100, 100, 25, 25, ClosePosition.BOTTOM_LEFT, /* allowOffscreen */
-                true);
-        assertThat(subject.getViewState()).isEqualTo(ViewState.RESIZED);
+        subject.handleResize(100, 100, 25, 25,/* allowOffscreen */true);
     }
 
     @Test(expected = MraidCommandException.class)
     public void handleResize_heightSmallerThan50Dips_shouldFail() throws MraidCommandException {
         subject.handlePageLoad();
         subject.setRootViewSize(100, 100);
-        subject.handleResize(100, 49, 25, 25, ClosePosition.BOTTOM_LEFT, /* allowOffscreen */
+        subject.handleResize(100, 49, 25, 25, /* allowOffscreen */
                 false);
     }
 
@@ -305,7 +279,7 @@ public class MraidControllerTest {
     public void handleResize_widthSmallerThan50Dips_shouldFail() throws MraidCommandException {
         subject.handlePageLoad();
         subject.setRootViewSize(100, 100);
-        subject.handleResize(49, 100, 25, 25, ClosePosition.BOTTOM_LEFT, /* allowOffscreen */
+        subject.handleResize(49, 100, 25, 25, /* allowOffscreen */
                 false);
     }
 
@@ -315,11 +289,12 @@ public class MraidControllerTest {
         // Move to RESIZED state
         subject.handlePageLoad();
         subject.setRootViewSize(100, 100);
-        subject.handleResize(100, 100, 0, 0, ClosePosition.TOP_RIGHT, false);
+        subject.handleResize(100, 100, 0, 0, false);
 
         subject.handleClose();
 
-        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(1);
+        // the close button should still be present
+        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(2);
         assertThat(((ViewGroup)subject.getAdContainer()).getChildCount()).isEqualTo(1);
         assertThat(subject.getViewState()).isEqualTo(ViewState.DEFAULT);
         verify(mockWebViewListener, never()).onClose();
@@ -328,7 +303,7 @@ public class MraidControllerTest {
     @Test(expected = MraidCommandException.class)
     public void handleExpand_afterDestroy_shouldThrowException() throws MraidCommandException {
         subject.destroy();
-        subject.handleExpand(null, false);
+        subject.handleExpand(null);
     }
 
     @Test
@@ -343,7 +318,7 @@ public class MraidControllerTest {
         subject.fillContent("fake_html_data", null, null);
         subject.handlePageLoad();
 
-        subject.handleExpand(null, false);
+        subject.handleExpand(null);
 
         assertThat(subject.getViewState()).isEqualTo(ViewState.DEFAULT);
         verify(listener, never()).onExpand();
@@ -353,17 +328,17 @@ public class MraidControllerTest {
     public void handleExpand_shouldBeIgnoredWhenLoadingHiddenOrExpanded()
             throws MraidCommandException {
         subject.setViewStateForTesting(ViewState.LOADING);
-        subject.handleExpand(null, false);
+        subject.handleExpand(null);
         assertThat(subject.getViewState()).isEqualTo(ViewState.LOADING);
         verify(mockWebViewListener, never()).onExpand();
 
         subject.setViewStateForTesting(ViewState.HIDDEN);
-        subject.handleExpand(null, false);
+        subject.handleExpand(null);
         assertThat(subject.getViewState()).isEqualTo(ViewState.HIDDEN);
         verify(mockWebViewListener, never()).onExpand();
 
         subject.setViewStateForTesting(ViewState.EXPANDED);
-        subject.handleExpand(null, false);
+        subject.handleExpand(null);
         assertThat(subject.getViewState()).isEqualTo(ViewState.EXPANDED);
         verify(mockWebViewListener, never()).onExpand();
     }
@@ -374,9 +349,10 @@ public class MraidControllerTest {
         // Move to DEFAULT state
         subject.handlePageLoad();
 
-        subject.handleExpand(null, false);
+        subject.handleExpand(null);
 
-        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(2);
+        // the close button should still be present
+        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(3);
         assertThat(((ViewGroup)subject.getAdContainer()).getChildCount()).isEqualTo(0);
         verify(mockWebViewListener).onExpand();
     }
@@ -387,13 +363,14 @@ public class MraidControllerTest {
         // Move to DEFAULT state
         subject.handlePageLoad();
 
-        subject.handleExpand(URI.create("https://two-part-url"), false);
+        subject.handleExpand(URI.create("https://two-part-url"));
 
         verify(mockTwoPartBridge).setMraidBridgeListener(any(MraidBridgeListener.class));
         verify(mockTwoPartBridge).attachView(any(MraidWebView.class));
         verify(mockTwoPartBridge).setContentUrl(URI.create("https://two-part-url").toString());
 
-        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(2);
+        // the close button should still be present
+        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(3);
         assertThat(((ViewGroup)subject.getAdContainer()).getChildCount()).isEqualTo(1);
         verify(mockWebViewListener).onExpand();
         assertThat(subject.getViewState()).isEqualTo(ViewState.EXPANDED);
@@ -411,11 +388,12 @@ public class MraidControllerTest {
     public void handleClose_fromExpandedState_shouldMoveWebViewToOriginalContainer_shouldFireOnClose() throws MraidCommandException {
         // Move to EXPANDED state
         subject.handlePageLoad();
-        subject.handleExpand(null, false);
+        subject.handleExpand(null);
 
         subject.handleClose();
 
-        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(1);
+        // the close button should still be present
+        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(2);
         assertThat(((ViewGroup)subject.getAdContainer()).getChildCount()).isEqualTo(1);
         assertThat(subject.getViewState()).isEqualTo(ViewState.DEFAULT);
         verify(mockWebViewListener).onClose();
@@ -428,13 +406,14 @@ public class MraidControllerTest {
 
         // Move to two part EXPANDED state
         subject.handlePageLoad();
-        subject.handleExpand(uri, false);
+        subject.handleExpand(uri);
         when(mockTwoPartBridge.isAttached()).thenReturn(true);
 
         subject.handleClose();
 
+        // the close button should still be present
         verify(mockTwoPartBridge).detach();
-        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(1);
+        assertThat(subject.getExpandedAdContainer().getChildCount()).isEqualTo(2);
         assertThat(((ViewGroup)subject.getAdContainer()).getChildCount()).isEqualTo(1);
         assertThat(subject.getViewState()).isEqualTo(ViewState.DEFAULT);
 
@@ -453,27 +432,6 @@ public class MraidControllerTest {
         assertThat(subject.getViewState()).isEqualTo(ViewState.HIDDEN);
 
         verify(mockWebViewListener).onClose();
-    }
-
-    @Test
-    public void handleCustomClose_shouldUpdateExpandedContainer() {
-        subject.handleCustomClose(true);
-        assertThat(subject.getExpandedAdContainer().isCloseVisible()).isFalse();
-
-        subject.handleCustomClose(false);
-        assertThat(subject.getExpandedAdContainer().isCloseVisible()).isTrue();
-    }
-
-    @Test
-    public void handleCustomClose_shouldCallCustomCloseChangedListener() {
-        subject.setUseCustomCloseListener(mockUseCustomCloseListener);
-
-        subject.handleCustomClose(true);
-        verify(mockUseCustomCloseListener).useCustomCloseChanged(true);
-
-        reset(mockUseCustomCloseListener);
-        subject.handleCustomClose(false);
-        verify(mockUseCustomCloseListener).useCustomCloseChanged(false);
     }
 
     @Test
@@ -747,7 +705,7 @@ public class MraidControllerTest {
                 ActivityInfo.CONFIG_ORIENTATION | ActivityInfo.CONFIG_SCREEN_SIZE);
 
         subject.handlePageLoad();
-        subject.handleExpand(null, false);
+        subject.handleExpand(null);
 
         subject.handleSetOrientationProperties(true, MraidOrientation.LANDSCAPE);
 
@@ -766,7 +724,7 @@ public class MraidControllerTest {
         assertThat(activity.getRequestedOrientation()).isEqualTo(ActivityInfo
                 .SCREEN_ORIENTATION_PORTRAIT);
 
-        subject.handleExpand(null, false);
+        subject.handleExpand(null);
 
         assertThat(activity.getRequestedOrientation()).isEqualTo(ActivityInfo
                 .SCREEN_ORIENTATION_LANDSCAPE);
@@ -1104,7 +1062,7 @@ public class MraidControllerTest {
         // Necessary to set up the webview before expanding. Also moves the state to DEFAULT.
         subject.handlePageLoad();
         assertThat(subject.getViewState()).isEqualTo(ViewState.DEFAULT);
-        subject.handleExpand(URI.create("https://two-part-url"), false);
+        subject.handleExpand(URI.create("https://two-part-url"));
 
         assertThat(subject.getMraidWebView()).isNotNull();
         assertThat(subject.getTwoPartWebView()).isNotNull();
@@ -1128,7 +1086,7 @@ public class MraidControllerTest {
     public void destroy_fromExpandedState_shouldRemoveCloseableAdContainerFromContentView()
             throws MraidCommandException {
         subject.handlePageLoad();
-        subject.handleExpand(null, false);
+        subject.handleExpand(null);
 
         assertThat(rootView.getChildCount()).isEqualTo(1);
 
@@ -1142,7 +1100,7 @@ public class MraidControllerTest {
             throws MraidCommandException {
         subject.handlePageLoad();
         subject.setRootViewSize(100, 100);
-        subject.handleResize(100, 100, 0, 0, ClosePosition.TOP_RIGHT, true);
+        subject.handleResize(100, 100, 0, 0, true);
 
         assertThat(rootView.getChildCount()).isEqualTo(1);
 

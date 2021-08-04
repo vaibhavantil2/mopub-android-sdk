@@ -30,6 +30,8 @@ public enum ResponseHeader {
     WIDTH("x-width"),
     BACKFILL("x-backfill"),
     REQUEST_ID("x-request-id"),
+    CREATIVE_EXPERIENCE_SETTINGS("creative_experience_settings"),
+    REWARDED("rewarded"),
 
     // HTTP headers
     CONTENT_TYPE("content-type"),
@@ -53,7 +55,6 @@ public enum ResponseHeader {
     REWARDED_VIDEO_CURRENCY_AMOUNT("x-rewarded-video-currency-amount"),
     REWARDED_CURRENCIES("x-rewarded-currencies"),
     REWARDED_VIDEO_COMPLETION_URL("x-rewarded-video-completion-url"),
-    REWARDED_DURATION("x-rewarded-duration"),
 
     // Internal Video Trackers
     VIDEO_TRACKERS("x-video-trackers"),
@@ -83,10 +84,7 @@ public enum ResponseHeader {
     ENABLE_DEBUG_LOGGING("enable_debug_logging"),
 
     // Experiment keys
-    VAST_CLICK_ENABLED("vast-click-enabled"),
-
-    // Mraid Custom Close
-    ALLOW_CUSTOM_CLOSE("allow-custom-close");
+    VAST_CLICK_ENABLED("vast-click-enabled");
 
     private final String key;
     ResponseHeader(String key) {

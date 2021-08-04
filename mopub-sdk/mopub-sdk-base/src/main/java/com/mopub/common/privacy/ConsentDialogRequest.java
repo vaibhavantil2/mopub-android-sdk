@@ -18,6 +18,8 @@ import com.mopub.network.MoPubResponse;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Map;
+
 class ConsentDialogRequest extends MoPubRequest<ConsentDialogResponse> {
     private static final String HTML_KEY = "dialog_html";
 
@@ -36,6 +38,15 @@ class ConsentDialogRequest extends MoPubRequest<ConsentDialogResponse> {
         mListener = listener;
 
         setShouldCache(false);
+    }
+
+    @Nullable
+    @Override
+    protected Map<String, String> getParams() {
+        if (!MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return null;
+        }
+        return super.getParams();
     }
 
     @NonNull

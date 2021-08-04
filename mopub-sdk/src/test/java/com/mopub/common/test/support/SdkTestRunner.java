@@ -6,10 +6,11 @@ package com.mopub.common.test.support;
 
 import androidx.annotation.NonNull;
 
-import com.mopub.common.CacheService;
+import com.mopub.common.CESettingsCacheService;
 import com.mopub.common.ClientMetadata;
 import com.mopub.common.MoPub;
 import com.mopub.common.Preconditions;
+import com.mopub.common.VideoCacheService;
 import com.mopub.common.factories.MethodBuilderFactory;
 import com.mopub.common.util.AsyncTasks;
 import com.mopub.common.util.DateAndTime;
@@ -89,7 +90,8 @@ public class SdkTestRunner extends RobolectricTestRunner {
             MockitoAnnotations.initMocks(test);
 
             AsyncTasks.setExecutor(new RoboExecutorService());
-            CacheService.clearAndNullCaches();
+            VideoCacheService.clearAndNullVideoCache();
+            CESettingsCacheService.clearCESettingsCache();
         }
     }
 }

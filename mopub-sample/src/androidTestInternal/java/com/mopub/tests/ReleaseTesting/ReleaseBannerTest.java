@@ -29,6 +29,7 @@ public class ReleaseBannerTest extends MoPubBaseTestCase {
         adDetailPage.changeOrientationTo(PORTRAIT_ORIENTATION);
         isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
+        pressBack();
     }
 
     @Test
@@ -39,6 +40,7 @@ public class ReleaseBannerTest extends MoPubBaseTestCase {
         adDetailPage.changeOrientationTo(LANDSCAPE_ORIENTATION);
         isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
+        pressBack();
     }
 
     @Test
@@ -49,6 +51,7 @@ public class ReleaseBannerTest extends MoPubBaseTestCase {
         adDetailPage.changeOrientationTo(PORTRAIT_ORIENTATION);
         isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
+        pressBack();
     }
 
     @Test
@@ -59,6 +62,7 @@ public class ReleaseBannerTest extends MoPubBaseTestCase {
         adDetailPage.changeOrientationTo(LANDSCAPE_ORIENTATION);
         isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
+        pressBack();
     }
 
     @Test

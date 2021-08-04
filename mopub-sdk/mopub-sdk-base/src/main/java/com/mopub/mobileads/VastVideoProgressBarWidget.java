@@ -6,6 +6,8 @@ package com.mopub.mobileads;
 
 import android.content.Context;
 import androidx.annotation.NonNull;
+
+import android.util.AttributeSet;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
@@ -18,27 +20,12 @@ import com.mopub.mobileads.resource.ProgressBarDrawable;
 
 public class VastVideoProgressBarWidget extends ImageView {
     @NonNull private ProgressBarDrawable mProgressBarDrawable;
-    private final int mProgressBarHeight;
 
-    public VastVideoProgressBarWidget(@NonNull final Context context) {
-        super(context);
-
-        setId(View.generateViewId());
+    public VastVideoProgressBarWidget(Context context, AttributeSet attrs) {
+        super(context, attrs, 0);
 
         mProgressBarDrawable = new ProgressBarDrawable(context);
         setImageDrawable(mProgressBarDrawable);
-
-        mProgressBarHeight =
-                Dips.dipsToIntPixels(DrawableConstants.ProgressBar.HEIGHT_DIPS, context);
-    }
-
-    public void setAnchorId(final int anchorId) {
-        final RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.MATCH_PARENT,
-                mProgressBarHeight);
-        layoutParams.addRule(RelativeLayout.ALIGN_BOTTOM, anchorId);
-        setLayoutParams(layoutParams);
-
     }
 
     public void calibrateAndMakeVisible(final int duration, final int skipOffset) {

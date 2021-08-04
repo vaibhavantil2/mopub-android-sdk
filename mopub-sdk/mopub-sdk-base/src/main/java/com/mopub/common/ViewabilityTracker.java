@@ -39,15 +39,15 @@ class ViewabilityTracker {
     private static final String CONTENT_URL = "";
 
     @NonNull
-    private AdSession adSession;
+    private final AdSession adSession;
     @NonNull
-    private AdEvents adEvents;
+    private final AdEvents adEvents;
     private boolean impressionOccurred = false;
     protected boolean tracking = false;
 
     protected STATE state;
 
-    private static AtomicInteger sessionCounter = new AtomicInteger(0);
+    private static final AtomicInteger sessionCounter = new AtomicInteger(0);
     int sessionID;
 
     //region Create ViewabilityTracker

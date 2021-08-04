@@ -29,8 +29,11 @@ import java.util.Map;
 
 import static com.mopub.network.MoPubRequest.DEFAULT_CONTENT_TYPE;
 import static com.mopub.network.MoPubRequest.JSON_CONTENT_TYPE;
+
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -121,6 +124,7 @@ public class MultiAdRequestTest {
         jsonBody.put(ResponseHeader.FAIL_URL.getKey(), "fail_url");
         jsonBody.put(ResponseHeader.AD_RESPONSES.getKey(), adResponses);
 
+        Networking.setUrlRewriter(new PlayServicesUrlRewriter());
     }
 
     @After
@@ -142,6 +146,19 @@ public class MultiAdRequestTest {
         subject.cancel();
         subject.deliverResponse(mockAdResponse);
         verify(mockListener, never()).onResponse(mockAdResponse);
+    }
+
+    @Test
+    public void getParams_withMoPubRequest_shouldReturnParamMap() {
+        assertNotNull(subject.getParams());
+    }
+
+    @Test
+    public void getParams_withNonMoPubRequest_shouldReturnNull() {
+        String nonMoPubUrl = "https://www.abcdefg.com/xyz";
+        subject = new MultiAdRequest(nonMoPubUrl, AdFormat.BANNER, adUnitId, activity, mockListener);
+
+        assertNull(subject.getParams());
     }
 
     @Test

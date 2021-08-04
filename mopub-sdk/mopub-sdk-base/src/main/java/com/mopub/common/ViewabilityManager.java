@@ -43,7 +43,7 @@ public class ViewabilityManager {
 
     private static class Helper {
         @NonNull
-        private static ViewabilityManager sInstance = new ViewabilityManager();
+        private static final ViewabilityManager sInstance = new ViewabilityManager();
     }
 
     @NonNull
@@ -109,7 +109,7 @@ public class ViewabilityManager {
             return ScriptInjector.injectScriptContentIntoHtml(
                     getOmidJsServiceContent(),
                     adResponseHtml);
-        } catch (IllegalArgumentException | IllegalStateException e) {
+        } catch (Throwable e) {
             MoPubLog.log(CUSTOM_WITH_THROWABLE, "Failed to inject OM script into HTML. ", e);
             return adResponseHtml;
         }
@@ -136,7 +136,7 @@ public class ViewabilityManager {
             if (!modifiedHtml.equals(intermediate)) {
                 return modifiedHtml;
             }
-        } catch (IllegalArgumentException | IllegalStateException e) {
+        } catch (Throwable e) {
             MoPubLog.log(CUSTOM_WITH_THROWABLE, "Failed to inject script URL into HTML. ", e);
         }
 

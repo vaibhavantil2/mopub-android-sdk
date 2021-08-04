@@ -22,6 +22,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.mopub.common.AdFormat;
+import com.mopub.common.CESettingsCacheService;
 import com.mopub.common.Constants;
 import com.mopub.common.DataKeys;
 import com.mopub.common.LocationService;
@@ -138,6 +139,10 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
     private String mLastTrackedRequestId;
     private long mOnPauseViewedTimeMillis;
     private long mShowStartedTimestampMillis;
+    @Nullable
+    private CreativeExperienceSettings mCreativeExperienceSettings;
+    @NonNull
+    private String mCeSettingsHash = "0";
 
     public static void setShouldHonorServerDimensions(View view) {
         sViewShouldHonorServerDimensions.put(view, true);
@@ -192,9 +197,46 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
         mRefreshTimeMillis = mAdResponse.getRefreshTimeMillis();
         mActiveRequest = null;
 
-        loadBaseAd();
+        if (TextUtils.isEmpty(mAdUnitId)) {
+            MoPubLog.log(CUSTOM, "Could not load ad because the ad unit was empty.");
+            adDidFail(MoPubErrorCode.MISSING_AD_UNIT_ID);
+            return;
+        }
 
         scheduleRefreshTimerIfEnabled();
+
+        final CESettingsCacheService.CESettingsCacheListener ceSettingsCacheListener =
+                new CESettingsCacheService.CESettingsCacheListener() {
+                    @Override
+                    public void onSettingsReceived(@Nullable CreativeExperienceSettings settings) {
+                        if (settings == null) {
+                            MoPubLog.log(CUSTOM, "Failed to get creative experience " +
+                                    "settings from cache for ad unit " + mAdUnitId);
+                        } else {
+                            mCreativeExperienceSettings = settings;
+                        }
+
+                        loadBaseAd();
+                    }
+                };
+
+        mCreativeExperienceSettings = adResponse.getCreativeExperienceSettings();
+        if ("0".equals(adResponse.getCreativeExperienceSettings().getHash())) {
+            // If the ad response does not contain new CE settings, retrieve the settings from cache
+            CESettingsCacheService.getCESettings(
+                    mAdUnitId,
+                    ceSettingsCacheListener,
+                    mContext
+            );
+        } else {
+            // Cache new CE Settings
+            CESettingsCacheService.putCESettings(
+                    mAdUnitId,
+                    adResponse.getCreativeExperienceSettings(),
+                    mContext
+            );
+            loadBaseAd();
+        }
     }
 
     @VisibleForTesting
@@ -289,8 +331,20 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
             return;
         }
 
-        String adUrl = generateAdUrl();
-        loadNonJavascript(adUrl, null);
+        CESettingsCacheService.CESettingsCacheListener ceSettingsCacheListener =
+                new CESettingsCacheService.CESettingsCacheListener() {
+                    @Override
+                    public void onHashReceived(@NonNull String hash) {
+                        mCeSettingsHash = hash;
+                        loadNonJavascript(generateAdUrl(), null);
+                    }
+                };
+
+        CESettingsCacheService.getCESettingsHash(
+                mAdUnitId,
+                ceSettingsCacheListener,
+                mContext
+        );
     }
 
     void loadNonJavascript(@Nullable final String url, @Nullable final MoPubError moPubError) {
@@ -485,13 +539,6 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
         return "";
     }
 
-    public boolean getAllowCustomClose() {
-        if (mAdResponse == null) {
-            return false;
-        }
-        return mAdResponse.allowCustomClose();
-    }
-
     @Nullable
     public String getFullAdType() {
         if (mAdResponse == null) {
@@ -604,7 +651,8 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
                 .withKeywords(mKeywords)
                 .withUserDataKeywords(canCollectPersonalInformation ? mUserDataKeywords : null)
                 .withRequestedAdSize(mRequestedAdSize)
-                .withWindowInsets(mWindowInsets);
+                .withWindowInsets(mWindowInsets)
+                .withCeSettingsHash(mCeSettingsHash);
 
         return mUrlGenerator.generateUrlString(Constants.HOST);
     }
@@ -717,8 +765,12 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
         final String fullAdType = mAdResponse.getFullAdType();
         final String impressionMinVisibleDipsString = mAdResponse.getImpressionMinVisibleDips();
         final String impressionMinVisibleMsString = mAdResponse.getImpressionMinVisibleMs();
-        final boolean allowCustomClose = mAdResponse.allowCustomClose();
         final Set<ViewabilityVendor> viewabilityVendors = mAdResponse.getViewabilityVendors();
+        final boolean isRewarded = mAdResponse.isRewarded();
+
+        if (mCreativeExperienceSettings == null) {
+            mCreativeExperienceSettings = CreativeExperienceSettings.getDefaultSettings(isRewarded);
+        }
 
         Preconditions.checkNotNull(serverExtras);
 
@@ -768,8 +820,9 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
                 .adHeight(getAdHeight())
                 .adType(adType)
                 .fullAdType(fullAdType)
-                .allowCustomClose(allowCustomClose)
                 .viewabilityVendors(viewabilityVendors)
+                .isRewarded(isRewarded)
+                .creativeExperienceSettings(mCreativeExperienceSettings)
                 .build();
 
         if (Reflection.classFound(adapterClassName)) {
@@ -959,5 +1012,24 @@ public class AdViewController implements AdLifecycleListener.LoadListener, AdLif
     @VisibleForTesting
     long getShowStartedTimestampMillis() {
         return mShowStartedTimestampMillis;
+    }
+
+    @Nullable
+    @Deprecated
+    @VisibleForTesting
+    CreativeExperienceSettings getCreativeExperienceSettings() {
+        return mCreativeExperienceSettings;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    String getCeSettingsHash() {
+        return mCeSettingsHash;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    void setCeSettingsHash(@NonNull final String hash) {
+        mCeSettingsHash = hash;
     }
 }

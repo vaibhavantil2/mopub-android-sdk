@@ -33,7 +33,6 @@ import java.io.IOException
 import java.io.Serializable
 import java.util.*
 import kotlin.collections.HashSet
-import kotlin.math.min
 
 @Mockable
 class VastVideoConfig : Serializable {
@@ -145,9 +144,6 @@ class VastVideoConfig : Serializable {
     @Expose
     @SerializedName(Constants.VAST_URL_DISK_MEDIA_FILE)
     var diskMediaFileUrl: String? = null
-    @Expose
-    @SerializedName(Constants.VAST_SKIP_OFFSET)
-    var skipOffset: String? = null
 
     @Expose
     @SerializedName(Constants.VAST_COMPANION_ADS)
@@ -160,10 +156,6 @@ class VastVideoConfig : Serializable {
     @Expose
     @SerializedName(Constants.VAST_IS_REWARDED)
     var isRewarded: Boolean = false
-
-    @Expose
-    @SerializedName(Constants.VAST_COUNTDOWN_TIMER_DURATION)
-    var countdownTimerDuration: Int = 0;
 
     @Expose
     @SerializedName(Constants.VAST_ENABLE_CLICK_EXP)
@@ -585,31 +577,6 @@ class VastVideoConfig : Serializable {
      */
     val remainingProgressTrackerCount: Int
         get() = getUntriggeredTrackersBefore(Int.MAX_VALUE, Int.MAX_VALUE).size
-
-    /**
-     * Gets the skip offset in milliseconds. If the skip offset would be past the video duration,
-     * this returns the video duration. Returns null when the skip offset is not set or cannot be parsed.
-     *
-     * @param videoDuration Used to calculate percentage based offsets.
-     * @return The skip offset in milliseconds. Can return null.
-     */
-    @Throws(NumberFormatException::class)
-    fun getSkipOffsetMillis(videoDuration: Int): Int? {
-        return skipOffset?.let {
-            when {
-                VastAbsoluteProgressTracker.isAbsoluteTracker(it) ->
-                    VastAbsoluteProgressTracker.parseAbsoluteOffset(it)
-                VastFractionalProgressTracker.isPercentageTracker(it) ->
-                    VastFractionalProgressTracker.parsePercentageOffset(it, videoDuration)
-                else -> {
-                    log(CUSTOM, "Invalid VAST skipoffset format: $it")
-                    null
-                }
-            }?.let { skipMs ->
-                min(skipMs, videoDuration)
-            }
-        }
-    }
 
     /**
      * Converts this VastVideoConfig to a String (for parcelization).

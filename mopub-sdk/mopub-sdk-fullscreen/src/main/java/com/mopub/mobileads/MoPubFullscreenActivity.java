@@ -25,6 +25,7 @@ import com.mopub.exceptions.IntentNotResolvableException;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static com.mopub.common.DataKeys.AD_DATA_KEY;
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_SHOW;
+import static com.mopub.common.logging.MoPubLog.AdLogEvent.CUSTOM_WITH_THROWABLE;
 import static com.mopub.common.logging.MoPubLog.AdLogEvent.SHOW_FAILED;
 import static com.mopub.common.logging.MoPubLog.AdLogEvent.SHOW_SUCCESS;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
@@ -75,6 +76,7 @@ public class MoPubFullscreenActivity extends Activity {
             // mFullscreenAdController set to null, and finish the activity immediately.
 
             MoPubLog.log(SHOW_FAILED, FULLSCREEN_SHOW_ERROR, FULLSCREEN_SHOW_ERROR.getIntCode());
+            MoPubLog.log(CUSTOM_WITH_THROWABLE, FULLSCREEN_SHOW_ERROR, e);
             broadcastAction(this, broadcastIdentifier, IntentActions.ACTION_FULLSCREEN_FAIL);
             finish();
             return;

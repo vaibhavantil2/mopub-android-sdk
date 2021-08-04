@@ -436,10 +436,6 @@ public class MoPubInterstitial implements MoPubAd {
     @Override
     public void onAdComplete(@Nullable final MoPubReward moPubReward) {
         MoPubLog.log(CUSTOM, "Interstitial finished.");
-
-        if (mAdViewController != null) {
-            mAdViewController.onAdComplete(null);
-        }
     }
 
     @Override

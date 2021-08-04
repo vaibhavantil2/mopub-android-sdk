@@ -62,7 +62,9 @@ public class MoPubInline extends BaseAd {
         mHandler = new Handler();
         mAdExpiration = () -> {
             MoPubLog.log(EXPIRED, ADAPTER_NAME, "time in seconds");
-            mInteractionListener.onAdFailed(MoPubErrorCode.EXPIRED);
+            if (mInteractionListener != null) {
+                mInteractionListener.onAdFailed(MoPubErrorCode.EXPIRED);
+            }
         };
 
         Map<String, String> extras = mAdData.getExtras();
@@ -72,7 +74,9 @@ public class MoPubInline extends BaseAd {
             MoPubLog.log(LOAD_FAILED, ADAPTER_NAME,
                     INLINE_LOAD_ERROR.getIntCode(),
                     INLINE_LOAD_ERROR);
-            mLoadListener.onAdLoadFailed(INLINE_LOAD_ERROR);
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoadFailed(INLINE_LOAD_ERROR);
+            }
             return;
         }
 
@@ -80,8 +84,7 @@ public class MoPubInline extends BaseAd {
             mController = MraidControllerFactory.create(
                     mContext,
                     dspCreativeId,
-                    PlacementType.INLINE,
-                    mAdData.getAllowCustomClose());
+                    PlacementType.INLINE);
         } else if ("html".equals(mAdData.getAdType())) {
             mController = HtmlControllerFactory.create(context, dspCreativeId);
         } else {
@@ -89,7 +92,9 @@ public class MoPubInline extends BaseAd {
             MoPubLog.log(LOAD_FAILED, ADAPTER_NAME,
                     INLINE_LOAD_ERROR.getIntCode(),
                     INLINE_LOAD_ERROR);
-            mLoadListener.onAdLoadFailed(INLINE_LOAD_ERROR);
+            if (mLoadListener != null) {
+                mLoadListener.onAdLoadFailed(INLINE_LOAD_ERROR);
+            }
             return;
         }
 
@@ -100,7 +105,9 @@ public class MoPubInline extends BaseAd {
                 // Honoring the server dimensions forces the WebView to be the size of the banner
                 AdViewController.setShouldHonorServerDimensions(view);
                 MoPubLog.log(LOAD_SUCCESS, ADAPTER_NAME);
-                mLoadListener.onAdLoaded();
+                if (mLoadListener != null) {
+                    mLoadListener.onAdLoaded();
+                }
                 if (mHandler != null) {
                     mHandler.postDelayed(mAdExpiration, AD_EXPIRATION_DELAY);
                 }
@@ -111,7 +118,9 @@ public class MoPubInline extends BaseAd {
                 MoPubLog.log(LOAD_FAILED, ADAPTER_NAME,
                         INLINE_LOAD_ERROR.getIntCode(),
                         INLINE_LOAD_ERROR);
-                mLoadListener.onAdLoadFailed(INLINE_LOAD_ERROR);
+                if (mLoadListener != null) {
+                    mLoadListener.onAdLoadFailed(INLINE_LOAD_ERROR);
+                }
             }
 
             @Override

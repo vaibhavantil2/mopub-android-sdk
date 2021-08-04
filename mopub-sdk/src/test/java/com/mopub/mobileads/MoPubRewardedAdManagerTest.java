@@ -7,25 +7,30 @@ package com.mopub.mobileads;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.mopub.common.AdFormat;
 import com.mopub.common.AdType;
+import com.mopub.common.CESettingsCacheService;
 import com.mopub.common.LifecycleListener;
 import com.mopub.common.MoPub;
 import com.mopub.common.MoPubReward;
 import com.mopub.common.SdkConfiguration;
 import com.mopub.common.SharedPreferencesHelper;
 import com.mopub.common.logging.MoPubLog;
+import com.mopub.common.privacy.ConsentData;
 import com.mopub.common.privacy.ConsentStatus;
 import com.mopub.common.privacy.MoPubIdentifierTest;
 import com.mopub.common.privacy.PersonalInfoManager;
 import com.mopub.common.privacy.SyncRequest;
-import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.Reflection;
 import com.mopub.common.util.ResponseHeader;
+import com.mopub.mobileads.factories.BaseAdFactory;
+import com.mopub.mobileads.factories.FullscreenAdAdapterFactory;
+import com.mopub.mobileads.test.support.TestBaseAdFactory;
 import com.mopub.mobileads.test.support.TestFullscreenAdAdapterFactory;
 import com.mopub.network.AdResponse;
 import com.mopub.network.MoPubNetworkError;
@@ -41,14 +46,21 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 import org.mockito.stubbing.Answer;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.rule.PowerMockRule;
 import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.shadows.ShadowLog;
 import org.robolectric.shadows.ShadowLooper;
 
@@ -60,19 +72,25 @@ import java.util.Set;
 
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.fest.assertions.api.Assertions.fail;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
-@RunWith(SdkTestRunner.class)
+@RunWith(RobolectricTestRunner.class)
+@PowerMockIgnore({ "org.mockito.*", "org.robolectric.*", "android.*", "org.json.*", "javax.net.ssl.SSLSocketFactory"})
+@PrepareForTest(CESettingsCacheService.class)
 public class
 MoPubRewardedAdManagerTest {
 
@@ -106,9 +124,17 @@ MoPubRewardedAdManagerTest {
     private SharedPreferences mTestAdAdapterSharedPrefs;
     private PersonalInfoManager mockPersonalInfoManager;
 
+    @Rule
+    public PowerMockRule rule = new PowerMockRule();
+
     @Before
     public void setup() throws Exception {
+        MockitoAnnotations.initMocks(this);
+
         mActivity = Robolectric.buildActivity(Activity.class).create().get();
+
+        FullscreenAdAdapterFactory.setInstance(new TestFullscreenAdAdapterFactory());
+        BaseAdFactory.setInstance(new TestBaseAdFactory());
 
         new Reflection.MethodBuilder(null, "resetMoPub")
                 .setStatic(MoPub.class)
@@ -137,6 +163,9 @@ MoPubRewardedAdManagerTest {
 
         mockPersonalInfoManager = mock(PersonalInfoManager.class);
         when(mockPersonalInfoManager.getPersonalInfoConsentStatus()).thenReturn(ConsentStatus.UNKNOWN);
+        ConsentData mockConsentData = mock(ConsentData.class);
+        when(mockPersonalInfoManager.getConsentData()).thenReturn(mockConsentData);
+
         new Reflection.MethodBuilder(null, "setPersonalInfoManager")
                 .setStatic(MoPub.class)
                 .setAccessible()
@@ -163,12 +192,38 @@ MoPubRewardedAdManagerTest {
         }).when(mockRequestQueue).add(any(MoPubRequest.class));
 
         Networking.setRequestQueueForTesting(mockRequestQueue);
+
+        PowerMockito.mockStatic(CESettingsCacheService.class);
+
+        PowerMockito.doAnswer(invocation -> {
+            CESettingsCacheService.CESettingsCacheListener cacheListener = invocation
+                    .getArgumentAt(1,  CESettingsCacheService.CESettingsCacheListener.class);
+            cacheListener.onHashReceived("0");
+            return null;
+        }).when(CESettingsCacheService.class, "getCESettingsHash",
+                anyString(),
+                any(CESettingsCacheService.CESettingsCacheListener.class),
+                any(Context.class));
+
+        PowerMockito.doAnswer(invocation -> {
+            CESettingsCacheService.CESettingsCacheListener cacheListener = invocation
+                    .getArgumentAt(1,  CESettingsCacheService.CESettingsCacheListener.class);
+            cacheListener.onSettingsReceived(CreativeExperienceSettings.getDefaultSettings(true));
+            return null;
+        }).when(CESettingsCacheService.class, "getCESettings",
+                anyString(),
+                any(CESettingsCacheService.CESettingsCacheListener.class),
+                any(Context.class));
+
+        shadowOf(Looper.getMainLooper()).idle();
     }
 
     @After
     public void tearDown() throws Exception {
         // Unpause the main looper in case a test terminated while the looper was paused.
         ShadowLooper.unPauseMainLooper();
+        // Drain the Main Looper in case a test has unexecuted runnables
+        shadowOf(Looper.getMainLooper()).idle();
         MoPubRewardedAdManager.getRewardedAdData().clear();
         MoPubRewardedAdManager.getAdRequestStatusMapping().clearMapping();
         mTestAdAdapterSharedPrefs.edit().clear().apply();
@@ -303,10 +358,11 @@ MoPubRewardedAdManagerTest {
 
         // Load the first base ad
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onResponse(testResponse);
-        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         // Verify the first base ad
         assertThat(MoPubRewardedAdManager.hasAd(adUnitId)).isTrue();
@@ -328,6 +384,38 @@ MoPubRewardedAdManagerTest {
         verifyNoMoreInteractions(mockRewardedAdListener);
         // Make sure the second load does not attempt to load another ad
         verifyNoMoreInteractions(mockRequestQueue);
+    }
+
+    @Test
+    public void loadAd_whenCeSettingsCacheListenerReceivesHash_shouldLoadAd_withUrlHashSet() throws Exception{
+        when(mockPersonalInfoManager.canCollectPersonalInformation()).thenReturn(true);
+
+        new Reflection.MethodBuilder(null, "setPersonalInfoManager")
+                .setStatic(MoPub.class)
+                .setAccessible()
+                .addParam(PersonalInfoManager.class, mockPersonalInfoManager)
+                .execute();
+
+        PowerMockito.doAnswer(invocation -> {
+            CESettingsCacheService.CESettingsCacheListener cacheListener = invocation
+                    .getArgumentAt(1,  CESettingsCacheService.CESettingsCacheListener.class);
+            cacheListener.onHashReceived("12345");
+            return null;
+        }).when(CESettingsCacheService.class, "getCESettingsHash",
+                anyString(),
+                any(CESettingsCacheService.CESettingsCacheListener.class),
+                any(Context.class));
+
+        // Robolectric executes its handlers immediately, so if we want the async behavior we see
+        // in an actual app we have to pause the main looper until we're done successfully loading the ad.
+        ShadowLooper.pauseMainLooper();
+
+        MoPubRewardedAdManager.loadAd("testAdUnit", null);
+
+        ShadowLooper.unPauseMainLooper();
+
+        String requestUrl = request.getOriginalUrl();
+        assertThat(requestUrl.contains("hash=12345"));
     }
 
     @Test
@@ -365,6 +453,27 @@ MoPubRewardedAdManagerTest {
                 MoPubReward.success("test", 111));
 
         // The test passed because none of the above calls threw an exception even though the listener is null.
+    }
+
+    @Test
+    public void onAdSuccess_withEmptyAdUnitId_shouldNotLoadAd() throws Exception {
+        JSONObject jsonResponse = createRewardedJsonResponse();
+
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200,
+                jsonResponse.toString().getBytes(), Collections.emptyMap());
+        MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse,
+                AdFormat.REWARDED_AD, "");
+
+        // Robolectric executes its handlers immediately, so if we want the async behavior we see
+        // in an actual app we have to pause the main looper until we're done successfully loading the ad.
+        ShadowLooper.pauseMainLooper();
+
+        MoPubRewardedAdManager.loadAd("", null);
+        requestListener.onResponse(testResponse);
+
+        ShadowLooper.unPauseMainLooper();
+
+        verify(mockRequestQueue, never());
     }
 
     @Test
@@ -447,10 +556,11 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onResponse(testResponse);
-        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         assertThat(MoPubRewardedAdManager.hasAd(adUnitId)).isTrue();
         verify(mockRewardedAdListener).onRewardedAdLoadSuccess(eq(adUnitId));
@@ -476,10 +586,11 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onResponse(testResponse);
-        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         assertThat(MoPubRewardedAdManager.hasAd(adUnitId)).isTrue();
         verify(mockRewardedAdListener).onRewardedAdLoadSuccess(eq(adUnitId));
@@ -511,10 +622,11 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onResponse(testResponse);
-        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         assertThat(MoPubRewardedAdManager.hasAd(adUnitId)).isTrue();
         verify(mockRewardedAdListener).onRewardedAdLoadSuccess(eq(adUnitId));
@@ -546,10 +658,11 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onResponse(testResponse);
-        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         assertThat(MoPubRewardedAdManager.hasAd(adUnitId)).isTrue();
         verify(mockRewardedAdListener).onRewardedAdLoadSuccess(eq(adUnitId));
@@ -583,10 +696,11 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onResponse(testResponse);
-        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         assertThat(MoPubRewardedAdManager.hasAd(adUnitId)).isTrue();
         verify(mockRewardedAdListener).onRewardedAdLoadSuccess(eq(adUnitId));
@@ -652,10 +766,11 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onResponse(testResponse);
-        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         Map<String, ?> networkInitSettings = mTestAdAdapterSharedPrefs.getAll();
         String testAdAdapterClassName = TestFullscreenAdAdapterFactory.getSingletonMock().getClass().toString();
@@ -722,10 +837,11 @@ MoPubRewardedAdManagerTest {
 
         // Load the first base ad
         MoPubRewardedAdManager.loadAd("testAdUnit1", null);
-        requestListener.onResponse(testResponse);
-        final FullscreenAdAdapter adAdapter1 = (FullscreenAdAdapter) MoPubRewardedAdManager.getRewardedAdData().getAdAdapter("testAdUnit1");
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        final FullscreenAdAdapter adAdapter1 = (FullscreenAdAdapter) MoPubRewardedAdManager.getRewardedAdData().getAdAdapter("testAdUnit1");
 
         // Get the first base ad's broadcast id
         Long broadcastId1 = adAdapter1.getBroadcastIdentifier();
@@ -736,10 +852,11 @@ MoPubRewardedAdManagerTest {
         // Load the second base ad
         testResponse = new MultiAdResponse(mActivity, netResponse, AdFormat.REWARDED_AD, "testAdUnit2");
         MoPubRewardedAdManager.loadAd("testAdUnit2", null);
-        requestListener.onResponse(testResponse);
-        final FullscreenAdAdapter adAdapter2 = (FullscreenAdAdapter) MoPubRewardedAdManager.getRewardedAdData().getAdAdapter("testAdUnit2");
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        final FullscreenAdAdapter adAdapter2 = (FullscreenAdAdapter) MoPubRewardedAdManager.getRewardedAdData().getAdAdapter("testAdUnit2");
 
         // Get the second base ad's broadcast id
         Long broadcastId2 = adAdapter2.getBroadcastIdentifier();
@@ -779,6 +896,145 @@ MoPubRewardedAdManagerTest {
     }
 
     @Test
+    public void onAdSuccess_whenAdResponseContainsNewCeSettings_shouldCacheNewSettings_shouldUseNewSettings_shouldInstantiateAdAdapter() throws Exception {
+        JSONObject jsonResponse = createRewardedJsonResponse();
+        jsonResponse.put(ResponseHeader.FAIL_URL.getKey(), "fail.url");
+        jsonResponse.put(ResponseHeader.REWARDED.getKey(), "1");
+        jsonResponse.put(ResponseHeader.CREATIVE_EXPERIENCE_SETTINGS.getKey(),
+                CreativeExperienceSettingsParserTest.getCeSettingsJSONObject());
+        JSONObject firstResponse = jsonResponse.getJSONArray(ResponseHeader.AD_RESPONSES.getKey())
+                .getJSONObject(0);
+        JSONObject metadata = firstResponse.getJSONObject(ResponseHeader.METADATA.getKey());
+        metadata.put(ResponseHeader.CUSTOM_EVENT_NAME.getKey(),
+                "com.mopub.mobileads.MoPubRewardedAdManagerTest$TestAdAdapter");
+        metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
+
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200,
+                jsonResponse.toString().getBytes(), Collections.emptyMap());
+        MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse,
+                AdFormat.REWARDED_AD, adUnitId);
+
+        CreativeExperienceSettings responseSettings = CreativeExperienceSettingsParser
+                .parse(CreativeExperienceSettingsParserTest.getCeSettingsJSONObject(), true);
+        PowerMockito.doAnswer(invocation -> {
+            CreativeExperienceSettings settingsToCache = invocation
+                    .getArgumentAt(1,  CreativeExperienceSettings.class);
+            // Verify attempt to cache new settings
+            assertEquals(responseSettings, settingsToCache);
+            return null;
+        }).when(CESettingsCacheService.class, "putCESettings",
+                anyString(),
+                any(CreativeExperienceSettings.class),
+                any(Context.class));
+
+        // Robolectric executes its handlers immediately, so if we want the async behavior we see
+        // in an actual app we have to pause the main looper until we're done successfully loading the ad.
+        ShadowLooper.pauseMainLooper();
+
+        MoPubRewardedAdManager.loadAd(adUnitId, null);
+        requestListener.onResponse(testResponse);
+
+        ShadowLooper.unPauseMainLooper();
+
+        // Verify adapter is instantiated
+        assertNotNull(MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId));
+        // Verify new settings are used
+        CreativeExperienceSettings ceSettingsUnderTest = MoPubRewardedAdManager
+                .getCreativeExperienceSettings();
+        assertEquals(responseSettings, ceSettingsUnderTest);
+    }
+
+    @Test
+    public void onAdSuccess_whenAdResponseDoesNotContainNewCeSettings_shouldGetSettingsFromCache_whenSettingsAreNull_shouldUseDefaultSettings_shouldInstantiateAdAdapter() throws Exception {
+        JSONObject jsonResponse = createRewardedJsonResponse();
+        jsonResponse.put(ResponseHeader.FAIL_URL.getKey(), "fail.url");
+        jsonResponse.put(ResponseHeader.REWARDED.getKey(), "1");
+        JSONObject firstResponse = jsonResponse.getJSONArray(ResponseHeader.AD_RESPONSES.getKey())
+                .getJSONObject(0);
+        JSONObject metadata = firstResponse.getJSONObject(ResponseHeader.METADATA.getKey());
+        metadata.put(ResponseHeader.CUSTOM_EVENT_NAME.getKey(),
+                "com.mopub.mobileads.MoPubRewardedAdManagerTest$TestAdAdapter");
+        metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
+
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200,
+                jsonResponse.toString().getBytes(), Collections.emptyMap());
+        MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse,
+                AdFormat.REWARDED_AD, adUnitId);
+
+        PowerMockito.doAnswer(invocation -> {
+            CESettingsCacheService.CESettingsCacheListener cacheListener = invocation
+                    .getArgumentAt(1,  CESettingsCacheService.CESettingsCacheListener.class);
+            cacheListener.onSettingsReceived(null);
+            return null;
+        }).when(CESettingsCacheService.class, "getCESettings",
+                anyString(),
+                any(CESettingsCacheService.CESettingsCacheListener.class),
+                any(Context.class));
+
+        // Robolectric executes its handlers immediately, so if we want the async behavior we see
+        // in an actual app we have to pause the main looper until we're done successfully loading the ad.
+        ShadowLooper.pauseMainLooper();
+
+        MoPubRewardedAdManager.loadAd(adUnitId, null);
+        requestListener.onResponse(testResponse);
+
+        ShadowLooper.unPauseMainLooper();
+
+        // Verify adapter is instantiated
+        assertNotNull(MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId));
+        // Verify default settings are used
+        CreativeExperienceSettings ceSettingsUnderTest = MoPubRewardedAdManager
+                .getCreativeExperienceSettings();
+        assertEquals(CreativeExperienceSettings.getDefaultSettings(true), ceSettingsUnderTest);
+    }
+
+    @Test
+    public void onAdSuccess_whenAdResponseDoesNotContainNewCeSettings_shouldGetSettingsFromCache_shouldUseCachedSettings_shouldInstantiateAdAdapter() throws Exception {
+        JSONObject jsonResponse = createRewardedJsonResponse();
+        jsonResponse.put(ResponseHeader.FAIL_URL.getKey(), "fail.url");
+        jsonResponse.put(ResponseHeader.REWARDED.getKey(), "1");
+        JSONObject firstResponse = jsonResponse.getJSONArray(ResponseHeader.AD_RESPONSES.getKey())
+                .getJSONObject(0);
+        JSONObject metadata = firstResponse.getJSONObject(ResponseHeader.METADATA.getKey());
+        metadata.put(ResponseHeader.CUSTOM_EVENT_NAME.getKey(),
+                "com.mopub.mobileads.MoPubRewardedAdManagerTest$TestAdAdapter");
+        metadata.put(ResponseHeader.AD_TYPE.getKey(), AdType.CUSTOM);
+
+        MoPubNetworkResponse netResponse = new MoPubNetworkResponse(200,
+                jsonResponse.toString().getBytes(), Collections.emptyMap());
+        MultiAdResponse testResponse = new MultiAdResponse(mActivity, netResponse,
+                AdFormat.REWARDED_AD, adUnitId);
+
+        CreativeExperienceSettings cachedSettings = CreativeExperienceSettingsParser.parse(
+                CreativeExperienceSettingsParserTest.getCeSettingsJSONObject(), true);
+        PowerMockito.doAnswer(invocation -> {
+            CESettingsCacheService.CESettingsCacheListener cacheListener = invocation
+                    .getArgumentAt(1,  CESettingsCacheService.CESettingsCacheListener.class);
+            cacheListener.onSettingsReceived(cachedSettings);
+            return null;
+        }).when(CESettingsCacheService.class, "getCESettings",
+                anyString(),
+                any(CESettingsCacheService.CESettingsCacheListener.class),
+                any(Context.class));
+
+        // Robolectric executes its handlers immediately, so if we want the async behavior we see
+        // in an actual app we have to pause the main looper until we're done successfully loading the ad.
+        ShadowLooper.pauseMainLooper();
+
+        MoPubRewardedAdManager.loadAd(adUnitId, null);
+        requestListener.onResponse(testResponse);
+
+        ShadowLooper.unPauseMainLooper();
+
+        // Verify adapter is instantiated
+        assertNotNull(MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId));
+        // Verify the cached settings are used
+        CreativeExperienceSettings ceSettingsUnderTest = MoPubRewardedAdManager
+                .getCreativeExperienceSettings();
+        assertEquals(cachedSettings, ceSettingsUnderTest);
+    }
+
+    @Test
     public void onRewardedAdClosed_shouldSetHasAdFalse() throws JSONException, MoPubNetworkError {
         JSONObject jsonResponse = createRewardedJsonResponse();
         JSONObject firstResponse = jsonResponse.getJSONArray(ResponseHeader.AD_RESPONSES.getKey()).getJSONObject(0);
@@ -794,11 +1050,12 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
+
+        ShadowLooper.unPauseMainLooper();
+
         requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdShown();
-
-        ShadowLooper.unPauseMainLooper();
 
         assertThat(MoPubRewardedAdManager.hasAd(adUnitId)).isTrue();
         MoPubRewardedAdManager.showAd(adUnitId);
@@ -825,10 +1082,11 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onResponse(testResponse);
-        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoadFailed(MoPubErrorCode.NETWORK_NO_FILL);
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoadFailed(MoPubErrorCode.NETWORK_NO_FILL);
 
         verify(mockRewardedAdListener).onRewardedAdLoadFailure(eq(adUnitId), eq(MoPubErrorCode.NETWORK_NO_FILL));
 
@@ -854,10 +1112,11 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
-        requestListener.onResponse(testResponse);
-        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         ShadowLooper.unPauseMainLooper();
+
+        requestListener.onResponse(testResponse);
+        MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
         // Multiple rewards are available, but a reward is not selected before showing ad
         MoPubRewardedAdManager.showAd(adUnitId);
@@ -882,6 +1141,9 @@ MoPubRewardedAdManagerTest {
 
         final RewardedAdData rewardedAdData = MoPubRewardedAdManager.getRewardedAdData();
         MoPubRewardedAdManager.loadAd(adUnitId, null);
+
+        ShadowLooper.unPauseMainLooper();
+
         requestListener.onResponse(testResponse);
         final AdAdapter adAdapter = rewardedAdData.getAdAdapter(adUnitId);
         adAdapter.onAdLoaded();
@@ -901,8 +1163,6 @@ MoPubRewardedAdManagerTest {
         MoPubReward moPubReward = rewardedAdData.getMoPubReward(adUnitId);
         assertThat(moPubReward.getLabel()).isEqualTo("Diamonds");
         assertThat(moPubReward.getAmount()).isEqualTo(10);
-
-        ShadowLooper.unPauseMainLooper();
 
         MoPubRewardedAdManager.showAd(adUnitId);
 
@@ -929,6 +1189,9 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
+
+        ShadowLooper.unPauseMainLooper();
+
         requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
@@ -945,8 +1208,6 @@ MoPubRewardedAdManagerTest {
 
         // No selected reward is mapped to AdUnit
         assertThat(MoPubRewardedAdManager.getRewardedAdData().getMoPubReward(adUnitId)).isNull();
-
-        ShadowLooper.unPauseMainLooper();
 
         MoPubRewardedAdManager.showAd(adUnitId);
         verify(mockRewardedAdListener).onRewardedAdLoadFailure(eq(adUnitId), eq(MoPubErrorCode.REWARD_NOT_SELECTED));
@@ -969,6 +1230,9 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
+
+        ShadowLooper.unPauseMainLooper();
+
         requestListener.onResponse(testResponse);
         MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId).onAdLoaded();
 
@@ -980,8 +1244,6 @@ MoPubRewardedAdManagerTest {
 
         // No selected reward is mapped to AdUnit
         assertThat(MoPubRewardedAdManager.getRewardedAdData().getMoPubReward(adUnitId)).isNull();
-
-        ShadowLooper.unPauseMainLooper();
 
         MoPubRewardedAdManager.showAd(adUnitId);
         verify(mockRewardedAdListener).onRewardedAdLoadFailure(eq(adUnitId), eq(MoPubErrorCode.REWARD_NOT_SELECTED));
@@ -1005,6 +1267,9 @@ MoPubRewardedAdManagerTest {
 
         final RewardedAdData rewardedAdData = MoPubRewardedAdManager.getRewardedAdData();
         MoPubRewardedAdManager.loadAd(adUnitId, null);
+
+        ShadowLooper.unPauseMainLooper();
+
         requestListener.onResponse(testResponse);
         final AdAdapter adAdapter = rewardedAdData.getAdAdapter(adUnitId);
         adAdapter.onAdLoaded();
@@ -1016,8 +1281,6 @@ MoPubRewardedAdManagerTest {
         MoPubReward moPubReward = rewardedAdData.getMoPubReward(adUnitId);
         assertThat(moPubReward.getLabel()).isEqualTo("Coins");
         assertThat(moPubReward.getAmount()).isEqualTo(25);
-
-        ShadowLooper.unPauseMainLooper();
 
         MoPubRewardedAdManager.showAd(adUnitId);
 
@@ -1046,11 +1309,12 @@ MoPubRewardedAdManagerTest {
         ShadowLooper.pauseMainLooper();
 
         MoPubRewardedAdManager.loadAd(adUnitId, null);
+
+        ShadowLooper.unPauseMainLooper();
+
         requestListener.onResponse(testResponse);
         final AdAdapter adAdapter = MoPubRewardedAdManager.getRewardedAdData().getAdAdapter(adUnitId);
         adAdapter.onAdLoaded();
-
-        ShadowLooper.unPauseMainLooper();
 
         MoPubRewardedAdManager.showAd(adUnitId);
         adAdapter.onAdShown();

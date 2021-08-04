@@ -14,7 +14,6 @@ public enum MraidJavascriptCommand {
             return placementType == PlacementType.INLINE;
         }
     },
-    USE_CUSTOM_CLOSE("usecustomclose"),
     OPEN("open") {
         @Override
         boolean requiresClick(@NonNull final PlacementType placementType) {

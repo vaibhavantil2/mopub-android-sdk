@@ -15,6 +15,8 @@ import com.mopub.common.Preconditions;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.privacy.PersonalInfoManager;
 
+import java.util.Map;
+
 import static com.mopub.common.logging.MoPubLog.AdLogEvent.CUSTOM;
 
 /**
@@ -76,6 +78,15 @@ public class MultiAdRequest extends MoPubRequest<MultiAdResponse> {
             return "";
         }
         return url;
+    }
+
+    @Nullable
+    @Override
+    protected Map<String, String> getParams() {
+        if (!MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return null;
+        }
+        return super.getParams();
     }
 
     @NonNull

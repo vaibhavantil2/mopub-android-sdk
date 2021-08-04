@@ -32,7 +32,7 @@ import static com.mopub.common.logging.MoPubLog.SdkLogEvent.INIT_FINISHED;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.INIT_STARTED;
 
 public class MoPub {
-    public static final String SDK_VERSION = "5.17.0";
+    public static final String SDK_VERSION = "5.18.0";
 
     public enum LocationAwareness { NORMAL, TRUNCATED, DISABLED }
 
@@ -229,7 +229,8 @@ public class MoPub {
         sSdkInitializing = true;
 
         // Guarantees initialization of the request queue on the main thread.
-        Networking.getRequestQueue(context, new PlayServicesUrlRewriter());
+        Networking.setUrlRewriter(new PlayServicesUrlRewriter());
+        Networking.getRequestQueue(context);
 
         final InternalSdkInitializationListener internalSdkInitializationListener =
                 new InternalSdkInitializationListener(sdkInitializationListener);

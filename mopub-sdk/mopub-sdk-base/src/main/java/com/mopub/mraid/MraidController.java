@@ -17,6 +17,7 @@ import android.net.Uri;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Patterns;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
@@ -31,7 +32,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.mopub.common.CloseableLayout;
-import com.mopub.common.CloseableLayout.ClosePosition;
 import com.mopub.common.CloseableLayout.OnCloseListener;
 import com.mopub.common.Preconditions;
 import com.mopub.common.UrlAction;
@@ -46,6 +46,7 @@ import com.mopub.mobileads.BaseWebView;
 import com.mopub.mobileads.BaseWebViewViewability;
 import com.mopub.mobileads.MoPubErrorCode;
 import com.mopub.mobileads.MoPubWebViewController;
+import com.mopub.mobileads.base.R;
 import com.mopub.mobileads.util.WebViews;
 import com.mopub.mraid.MraidBridge.MraidBridgeListener;
 import com.mopub.mraid.MraidBridge.MraidWebView;
@@ -64,10 +65,6 @@ import static com.mopub.common.util.Utils.bitMaskContainsFlag;
 
 public class MraidController extends MoPubWebViewController {
 
-    public interface UseCustomCloseListener {
-        public void useCustomCloseChanged(boolean useCustomClose);
-    }
-
     @NonNull private final PlacementType mPlacementType;
 
     // Ad ad container which contains the ad view in expanded state.
@@ -82,9 +79,6 @@ public class MraidController extends MoPubWebViewController {
 
     // Current view state
     @NonNull private ViewState mViewState = ViewState.LOADING;
-
-    // Listeners
-    @Nullable private UseCustomCloseListener mOnCloseButtonListener;
 
     // The WebView which will display the ad. "Two part" creatives, loaded via handleExpand(URL)
     // are shown in a separate web view
@@ -133,11 +127,12 @@ public class MraidController extends MoPubWebViewController {
 
     @Nullable private String mDspCreativeId;
 
-    public MraidController(final @NonNull Context context, final @Nullable String dspCreativeId,
-            final @NonNull PlacementType placementType, final boolean allowCustomClose) {
+    public MraidController(final @NonNull Context context,
+                           final @Nullable String dspCreativeId,
+                           final @NonNull PlacementType placementType) {
         this(context, dspCreativeId, placementType,
-                new MraidBridge(placementType, allowCustomClose),
-                new MraidBridge(PlacementType.INTERSTITIAL, allowCustomClose),
+                new MraidBridge(placementType),
+                new MraidBridge(PlacementType.INTERSTITIAL),
                 new ScreenMetricsWaiter());
     }
 
@@ -157,7 +152,7 @@ public class MraidController extends MoPubWebViewController {
 
         DisplayMetrics displayMetrics = mContext.getResources().getDisplayMetrics();
         mScreenMetrics = new MraidScreenMetrics(mContext, displayMetrics.density);
-        mCloseableAdContainer = new CloseableLayout(mContext);
+        mCloseableAdContainer = new CloseableLayout(mContext, null);
         mCloseableAdContainer.setOnCloseListener(new OnCloseListener() {
             @Override
             public void onClose() {
@@ -227,20 +222,17 @@ public class MraidController extends MoPubWebViewController {
         }
 
         @Override
-        public void onResize(final int width, final int height, final int offsetX,
-                final int offsetY, @NonNull final ClosePosition closePosition,
-                final boolean allowOffscreen) throws MraidCommandException {
-            handleResize(width, height, offsetX, offsetY, closePosition, allowOffscreen);
+        public void onResize(final int width,
+                             final int height,
+                             final int offsetX,
+                             final int offsetY,
+                             final boolean allowOffscreen) throws MraidCommandException {
+            handleResize(width, height, offsetX, offsetY, allowOffscreen);
         }
 
-        public void onExpand(@Nullable final URI uri, final boolean shouldUseCustomClose)
+        public void onExpand(@Nullable final URI uri)
                 throws MraidCommandException {
-            handleExpand(uri, shouldUseCustomClose);
-        }
-
-        @Override
-        public void onUseCustomClose(final boolean shouldUseCustomClose) {
-            handleCustomClose(shouldUseCustomClose);
+            handleExpand(uri);
         }
 
         @Override
@@ -290,25 +282,22 @@ public class MraidController extends MoPubWebViewController {
         }
 
         @Override
-        public void onResize(final int width, final int height, final int offsetX,
-                final int offsetY, @NonNull final ClosePosition closePosition,
-                final boolean allowOffscreen) throws MraidCommandException {
+        public void onResize(final int width,
+                             final int height,
+                             final int offsetX,
+                             final int offsetY,
+                             final boolean allowOffscreen) throws MraidCommandException {
             throw new MraidCommandException("Not allowed to resize from an expanded state");
         }
 
         @Override
-        public void onExpand(@Nullable final URI uri, final boolean shouldUseCustomClose) {
+        public void onExpand(@Nullable final URI uri) {
             // The MRAID spec dictates that this is ignored rather than firing an error
         }
 
         @Override
         public void onClose() {
             handleClose();
-        }
-
-        @Override
-        public void onUseCustomClose(final boolean shouldUseCustomClose) {
-            handleCustomClose(shouldUseCustomClose);
         }
 
         @Override
@@ -323,10 +312,6 @@ public class MraidController extends MoPubWebViewController {
         }
     };
 
-    public void setUseCustomCloseListener(@Nullable UseCustomCloseListener listener) {
-        mOnCloseButtonListener = listener;
-    }
-
     public void setDebugListener(@Nullable WebViewDebugListener debugListener) {
         mDebugListener = debugListener;
     }
@@ -334,9 +319,6 @@ public class MraidController extends MoPubWebViewController {
     @Override
     public void onShow(@NonNull final Activity activity) {
         super.onShow(activity);
-        if (mOnCloseButtonListener != null) {
-            mOnCloseButtonListener.useCustomCloseChanged(isUsingCustomClose());
-        }
         try {
             applyOrientation();
         } catch (MraidCommandException e) {
@@ -575,9 +557,11 @@ public class MraidController extends MoPubWebViewController {
     }
 
     @VisibleForTesting
-    void handleResize(final int widthDips, final int heightDips, final int offsetXDips,
-            final int offsetYDips, @NonNull final ClosePosition closePosition,
-            final boolean allowOffscreen)
+    void handleResize(final int widthDips,
+                      final int heightDips,
+                      final int offsetXDips,
+                      final int offsetYDips,
+                      final boolean allowOffscreen)
             throws MraidCommandException {
         if (mWebView == null) {
             throw new MraidCommandException("Unable to resize after the WebView is destroyed");
@@ -625,7 +609,7 @@ public class MraidController extends MoPubWebViewController {
 
         // The entire close region must always be visible.
         Rect closeRect = new Rect();
-        mCloseableAdContainer.applyCloseRegionBounds(closePosition, resizeRect, closeRect);
+        mCloseableAdContainer.applyCloseRegionBounds(resizeRect, closeRect);
         if (!mScreenMetrics.getRootViewRect().contains(closeRect)) {
             throw new MraidCommandException("resizeProperties specified a size ("
                     + widthDips + ", " + heightDips + ") and offset ("
@@ -641,8 +625,6 @@ public class MraidController extends MoPubWebViewController {
                     + offsetXDips + ", " + offsetYDips + ") that don't allow the close region to appear "
                     + "within the resized ad.");
         }
-
-        mCloseableAdContainer.setClosePosition(closePosition);
 
         // Put the ad in the closeable container and resize it
         LayoutParams layoutParams = new LayoutParams(resizeRect.width(), resizeRect.height());
@@ -663,12 +645,11 @@ public class MraidController extends MoPubWebViewController {
         } else if (mViewState == ViewState.RESIZED) {
             mCloseableAdContainer.setLayoutParams(layoutParams);
         }
-        mCloseableAdContainer.setClosePosition(closePosition);
 
         setViewState(ViewState.RESIZED);
     }
 
-    void handleExpand(@Nullable URI uri, boolean shouldUseCustomClose)
+    void handleExpand(@Nullable URI uri)
             throws MraidCommandException {
         if (mWebView == null) {
             throw new MraidCommandException("Unable to expand after the WebView is destroyed");
@@ -735,7 +716,6 @@ public class MraidController extends MoPubWebViewController {
             // If we were resized and not 2 part, nothing to do.
         }
         mCloseableAdContainer.setLayoutParams(layoutParams);
-        handleCustomClose(shouldUseCustomClose);
 
         // Update to expanded once we have new screen metrics. This won't update the two-part ad,
         // because it is not yet loaded.
@@ -900,23 +880,6 @@ public class MraidController extends MoPubWebViewController {
                 && bitMaskContainsFlag(activityInfo.configChanges, CONFIG_SCREEN_SIZE);
 
         return containsNecessaryConfigChanges;
-    }
-
-    @VisibleForTesting
-    protected void handleCustomClose(boolean useCustomClose) {
-        boolean wasUsingCustomClose = isUsingCustomClose();
-        if (useCustomClose == wasUsingCustomClose) {
-            return;
-        }
-
-        mCloseableAdContainer.setCloseVisible(!useCustomClose);
-        if (mOnCloseButtonListener != null) {
-            mOnCloseButtonListener.useCustomCloseChanged(useCustomClose);
-        }
-    }
-
-    private boolean isUsingCustomClose() {
-        return !mCloseableAdContainer.isCloseVisible();
     }
 
     @Override

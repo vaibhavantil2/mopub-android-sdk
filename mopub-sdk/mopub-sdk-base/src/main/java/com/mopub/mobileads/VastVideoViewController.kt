@@ -9,36 +9,32 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.DisplayMetrics
 import android.view.MotionEvent.ACTION_UP
 import android.view.View
-import android.view.View.GONE
-import android.view.View.INVISIBLE
-import android.view.View.OnTouchListener
-import android.view.View.VISIBLE
-import android.view.View.generateViewId
+import android.view.View.*
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.RelativeLayout
+
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.media.AudioAttributesCompat
 import androidx.media2.common.SessionPlayer
-import androidx.media2.common.SessionPlayer.PLAYER_STATE_ERROR
-import androidx.media2.common.SessionPlayer.PLAYER_STATE_IDLE
-import androidx.media2.common.SessionPlayer.PLAYER_STATE_PAUSED
-import androidx.media2.common.SessionPlayer.PLAYER_STATE_PLAYING
+import androidx.media2.common.SessionPlayer.*
 import androidx.media2.common.UriMediaItem
 import androidx.media2.player.MediaPlayer
 import androidx.media2.player.PlaybackParams
 import androidx.media2.widget.VideoView
+
 import com.mopub.common.*
 import com.mopub.common.MoPubBrowser.MOPUB_BROWSER_REQUEST_CODE
 import com.mopub.common.logging.MoPubLog
@@ -46,13 +42,17 @@ import com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM
 import com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM_WITH_THROWABLE
 import com.mopub.common.util.Dips
 import com.mopub.mobileads.AdData.Companion.MILLIS_IN_SECOND
+import com.mopub.mobileads.base.R
 import com.mopub.mobileads.factories.MediaPlayerFactory
 import com.mopub.mobileads.factories.VideoViewFactory
 import com.mopub.mobileads.resource.DrawableConstants.PrivacyInfoIcon.LEFT_MARGIN_DIPS
 import com.mopub.mobileads.resource.DrawableConstants.PrivacyInfoIcon.TOP_MARGIN_DIPS
 import com.mopub.network.TrackingRequest.makeVastTrackingHttpRequest
-import java.util.Collections
+
+import java.util.*
 import java.util.concurrent.ExecutorService
+
+import kotlin.collections.HashSet
 
 @Mockable
 class VastVideoViewController(
@@ -68,8 +68,6 @@ class VastVideoViewController(
         const val CURRENT_POSITION = "current_position"
         const val RESUMED_VAST_CONFIG = "resumed_vast_config"
         const val WEBVIEW_PADDING = 16
-        const val DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON = 5 * 1000
-        const val MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON = 16 * 1000
 
         private const val VIDEO_PROGRESS_TIMER_CHECKER_DELAY: Long = 50
         private const val VIDEO_COUNTDOWN_UPDATE_INTERVAL: Long = 250
@@ -114,16 +112,22 @@ class VastVideoViewController(
     @VisibleForTesting
     var shouldAllowClose: Boolean = false
     @VisibleForTesting
-    var showCloseButtonDelay = DEFAULT_VIDEO_DURATION_FOR_CLOSE_BUTTON
+    var countdownTimeMillis = 0
     @VisibleForTesting
     var isCalibrationDone: Boolean = false
     @VisibleForTesting
     var isClosing: Boolean = false
     @VisibleForTesting
     var hasCompanionAd: Boolean = false
+    @VisibleForTesting
+    var showCountdownTimerDelayMillis: Int = 0
+    @VisibleForTesting
+    var showCountdownTimer: Boolean = true
 
     var videoError: Boolean = false
     val networkMediaFileUrl get() = vastVideoConfig.networkMediaFileUrl
+
+    lateinit var creativeExperienceSettings: CreativeExperienceSettings
 
     init {
         val resumed =
@@ -142,9 +146,11 @@ class VastVideoViewController(
                     })) {
                 "VastVideoConfig is invalid"
             }
-        adData?.let {
-            vastVideoConfig.countdownTimerDuration = it.rewardedDurationSeconds * MILLIS_IN_SECOND
-        }
+
+        creativeExperienceSettings = requireNotNull(adData) {
+            "AdData is invalid"
+        }.creativeExperienceSettings
+        showCountdownTimer = creativeExperienceSettings.mainAdConfig.showCountdownTimer
 
         seekerPositionOnPause = resumed?.let {
             savedInstanceState?.getInt(CURRENT_POSITION, SEEKER_POSITION_NOT_INITIALIZED)
@@ -184,8 +190,7 @@ class VastVideoViewController(
 
         clickThroughListener = OnTouchListener { _, event ->
             if (event.action == ACTION_UP &&
-                !vastVideoConfig.clickThroughUrl.isNullOrEmpty() &&
-                (!vastVideoConfig.isRewarded || (shouldAllowClose))
+                !vastVideoConfig.clickThroughUrl.isNullOrEmpty()
             ) {
                 externalViewabilitySessionManager.recordVideoEvent(
                     VideoEvent.AD_CLICK_THRU,
@@ -200,7 +205,7 @@ class VastVideoViewController(
             true
         }
 
-        layout.setBackgroundColor(Color.BLACK)
+        setLayout(activity.layoutInflater.inflate(R.layout.vast_layout, null) as RelativeLayout)
 
         // Video view
         videoView = createVideoView(activity, VISIBLE)
@@ -212,95 +217,90 @@ class VastVideoViewController(
         )
 
         // Top transparent gradient strip overlaying top of screen
-        val hasCompanionAd = !vastCompanionAdConfigs.isEmpty()
-        topGradientStripWidget = VastVideoGradientStripWidget(
-            context,
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            hasCompanionAd,
-            VISIBLE,
-            RelativeLayout.ALIGN_TOP,
-            layout.id,
-            true
-        ).also {
-            layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.OVERLAY)
-        }
+        val hasCompanionAd = vastCompanionAdConfigs.isNotEmpty()
+
+        topGradientStripWidget =
+            (layout.findViewById(R.id.mopub_vast_top_gradient) as VastVideoGradientStripWidget)
+                .also {
+                    it.setGradientOrientation(GradientDrawable.Orientation.TOP_BOTTOM)
+                    it.hasCompanionAd = hasCompanionAd
+                    it.setVisibilityForCompanionAd(VISIBLE)
+                    it.alwaysVisibleDuringVideo = true
+                    externalViewabilitySessionManager.registerVideoObstruction(it,
+                        ViewabilityObstruction.OVERLAY)
+                    it.updateVisibility()
+                }
 
         // Progress bar overlaying bottom of video view
-        progressBarWidget = VastVideoProgressBarWidget(context).also {
-            it.setAnchorId(videoView.id)
-            it.visibility = INVISIBLE
-            layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.PROGRESS_BAR)
-        }
+        progressBarWidget =
+            (layout.findViewById(R.id.mopub_vast_progress_bar) as VastVideoProgressBarWidget)
+                .also {
+                    it.visibility = INVISIBLE
+                    externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.PROGRESS_BAR)
+                }
 
         // Bottom transparent gradient strip above progress bar
-        bottomGradientStripWidget = VastVideoGradientStripWidget(
-            context,
-            GradientDrawable.Orientation.BOTTOM_TOP,
-            hasCompanionAd,
-            GONE,
-            RelativeLayout.ABOVE,
-            progressBarWidget.id,
-            false
-        ).also {
-            layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.OVERLAY)
-        }
+        bottomGradientStripWidget =
+            (layout.findViewById(R.id.mopub_vast_bottom_gradient) as VastVideoGradientStripWidget)
+                .also {
+                    it.setGradientOrientation(GradientDrawable.Orientation.BOTTOM_TOP)
+                    it.hasCompanionAd = hasCompanionAd
+                    it.setVisibilityForCompanionAd(GONE)
+                    it.alwaysVisibleDuringVideo = false
+                    externalViewabilitySessionManager.registerVideoObstruction(it,
+                        ViewabilityObstruction.OVERLAY)
+                    it.updateVisibility()
+                }
 
         // Radial countdown timer snapped to top-right corner of screen
-        radialCountdownWidget = RadialCountdownWidget(context).also {
-            it.visibility = INVISIBLE
-            layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.COUNTDOWN_TIMER)
-            it.setOnTouchListener { view, event ->
-                true
-            }
-            it.setOnClickListener{ }
-        }
-
-        ctaButtonWidget = VideoCtaButtonWidget(
-            context,
-            hasCompanionAd,
-            !vastVideoConfig.clickThroughUrl.isNullOrEmpty()
-        ).also {
-            layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.CTA_BUTTON)
-            vastVideoConfig.customCtaText?.let { ctaText ->
-                it.updateCtaText(ctaText)
-            }
-            it.setOnTouchListener(clickThroughListener)
-        }
-
-        closeButtonWidget = VastVideoCloseButtonWidget(context).also {
-            it.visibility = GONE
-            layout.addView(it)
-            externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.CLOSE_BUTTON)
-
-            it.setOnTouchListenerToContent(OnTouchListener { _, event ->
-                if (event.action != ACTION_UP) {
-                    return@OnTouchListener true
+        radialCountdownWidget =
+            (layout.findViewById(R.id.mopub_vast_radial_countdown) as RadialCountdownWidget)
+                .also {
+                    externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.COUNTDOWN_TIMER)
+                    it.visibility = INVISIBLE
+                    it.setOnTouchListener { _, _ ->
+                        true
+                    }
+                    it.setOnClickListener{ }
                 }
 
-                isClosing = isComplete
-                handleExitTrackers()
-                Handler(Looper.getMainLooper()).post {
-                    baseVideoViewControllerListener.onVideoFinish(getCurrentPosition())
+        ctaButtonWidget =
+            (layout.findViewById(R.id.mopub_vast_cta_button) as VideoCtaButtonWidget)
+                .also {
+                    it.setHasCompanionAd(hasCompanionAd)
+                    it.setHasClickthroughUrl(!vastVideoConfig.clickThroughUrl.isNullOrEmpty())
+                    externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.CTA_BUTTON)
+                    vastVideoConfig.customCtaText?.let { ctaText ->
+                        it.updateCtaText(ctaText)
+                    }
+                    it.setOnTouchListener(clickThroughListener)
                 }
-                return@OnTouchListener true
-            })
-            vastVideoConfig.customSkipText?.let { skipText ->
-                it.updateCloseButtonText(skipText)
-            }
-            vastVideoConfig.customCloseIconUrl?.let { closeIcon ->
-                it.updateCloseButtonIcon(closeIcon, context)
-            }
-        }
 
-        if (!vastVideoConfig.isRewarded) {
-            // This makes the CTA button clickable immediately
-            ctaButtonWidget.notifyVideoSkippable()
-        }
+        closeButtonWidget =
+            (layout.findViewById(R.id.mopub_vast_close_button) as VastVideoCloseButtonWidget)
+                .also {
+                    it.visibility = GONE
+                    externalViewabilitySessionManager.registerVideoObstruction(it, ViewabilityObstruction.CLOSE_BUTTON)
+
+                    it.setOnTouchListenerToContent(OnTouchListener { _, event ->
+                        if (event.action != ACTION_UP) {
+                            return@OnTouchListener true
+                        }
+
+                        isClosing = isComplete
+                        handleExitTrackers()
+                        Handler(Looper.getMainLooper()).post {
+                            baseVideoViewControllerListener.onVideoFinish(getCurrentPosition())
+                        }
+                        return@OnTouchListener true
+                    })
+                    vastVideoConfig.customSkipText?.let { skipText ->
+                        it.updateCloseButtonText(skipText)
+                    }
+                    vastVideoConfig.customCloseIconUrl?.let { closeIcon ->
+                        it.updateCloseButtonIcon(closeIcon, context)
+                    }
+                }
 
         val mainHandler = Handler(Looper.getMainLooper())
         progressCheckerRunnable = VastVideoViewProgressRunnable(
@@ -311,35 +311,35 @@ class VastVideoViewController(
         countdownRunnable = VastVideoViewCountdownRunnable(this, mainHandler)
     }
 
-    private fun adjustSkipOffset() {
-        val videoDuration = getDuration()
-        // If this is a rewarded video, never allow it to be skippable.
-        if (vastVideoConfig.isRewarded) {
-            showCloseButtonDelay = if (hasCompanionAd) {
-                vastVideoConfig.countdownTimerDuration
-            } else if (videoDuration > vastVideoConfig.countdownTimerDuration){
-                vastVideoConfig.countdownTimerDuration
-            } else {
-                videoDuration
+    /**
+     * Set the countdown time and countdown timer delay
+     */
+    private fun setCountdownTime(endCardType: EndCardType?) {
+        val videoDurationMillis = getDuration()
+
+        countdownTimeMillis = CreativeExperiencesFormulae.getCountdownDuration(
+            isVast = true,
+            isEndCard = false,
+            endCardType,
+            videoDurationSecs = videoDurationMillis / MILLIS_IN_SECOND,
+            elapsedTimeInAdSecs = 0,
+            creativeExperienceSettings
+        ) * MILLIS_IN_SECOND
+
+        if (countdownTimeMillis > 0) {
+            showCountdownTimerDelayMillis =
+                creativeExperienceSettings.mainAdConfig.countdownTimerDelaySecs * MILLIS_IN_SECOND
+
+            if (!showCountdownTimer || showCountdownTimerDelayMillis >= countdownTimeMillis) {
+                // Countdown timer is never shown
+                showCountdownTimerDelayMillis = countdownTimeMillis
+                showCountdownTimer = false
             }
-            return
-        }
-        // Default behavior: video is non-skippable if duration < 16 seconds
-        if (videoDuration < MAX_VIDEO_DURATION_FOR_CLOSE_BUTTON) {
-            showCloseButtonDelay = videoDuration
-        }
-        // Override if skipoffset attribute is specified in VAST
-        try {
-            vastVideoConfig.getSkipOffsetMillis(videoDuration)?.let {
-                showCloseButtonDelay = it
-            }
-        } catch (e: NumberFormatException) {
-            MoPubLog.log(CUSTOM, "Failed to parse skipoffset ${vastVideoConfig.skipOffset}")
         }
     }
 
     private fun createVideoView(context: Context, initialVisibility: Int): VideoView {
-        val tempVideoView = VideoViewFactory.create(context)
+        val tempVideoView = VideoViewFactory.create(context, layout as RelativeLayout?)
         val executor = ContextCompat.getMainExecutor(context)
 
         val playbackParams = PlaybackParams.Builder()
@@ -354,7 +354,6 @@ class VastVideoViewController(
         mediaPlayer.setAudioAttributes(audioAttrs)
         mediaPlayer.registerPlayerCallback(executor, playerCallback)
         tempVideoView.removeView(tempVideoView.mediaControlView)
-        tempVideoView.id = generateViewId()
         tempVideoView.setPlayer(mediaPlayer)
         tempVideoView.setOnTouchListener(clickThroughListener)
 
@@ -368,24 +367,53 @@ class VastVideoViewController(
                     // The VideoView duration defaults to -1 when the video is not prepared or playing;
                     // Therefore set it here so that we have access to it at all times
                     externalViewabilitySessionManager.onVideoPrepared(duration)
-                    adjustSkipOffset()
                     mediaPlayer.playerVolume = 1.0f
-                    baseVideoViewControllerListener.onCompanionAdsReady(vastCompanionAdConfigs, duration.toInt())
+
+                    // Countdown time calculations can only happen once the companion ad is selected
+                    val selectedVastCompanionAd = selectVastCompanionAd()
+                    setCountdownTime(
+                        EndCardType.fromVastResourceType(selectedVastCompanionAd?.vastResource?.type)
+                    )
 
                     progressBarWidget.calibrateAndMakeVisible(
                         duration.toInt(),
-                        showCloseButtonDelay
+                        countdownTimeMillis
                     )
-                    radialCountdownWidget.calibrateAndMakeVisible(showCloseButtonDelay)
-                    radialCountdownWidget.updateCountdownProgress(showCloseButtonDelay, currentPosition.toInt())
+                    radialCountdownWidget.calibrate(countdownTimeMillis)
+                    radialCountdownWidget.updateCountdownProgress(
+                        countdownTimeMillis,
+                        currentPosition.toInt()
+                    )
                     isCalibrationDone = true
+
+                    baseVideoViewControllerListener.onCompanionAdReady(
+                        selectedVastCompanionAd,
+                        duration.toInt()
+                    )
                 },
                 executor
             )
-
         }
 
         return tempVideoView
+    }
+
+    private fun selectVastCompanionAd(): VastCompanionAdConfig? {
+        val displayMetrics: DisplayMetrics = activity.resources.displayMetrics
+        val widthPixels = displayMetrics.widthPixels
+        val heightPixels = displayMetrics.heightPixels
+        val widthDp = (widthPixels / displayMetrics.density).toInt()
+        val heightDp = (heightPixels / displayMetrics.density).toInt()
+        var bestCompanionAdConfig: VastCompanionAdConfig? = null
+        for (vastCompanionAdConfig in vastCompanionAdConfigs) {
+            if (bestCompanionAdConfig == null ||
+                vastCompanionAdConfig.calculateScore(widthDp, heightDp) >
+                bestCompanionAdConfig.calculateScore(widthDp, heightDp)
+            ) {
+                bestCompanionAdConfig = vastCompanionAdConfig
+            }
+        }
+        return bestCompanionAdConfig
     }
 
     override fun onCreate() {
@@ -509,18 +537,25 @@ class VastVideoViewController(
     fun updateCountdown(forceCloseable: Boolean = false) {
         if (isCalibrationDone) {
             radialCountdownWidget.updateCountdownProgress(
-                showCloseButtonDelay,
+                countdownTimeMillis,
                 getCurrentPosition()
             )
+
+            // Make the countdown timer visible if the show countdown timer delay has passed
+            if (showCountdownTimer
+                && !radialCountdownWidget.isVisible
+                && getCurrentPosition() >= showCountdownTimerDelayMillis
+            ) {
+                radialCountdownWidget.visibility = VISIBLE
+            }
         }
 
-        if (forceCloseable || getCurrentPosition() >= showCloseButtonDelay) {
+        if (forceCloseable
+            || (isCalibrationDone && (getCurrentPosition() >= countdownTimeMillis))
+        ) {
             radialCountdownWidget.visibility = GONE
             closeButtonWidget.visibility = VISIBLE
             shouldAllowClose = true
-
-            // This makes the CTA button clickable - both rewarded and non-rewarded
-            ctaButtonWidget.notifyVideoSkippable()
         }
     }
 
@@ -728,5 +763,9 @@ class VastVideoViewController(
                 else -> "UNKNOWN"
             }
         }
+    }
+
+    fun setVastCompanionAdConfigsForTesting(companionAdConfigs: List<VastCompanionAdConfig> ) {
+        vastCompanionAdConfigs = companionAdConfigs.toMutableSet()
     }
 }

@@ -34,6 +34,8 @@ afterEvaluate {
                 pom {
                     name = project.ext.displayName
                     description = project.description
+                    url = 'https://developers.mopub.com/publishers/'
+                    
                     licenses {
                         license {
                             name = 'MoPub SDK License Agreement'

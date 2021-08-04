@@ -72,6 +72,7 @@ public class ServerPositioningSourceTest {
         when(mockClientMetaData.getDeviceManufacturer()).thenReturn("device_manufacturer");
         when(mockClientMetaData.getDeviceModel()).thenReturn("device_model");
         when(mockClientMetaData.getDeviceProduct()).thenReturn("device_product");
+        when(mockClientMetaData.getDeviceHardware()).thenReturn("device_hardware");
         when(mockClientMetaData.getDeviceOsVersion()).thenReturn("device_os_version");
         when(mockClientMetaData.getDeviceScreenWidthDip()).thenReturn(1337);
         when(mockClientMetaData.getDeviceScreenHeightDip()).thenReturn(70707);

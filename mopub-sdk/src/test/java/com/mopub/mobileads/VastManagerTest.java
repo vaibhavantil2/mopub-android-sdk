@@ -6,7 +6,7 @@ package com.mopub.mobileads;
 
 import android.app.Activity;
 
-import com.mopub.common.CacheService;
+import com.mopub.common.VideoCacheService;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.test.support.ShadowMoPubHttpUrlConnection;
 import com.mopub.mobileads.test.support.VastUtils;
@@ -48,7 +48,7 @@ public class VastManagerTest {
     @Before
     public void setup() {
         context = Robolectric.buildActivity(Activity.class).create().get();
-        CacheService.initializeDiskCache(context);
+        VideoCacheService.initializeCache(context);
         subject = new VastManager(context, true);
         dspCreativeId = "dspCreativeId";
         semaphore = new Semaphore(0);
@@ -66,7 +66,7 @@ public class VastManagerTest {
 
     @After
     public void tearDown() {
-        CacheService.clearAndNullCaches();
+        VideoCacheService.clearAndNullVideoCache();
     }
 
     private void prepareVastVideoConfiguration() {
@@ -89,7 +89,8 @@ public class VastManagerTest {
 
         assertThat(mVastVideoConfig.getNetworkMediaFileUrl()).isEqualTo("https://s3.amazonaws.com/mopub-vast/tapad-video1.mp4");
 
-        final String expectedFilePathDiskCache = CacheService.getFilePathDiskCache(mVastVideoConfig.getNetworkMediaFileUrl());
+        final String expectedFilePathDiskCache = VideoCacheService
+                .getFilePath(mVastVideoConfig.getNetworkMediaFileUrl());
         assertThat(mVastVideoConfig.getDiskMediaFileUrl()).isEqualTo(expectedFilePathDiskCache);
 
         assertThat(mVastVideoConfig.getClickThroughUrl()).isEqualTo("https://rtb-test.dev.tapad.com:8080/click?ta_pinfo=JnRhX2JpZD1iNDczNTQwMS1lZjJkLTExZTItYTNkNS0yMjAwMGE4YzEwOWQmaXA9OTguMTE2LjEyLjk0JnNzcD1MSVZFUkFJTCZ0YV9iaWRkZXJfaWQ9NTEzJTNBMzA1NSZjdHg9MTMzMSZ0YV9jYW1wYWlnbl9pZD01MTMmZGM9MTAwMjAwMzAyOSZ1YT1Nb3ppbGxhJTJGNS4wKyUyOE1hY2ludG9zaCUzQitJbnRlbCtNYWMrT1MrWCsxMF84XzMlMjkrQXBwbGVXZWJLaXQlMkY1MzcuMzYrJTI4S0hUTUwlMkMrbGlrZStHZWNrbyUyOStDaHJvbWUlMkYyNy4wLjE0NTMuMTE2K1NhZmFyaSUyRjUzNy4zNiZjcHQ9VkFTVCZkaWQ9ZDgyNWZjZDZlNzM0YTQ3ZTE0NWM4ZTkyNzMwMjYwNDY3YjY1NjllMSZpZD1iNDczNTQwMC1lZjJkLTExZTItYTNkNS0yMjAwMGE4YzEwOWQmcGlkPUNPTVBVVEVSJnN2aWQ9MSZicD0zNS4wMCZjdHhfdHlwZT1BJnRpZD0zMDU1JmNyaWQ9MzA3MzE%3D&crid=30731&ta_action_id=click&ts=1374099035458&redirect=https%3A%2F%2Ftapad.com");
@@ -150,7 +151,8 @@ public class VastManagerTest {
 
         // at this point it should have 3 sets of data from TEST_VAST_XML_STRING and one set from TEST_NESTED_VAST_XML_STRING
         assertThat(mVastVideoConfig.getNetworkMediaFileUrl()).isEqualTo("https://s3.amazonaws.com/mopub-vast/tapad-video1.mp4");
-        final String expectedFilePathDiskCache = CacheService.getFilePathDiskCache(mVastVideoConfig.getNetworkMediaFileUrl());
+        final String expectedFilePathDiskCache = VideoCacheService
+                .getFilePath(mVastVideoConfig.getNetworkMediaFileUrl());
         assertThat(mVastVideoConfig.getDiskMediaFileUrl()).isEqualTo(expectedFilePathDiskCache);
 
         assertThat(mVastVideoConfig.getClickThroughUrl()).isEqualTo("https://rtb-test.dev.tapad.com:8080/click?ta_pinfo=JnRhX2JpZD1iNDczNTQwMS1lZjJkLTExZTItYTNkNS0yMjAwMGE4YzEwOWQmaXA9OTguMTE2LjEyLjk0JnNzcD1MSVZFUkFJTCZ0YV9iaWRkZXJfaWQ9NTEzJTNBMzA1NSZjdHg9MTMzMSZ0YV9jYW1wYWlnbl9pZD01MTMmZGM9MTAwMjAwMzAyOSZ1YT1Nb3ppbGxhJTJGNS4wKyUyOE1hY2ludG9zaCUzQitJbnRlbCtNYWMrT1MrWCsxMF84XzMlMjkrQXBwbGVXZWJLaXQlMkY1MzcuMzYrJTI4S0hUTUwlMkMrbGlrZStHZWNrbyUyOStDaHJvbWUlMkYyNy4wLjE0NTMuMTE2K1NhZmFyaSUyRjUzNy4zNiZjcHQ9VkFTVCZkaWQ9ZDgyNWZjZDZlNzM0YTQ3ZTE0NWM4ZTkyNzMwMjYwNDY3YjY1NjllMSZpZD1iNDczNTQwMC1lZjJkLTExZTItYTNkNS0yMjAwMGE4YzEwOWQmcGlkPUNPTVBVVEVSJnN2aWQ9MSZicD0zNS4wMCZjdHhfdHlwZT1BJnRpZD0zMDU1JmNyaWQ9MzA3MzE%3D&crid=30731&ta_action_id=click&ts=1374099035458&redirect=https%3A%2F%2Ftapad.com");
@@ -390,91 +392,6 @@ public class VastManagerTest {
     }
 
     @Test
-    public void prepareVastVideoConfiguration_withValidPercentSkipOffset_shouldReturnCorrectValue() throws Exception {
-        // Vast redirect response
-        ShadowMoPubHttpUrlConnection.addPendingResponse(200, TEST_NESTED_VAST_XML_STRING.replace("<Linear>", "<Linear skipoffset='25%'>"));
-        // Video download response
-        ShadowMoPubHttpUrlConnection.addPendingResponse(200, "video_data");
-
-        prepareVastVideoConfiguration();
-        semaphore.acquire();
-
-        verify(vastManagerListener).onVastVideoConfigurationPrepared(any(VastVideoConfig.class));
-
-        assertThat(mVastVideoConfig.getSkipOffset()).isEqualTo("25%");
-    }
-
-
-    @Test
-    public void prepareVastVideoConfiguration_withValidAbsoluteSkipOffset_shouldReturnCorrectValue() throws Exception {
-        // Vast redirect response
-        ShadowMoPubHttpUrlConnection.addPendingResponse(200, TEST_NESTED_VAST_XML_STRING.replace("<Linear>", "<Linear skipoffset='  00:03:14 '>"));
-        // Video download response
-        ShadowMoPubHttpUrlConnection.addPendingResponse(200, "video_data");
-
-        prepareVastVideoConfiguration();
-        semaphore.acquire();
-
-        verify(vastManagerListener).onVastVideoConfigurationPrepared(any(VastVideoConfig.class));
-
-        assertThat(mVastVideoConfig.getSkipOffset()).isEqualTo("00:03:14");
-    }
-
-    @Test
-    public void prepareVastVideoConfiguration_withValidAbsoluteSkipOffsetWithExtraSpace_shouldReturnCorrectTrimmedValue() throws Exception {
-        // Vast redirect response
-        ShadowMoPubHttpUrlConnection.addPendingResponse(200, TEST_NESTED_VAST_XML_STRING.replace("<Linear>", "<Linear skipoffset='  00:03:14.159 '>"));
-        // Video download response
-        ShadowMoPubHttpUrlConnection.addPendingResponse(200, "video_data");
-
-        prepareVastVideoConfiguration();
-        semaphore.acquire();
-
-        verify(vastManagerListener).onVastVideoConfigurationPrepared(any(VastVideoConfig.class));
-
-        assertThat(mVastVideoConfig.getSkipOffset()).isEqualTo("00:03:14.159");
-    }
-
-    @Test
-    public void prepareVastVideoConfiguration_withSkipOffsets_shouldReturnLastParsedValue() throws Exception {
-        // Vast redirect response with skipoffset in percent format
-        ShadowMoPubHttpUrlConnection.addPendingResponse(200, TEST_NESTED_VAST_XML_STRING.replace("<Linear>", "<Linear skipoffset='25%'>"));
-        // Video download response
-        ShadowMoPubHttpUrlConnection.addPendingResponse(200, "video_data");
-
-        // Also add a skipoffset in absolute format
-        subject.prepareVastVideoConfiguration(
-                TEST_VAST_XML_STRING.replace("<Linear>", "<Linear skipoffset='00:03:14'>"),
-                vastManagerListener,
-                dspCreativeId,
-                context);
-
-        Robolectric.getBackgroundThreadScheduler().advanceBy(0);
-        ShadowLooper.runUiThreadTasks();
-        semaphore.acquire();
-
-        verify(vastManagerListener).onVastVideoConfigurationPrepared(any(VastVideoConfig.class));
-
-        // Verify that the last parsed skipoffset value is returned
-        assertThat(mVastVideoConfig.getSkipOffset()).isEqualTo("25%");
-    }
-
-    @Test
-    public void prepareVastVideoConfiguration_withEmptySkipOffset_shouldReturnNull() throws Exception {
-        // Vast redirect response
-        ShadowMoPubHttpUrlConnection.addPendingResponse(200, TEST_NESTED_VAST_XML_STRING.replace("<Linear>", "<Linear skipoffset=' '>"));
-        // Video download response
-        ShadowMoPubHttpUrlConnection.addPendingResponse(200, "video_data");
-
-        prepareVastVideoConfiguration();
-        semaphore.acquire();
-
-        verify(vastManagerListener).onVastVideoConfigurationPrepared(any(VastVideoConfig.class));
-
-        assertThat(mVastVideoConfig.getSkipOffset()).isNull();
-    }
-
-    @Test
     public void prepareVastVideoConfiguration_withNoMediaUrlInXml_shouldReturnNull() throws Exception {
         subject.prepareVastVideoConfiguration(TEST_VAST_BAD_NEST_URL_XML_STRING,
                 vastManagerListener, dspCreativeId, context);
@@ -515,7 +432,7 @@ public class VastManagerTest {
     public void prepareVastVideoConfiguration_withVideoInDiskCache_shouldNotDownloadVideo() throws Exception {
         ShadowMoPubHttpUrlConnection.addPendingResponse(200, TEST_NESTED_VAST_XML_STRING);
 
-        CacheService.putToDiskCache("https://s3.amazonaws.com/mopub-vast/tapad-video1.mp4", "video_data".getBytes());
+        VideoCacheService.put("https://s3.amazonaws.com/mopub-vast/tapad-video1.mp4", "video_data".getBytes());
 
         prepareVastVideoConfiguration();
         semaphore.acquire();
@@ -523,12 +440,13 @@ public class VastManagerTest {
         assertThat(ShadowMoPubHttpUrlConnection.getLatestRequestUrl()).isNotNull();
         verify(vastManagerListener).onVastVideoConfigurationPrepared(any(VastVideoConfig.class));
         assertThat(mVastVideoConfig.getDiskMediaFileUrl())
-                .isEqualTo(CacheService.getFilePathDiskCache("https://s3.amazonaws.com/mopub-vast/tapad-video1.mp4"));
+                .isEqualTo(VideoCacheService.getFilePath(
+                        "https://s3.amazonaws.com/mopub-vast/tapad-video1.mp4"));
     }
 
     @Test
     public void prepareVastVideoConfiguration_withUninitializedDiskCache_shouldReturnNull() throws Exception {
-        CacheService.clearAndNullCaches();
+        VideoCacheService.clearAndNullVideoCache();
         ShadowMoPubHttpUrlConnection.addPendingResponse(200, TEST_NESTED_VAST_XML_STRING);
 
         prepareVastVideoConfiguration();

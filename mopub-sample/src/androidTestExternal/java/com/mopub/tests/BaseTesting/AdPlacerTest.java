@@ -17,7 +17,7 @@ import org.junit.runner.RunWith;
 import static androidx.test.espresso.Espresso.onData;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
-import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static com.mopub.framework.base.BasePage.pressBack;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertTrue;
@@ -54,8 +54,7 @@ public class AdPlacerTest extends MoPubBaseTestCase {
 
         clickElement(withId(R.id.native_main_image));
 
-        final ViewInteraction browserLinkElement = findView(withText(startsWith(WEB_PAGE_LINK)));
-
-        assertTrue(adDetailPage.waitForElement(browserLinkElement));
+        assertWebViewUrl(WEB_PAGE_LINK);
+        pressBack();
     }
 }

@@ -58,13 +58,11 @@ class ConsentDialogLayout extends CloseableLayout {
     private ConsentListener mConsentListener;
 
     public ConsentDialogLayout(@NonNull Context context) {
-        super(context);
-        mWebView = initWebView();
+        this(context, null);
     }
 
     public ConsentDialogLayout(@NonNull Context context, @Nullable AttributeSet attrs) {
-        super(context, attrs);
-        mWebView = initWebView();
+        this(context, attrs, 0);
     }
 
     public ConsentDialogLayout(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {

@@ -12,8 +12,8 @@ import android.view.WindowManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.mopub.common.CacheService;
 import com.mopub.common.Preconditions;
+import com.mopub.common.VideoCacheService;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.util.AsyncTasks;
@@ -153,8 +153,8 @@ public class VastManager implements VastXmlManagerAggregator.VastXmlManagerAggre
         Preconditions.checkNotNull(vastVideoConfig, "vastVideoConfig cannot be null");
 
         final String networkMediaFileUrl = vastVideoConfig.getNetworkMediaFileUrl();
-        if (CacheService.containsKeyDiskCache(networkMediaFileUrl)) {
-            final String filePathDiskCache = CacheService.getFilePathDiskCache(networkMediaFileUrl);
+        if (VideoCacheService.containsKey(networkMediaFileUrl)) {
+            final String filePathDiskCache = VideoCacheService.getFilePath(networkMediaFileUrl);
             vastVideoConfig.setDiskMediaFileUrl(filePathDiskCache);
             return true;
         }

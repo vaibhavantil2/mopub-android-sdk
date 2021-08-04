@@ -130,12 +130,18 @@ public abstract class AdUrlGenerator extends BaseUrlGenerator {
      */
     private static final String BACKOFF_REASON_KEY = "backoff_reason";
 
+    /**
+     *  The SHA-256 hash of this ad's Creative Experience Settings.
+     */
+    private static final String CE_SETTINGS_HASH_KEY = "ce_settings_hash_key";
+
     protected Context mContext;
     protected String mAdUnitId;
     protected String mKeywords;
     protected String mUserDataKeywords;
     protected Point mRequestedAdSize;
     protected WindowInsets mWindowInsets;
+    protected String mCeSettingsHash;
     @Nullable private final PersonalInfoManager mPersonalInfoManager;
     @Nullable private final ConsentData mConsentData;
 
@@ -171,6 +177,11 @@ public abstract class AdUrlGenerator extends BaseUrlGenerator {
 
     public AdUrlGenerator withWindowInsets(final WindowInsets windowInsets) {
         mWindowInsets = windowInsets;
+        return this;
+    }
+
+    public AdUrlGenerator withCeSettingsHash(String ceSettingsHash) {
+        mCeSettingsHash = ceSettingsHash;
         return this;
     }
 
@@ -304,15 +315,26 @@ public abstract class AdUrlGenerator extends BaseUrlGenerator {
         }
     }
 
+    protected void setCeSettingsHashKey(@Nullable String ceSettingsHash) {
+        if (!TextUtils.isEmpty(ceSettingsHash)) {
+            addParam(CE_SETTINGS_HASH_KEY, ceSettingsHash);
+        } else {
+            addParam(CE_SETTINGS_HASH_KEY, "0");
+        }
+    }
+
     protected void addBaseParams(final ClientMetadata clientMetadata) {
         setAdUnitId(mAdUnitId);
 
         setSdkVersion(clientMetadata.getSdkVersion());
         appendAppEngineInfo();
         appendWrapperVersion();
-        setDeviceInfo(clientMetadata.getDeviceManufacturer(),
+        addParam(PLATFORM_KEY, Constants.ANDROID_PLATFORM);
+        setDeviceInfo(clientMetadata.getDeviceOsVersion(),
+                clientMetadata.getDeviceManufacturer(),
                 clientMetadata.getDeviceModel(),
-                clientMetadata.getDeviceProduct());
+                clientMetadata.getDeviceProduct(),
+                clientMetadata.getDeviceHardware());
         setBundleId(clientMetadata.getAppPackageName());
 
         setKeywords(mKeywords);
@@ -356,6 +378,8 @@ public abstract class AdUrlGenerator extends BaseUrlGenerator {
         addRequestRateParameters();
 
         setViewability();
+
+        setCeSettingsHashKey(mCeSettingsHash);
     }
 
     private void addParam(String key, MoPubNetworkType value) {

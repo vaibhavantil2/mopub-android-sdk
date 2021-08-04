@@ -12,9 +12,9 @@ import android.os.Handler;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.mopub.common.AdType;
-import com.mopub.common.CacheServiceTest;
 import com.mopub.common.DataKeys;
 import com.mopub.common.FullAdType;
+import com.mopub.common.VideoCacheService;
 import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.Utils;
@@ -65,7 +65,6 @@ public class MoPubFullscreenTest {
     private static final String EXPECTED_VAST_DATA = "<VAST></VAST>";
     private static final String DSP_CREATIVE_ID = "dsp_creative_id";
     private static final String AD_UNIT = "ad_unit";
-    private static final int REWARDED_DURATION_S = 22;
     private static final String CURRENCY_NAME = "currency_name";
     private static final int CURRENCY_AMOUNT = 10;
     private static final String IMAGE_CLICKDESTINATION_URL = "clickdestination";
@@ -200,20 +199,17 @@ public class MoPubFullscreenTest {
         AdData adData = subject.mAdData;
         assertThat(adData.getCurrencyAmount()).isEqualTo(0);
         assertThat(adData.getCurrencyName()).isNull();
-        assertThat(adData.getRewardedDurationSeconds()).isEqualTo(30);
     }
 
     @Test
     public void load_withRewardedFields_shouldSetRewardedFields() throws Exception {
         adData.setRewarded(true);
-        adData.setRewardedDurationSeconds(REWARDED_DURATION_S);
         adData.setCurrencyName(CURRENCY_NAME);
         adData.setCurrencyAmount(CURRENCY_AMOUNT);
         subject.internalLoad(context, loadListener, adData);
 
         AdData result = subject.mAdData;
         assertThat(result.isRewarded()).isTrue();
-        assertThat(result.getRewardedDurationSeconds()).isEqualTo(REWARDED_DURATION_S);
         assertThat(result.getCurrencyName()).isEqualTo(CURRENCY_NAME);
         assertThat(result.getCurrencyAmount()).isEqualTo(CURRENCY_AMOUNT);
     }
@@ -230,12 +226,13 @@ public class MoPubFullscreenTest {
     }
 
     @Test
-    public void load_shouldInitializeDiskCache() throws Exception {
+    public void load_shouldInitializeVideoDiskCache() throws Exception {
         FakeHttp.addPendingHttpResponse(mock(HttpResponse.class));
 
-        CacheServiceTest.assertDiskCacheIsUninitialized();
+        assertThat(VideoCacheService.getVideoCache()).isNull();
         subject.internalLoad(context, loadListener, adData);
-        CacheServiceTest.assertDiskCacheIsEmpty();
+        assertThat(VideoCacheService.getVideoCache()).isNotNull();
+        assertThat(VideoCacheService.getVideoCache().size()).isEqualTo(0);
     }
 
     @Test

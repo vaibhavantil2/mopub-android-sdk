@@ -11,6 +11,7 @@ import com.mopub.common.BrowserAgentManager.BrowserAgent;
 import com.mopub.common.Preconditions;
 import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.util.DateAndTime;
+import com.mopub.mobileads.CreativeExperienceSettings;
 
 import org.json.JSONObject;
 
@@ -38,6 +39,7 @@ public class AdResponse implements Serializable {
     @Nullable
     private final String mNetworkType;
 
+    private final boolean mRewarded;
     @Nullable
     private final String mRewardedAdCurrencyName;
     @Nullable
@@ -46,8 +48,6 @@ public class AdResponse implements Serializable {
     private final String mRewardedCurrencies;
     @Nullable
     private final String mRewardedAdCompletionUrl;
-    @Nullable
-    private final Integer mRewardedDuration;
 
     @Nullable
     private final ImpressionData mImpressionData;
@@ -97,10 +97,11 @@ public class AdResponse implements Serializable {
 
     private final long mTimestamp;
 
-    private final boolean mAllowCustomClose;
-
     @Nullable
     private final Set<ViewabilityVendor> mViewabilityVendors;
+
+    @NonNull
+    private final CreativeExperienceSettings mCreativeExperienceSettings;
 
     private AdResponse(@NonNull Builder builder) {
 
@@ -110,11 +111,11 @@ public class AdResponse implements Serializable {
         mFullAdType = builder.fullAdType;
         mNetworkType = builder.networkType;
 
+        mRewarded = builder.rewarded;
         mRewardedAdCurrencyName = builder.rewardedAdCurrencyName;
         mRewardedAdCurrencyAmount = builder.rewardedAdCurrencyAmount;
         mRewardedCurrencies = builder.rewardedCurrencies;
         mRewardedAdCompletionUrl = builder.rewardedAdCompletionUrl;
-        mRewardedDuration = builder.rewardedDuration;
 
         mImpressionData = builder.impressionData;
         mClickTrackingUrls = builder.clickTrackingUrls;
@@ -138,8 +139,8 @@ public class AdResponse implements Serializable {
         mBrowserAgent = builder.browserAgent;
         mServerExtras = builder.serverExtras;
         mTimestamp = DateAndTime.now().getTime();
-        mAllowCustomClose = builder.allowCustomClose;
         mViewabilityVendors = builder.viewabilityVendors;
+        mCreativeExperienceSettings = builder.creativeExperienceSettings;
     }
 
     public boolean hasJson() {
@@ -181,6 +182,10 @@ public class AdResponse implements Serializable {
         return mNetworkType;
     }
 
+    public boolean isRewarded() {
+        return mRewarded;
+    }
+
     @Nullable
     public String getRewardedAdCurrencyName() {
         return mRewardedAdCurrencyName;
@@ -199,11 +204,6 @@ public class AdResponse implements Serializable {
     @Nullable
     public String getRewardedAdCompletionUrl() {
         return mRewardedAdCompletionUrl;
-    }
-
-    @Nullable
-    public Integer getRewardedDuration() {
-        return mRewardedDuration;
     }
 
     @Nullable
@@ -314,13 +314,14 @@ public class AdResponse implements Serializable {
         return mTimestamp;
     }
 
-    public boolean allowCustomClose() {
-        return mAllowCustomClose;
-    }
-
     @Nullable
     public Set<ViewabilityVendor> getViewabilityVendors() {
         return mViewabilityVendors;
+    }
+
+    @NonNull
+    public CreativeExperienceSettings getCreativeExperienceSettings() {
+        return mCreativeExperienceSettings;
     }
 
     public Builder toBuilder() {
@@ -328,12 +329,11 @@ public class AdResponse implements Serializable {
                 .setAdType(mAdType)
                 .setAdGroupId(mAdGroupId)
                 .setNetworkType(mNetworkType)
+                .setRewarded(mRewarded)
                 .setRewardedAdCurrencyName(mRewardedAdCurrencyName)
                 .setRewardedAdCurrencyAmount(mRewardedAdCurrencyAmount)
                 .setRewardedCurrencies(mRewardedCurrencies)
                 .setRewardedAdCompletionUrl(mRewardedAdCompletionUrl)
-                .setRewardedDuration(mRewardedDuration)
-                .setAllowCustomClose(mAllowCustomClose)
                 .setImpressionData(mImpressionData)
                 .setClickTrackingUrls(mClickTrackingUrls)
                 .setImpressionTrackingUrls(mImpressionTrackingUrls)
@@ -352,9 +352,9 @@ public class AdResponse implements Serializable {
                 .setJsonBody(mJsonBody)
                 .setBaseAdClassName(mBaseAdClassName)
                 .setBrowserAgent(mBrowserAgent)
-                .setAllowCustomClose(mAllowCustomClose)
                 .setServerExtras(mServerExtras)
-                .setViewabilityVendors(mViewabilityVendors);
+                .setViewabilityVendors(mViewabilityVendors)
+                .setCreativeExperienceSettings(mCreativeExperienceSettings);
     }
 
     public static class Builder {
@@ -364,11 +364,11 @@ public class AdResponse implements Serializable {
         private String fullAdType;
         private String networkType;
 
+        private boolean rewarded = false;
         private String rewardedAdCurrencyName;
         private String rewardedAdCurrencyAmount;
         private String rewardedCurrencies;
         private String rewardedAdCompletionUrl;
-        private Integer rewardedDuration;
 
         private ImpressionData impressionData;
         private List<String> clickTrackingUrls = new ArrayList<>();
@@ -396,9 +396,9 @@ public class AdResponse implements Serializable {
 
         private Map<String, String> serverExtras = new TreeMap<>();
 
-        private boolean allowCustomClose = false;
-
         private Set<ViewabilityVendor> viewabilityVendors = null;
+
+        private CreativeExperienceSettings creativeExperienceSettings;
 
         public Builder setAdType(@Nullable final String adType) {
             this.adType = adType;
@@ -425,6 +425,11 @@ public class AdResponse implements Serializable {
             return this;
         }
 
+        public Builder setRewarded(boolean rewarded) {
+            this.rewarded = rewarded;
+            return this;
+        }
+
         public Builder setRewardedAdCurrencyName(
                 @Nullable final String rewardedAdCurrencyName) {
             this.rewardedAdCurrencyName = rewardedAdCurrencyName;
@@ -445,11 +450,6 @@ public class AdResponse implements Serializable {
         public Builder setRewardedAdCompletionUrl(
                 @Nullable final String rewardedAdCompletionUrl) {
             this.rewardedAdCompletionUrl = rewardedAdCompletionUrl;
-            return this;
-        }
-
-        public Builder setRewardedDuration(@Nullable final Integer rewardedDuration) {
-            this.rewardedDuration = rewardedDuration;
             return this;
         }
 
@@ -568,13 +568,16 @@ public class AdResponse implements Serializable {
             return this;
         }
 
-        public Builder setAllowCustomClose(final boolean allow) {
-            allowCustomClose = allow;
+        public Builder setViewabilityVendors(@Nullable final Set<ViewabilityVendor> viewabilityVendors) {
+            this.viewabilityVendors = viewabilityVendors;
             return this;
         }
 
-        public Builder setViewabilityVendors(@Nullable final Set<ViewabilityVendor> viewabilityVendors) {
-            this.viewabilityVendors = viewabilityVendors;
+        public Builder setCreativeExperienceSettings(
+                @NonNull CreativeExperienceSettings creativeExperienceSettings) {
+            Preconditions.checkNotNull(creativeExperienceSettings);
+
+            this.creativeExperienceSettings = creativeExperienceSettings;
             return this;
         }
 

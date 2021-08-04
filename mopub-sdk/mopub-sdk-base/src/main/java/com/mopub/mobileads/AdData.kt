@@ -24,7 +24,6 @@ data class AdData(
     var adPayload: String,
     var extras: Map<String, String>,
     var isRewarded: Boolean,
-    var rewardedDurationSeconds: Int,
     var currencyName: String?,
     var currencyAmount: Int,
     var adWidth: Int?,
@@ -33,21 +32,15 @@ data class AdData(
     var adType: String?,
     var fullAdType: String?,
     var customerId: String?,
-    var allowCustomClose: Boolean,
-    var viewabilityVendors: Set<ViewabilityVendor>?
+    var viewabilityVendors: Set<ViewabilityVendor>?,
+    var creativeExperienceSettings: CreativeExperienceSettings,
 ) : Parcelable {
     companion object {
         const val MILLIS_IN_SECOND: Int = 1_000
 
         /**
-         * If a duration is not specified, this duration is used. 30 seconds is also the maximum
-         * amount of time that we currently allow rewarded ads to be not closeable. Rewarded image
-         * ads are default limited to 5 seconds.
+         * Default values for timeout delays and the countdown update interval
          */
-        const val DEFAULT_DURATION_FOR_CLOSE_BUTTON_SECONDS: Int = 30
-        const val DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS: Int =
-            DEFAULT_DURATION_FOR_CLOSE_BUTTON_SECONDS * MILLIS_IN_SECOND
-        const val DEFAULT_DURATION_FOR_REWARDED_IMAGE_CLOSE_BUTTON_MILLIS: Int = 5 * MILLIS_IN_SECOND
         const val COUNTDOWN_UPDATE_INTERVAL_MILLIS: Long = 250L
         const val DEFAULT_INLINE_TIMEOUT_DELAY = Constants.TEN_SECONDS_MILLIS
         const val DEFAULT_FULLSCREEN_TIMEOUT_DELAY = Constants.THIRTY_SECONDS_MILLIS
@@ -65,7 +58,6 @@ data class AdData(
         builder.adPayload,
         builder.extras,
         builder.isRewarded,
-        builder.rewardedDurationSeconds,
         builder.currencyName,
         builder.currencyAmount,
         builder.adWidth,
@@ -74,11 +66,11 @@ data class AdData(
         builder.adType,
         builder.fullAdType,
         builder.customerId,
-        builder.allowCustomClose,
-        builder.viewabilityVendors
+        builder.viewabilityVendors,
+        builder.creativeExperienceSettings
     )
 
-    class Builder() {
+    class Builder {
         var vastVideoConfigString: String? = null
             private set
         var orientation: CreativeOrientation? = null
@@ -99,8 +91,6 @@ data class AdData(
             private set
         var isRewarded: Boolean = false
             private set
-        var rewardedDurationSeconds: Int = DEFAULT_DURATION_FOR_CLOSE_BUTTON_SECONDS
-            private set
         var currencyName: String? = null
             private set
         var currencyAmount: Int = 0
@@ -117,9 +107,10 @@ data class AdData(
             private set
         var customerId: String? = null
             private set
-        var allowCustomClose: Boolean = false
-            private set
         var viewabilityVendors: Set<ViewabilityVendor>? = null
+            private set
+        var creativeExperienceSettings: CreativeExperienceSettings =
+            CreativeExperienceSettings.getDefaultSettings(false)
             private set
 
         fun vastVideoConfig(vastVideoConfigString: String?) =
@@ -151,9 +142,6 @@ data class AdData(
 
         fun isRewarded(isRewarded: Boolean) = apply { this.isRewarded = isRewarded }
 
-        fun rewardedDurationSeconds(rewardedDurationSeconds: Int) =
-            apply { this.rewardedDurationSeconds = rewardedDurationSeconds }
-
         fun currencyName(currencyName: String?) = apply { this.currencyName = currencyName }
 
         fun currencyAmount(currencyAmount: Int) = apply { this.currencyAmount = currencyAmount }
@@ -170,15 +158,15 @@ data class AdData(
 
         fun customerId(customerId: String?) = apply { this.customerId = customerId }
 
-        fun allowCustomClose(allowCustomClose: Boolean) =
-            apply { this.allowCustomClose = allowCustomClose }
-
         fun viewabilityVendors(vendors: Set<ViewabilityVendor?>?) =
             apply {
                 this.viewabilityVendors = vendors?.let {
                     HashSet(it.filterNotNull())
                 }
             }
+
+        fun creativeExperienceSettings(creativeExperienceSettings: CreativeExperienceSettings) =
+            apply { this.creativeExperienceSettings = creativeExperienceSettings }
 
         fun build() = AdData(this)
 
@@ -193,7 +181,6 @@ data class AdData(
             this.adPayload = adData.adPayload
             this.extras = adData.extras
             this.isRewarded = adData.isRewarded
-            this.rewardedDurationSeconds = adData.rewardedDurationSeconds
             this.currencyName = adData.currencyName
             this.currencyAmount = adData.currencyAmount
             this.adWidth = adData.adWidth
@@ -202,8 +189,8 @@ data class AdData(
             this.adType = adData.adType
             this.fullAdType = adData.fullAdType
             this.customerId = adData.customerId
-            this.allowCustomClose = adData.allowCustomClose
             this.viewabilityVendors = adData.viewabilityVendors
+            this.creativeExperienceSettings = adData.creativeExperienceSettings
         }
     }
 }

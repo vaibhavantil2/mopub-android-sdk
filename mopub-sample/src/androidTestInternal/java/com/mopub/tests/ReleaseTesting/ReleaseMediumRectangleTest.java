@@ -15,6 +15,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import static com.mopub.framework.base.BasePage.clickCellOnList;
+import static com.mopub.framework.base.BasePage.pressBack;
 
 @RunWith(AndroidJUnit4.class)
 @LargeTest
@@ -28,6 +29,7 @@ public class ReleaseMediumRectangleTest extends MoPubBaseTestCase {
         adDetailPage.changeOrientationTo(PORTRAIT_ORIENTATION);
         isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
+        pressBack();
     }
 
     @Test
@@ -38,6 +40,7 @@ public class ReleaseMediumRectangleTest extends MoPubBaseTestCase {
         adDetailPage.changeOrientationTo(LANDSCAPE_ORIENTATION);
         isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
+        pressBack();
     }
 
     @Test
@@ -48,6 +51,7 @@ public class ReleaseMediumRectangleTest extends MoPubBaseTestCase {
         adDetailPage.changeOrientationTo(PORTRAIT_ORIENTATION);
         isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
+        pressBack();
     }
 
     @Test
@@ -58,6 +62,7 @@ public class ReleaseMediumRectangleTest extends MoPubBaseTestCase {
         adDetailPage.changeOrientationTo(LANDSCAPE_ORIENTATION);
         isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
+        pressBack();
     }
 
     @Test
@@ -68,6 +73,7 @@ public class ReleaseMediumRectangleTest extends MoPubBaseTestCase {
         adDetailPage.changeOrientationTo(PORTRAIT_ORIENTATION);
         isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
+        pressBack();
     }
 
     @Test
@@ -78,6 +84,7 @@ public class ReleaseMediumRectangleTest extends MoPubBaseTestCase {
         adDetailPage.changeOrientationTo(LANDSCAPE_ORIENTATION);
         isAlignedInLine();
         hasClickthrough(R.id.banner_mopubview);
+        pressBack();
     }
 
     private enum MediumRectangleTestAdUnits {

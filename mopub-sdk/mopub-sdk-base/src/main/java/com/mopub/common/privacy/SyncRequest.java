@@ -19,6 +19,8 @@ import com.mopub.network.MoPubRetryPolicy;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Map;
+
 public class SyncRequest extends MoPubRequest<SyncResponse> {
 
     public interface Listener extends MoPubResponse.Listener<SyncResponse> {}
@@ -42,6 +44,15 @@ public class SyncRequest extends MoPubRequest<SyncResponse> {
                 MoPubRetryPolicy.DEFAULT_BACKOFF_MULT);
         setRetryPolicy(retryPolicy);
         setShouldCache(false);
+    }
+
+    @Nullable
+    @Override
+    protected Map<String, String> getParams() {
+        if (!MoPubRequestUtils.isMoPubRequest(getUrl())) {
+            return null;
+        }
+        return super.getParams();
     }
 
     @NonNull

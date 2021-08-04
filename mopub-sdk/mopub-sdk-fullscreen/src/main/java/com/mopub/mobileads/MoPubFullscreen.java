@@ -13,12 +13,12 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.mopub.common.CacheService;
 import com.mopub.common.CreativeOrientation;
 import com.mopub.common.DataKeys;
 import com.mopub.common.FullAdType;
 import com.mopub.common.LifecycleListener;
 import com.mopub.common.Preconditions;
+import com.mopub.common.VideoCacheService;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.mobileads.factories.HtmlControllerFactory;
@@ -154,7 +154,7 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
     protected void preRender() {
         MoPubLog.log(LOAD_ATTEMPTED, ADAPTER_NAME);
 
-        if (!CacheService.initializeDiskCache(mContext)) {
+        if (!VideoCacheService.initializeCache(mContext)) {
             MoPubLog.log(LOAD_FAILED, ADAPTER_NAME,
                     MoPubErrorCode.VIDEO_CACHE_ERROR.getIntCode(),
                     MoPubErrorCode.VIDEO_CACHE_ERROR);
@@ -213,8 +213,7 @@ public class MoPubFullscreen extends BaseAd implements VastManager.VastManagerLi
 
             moPubWebViewController = new MraidController(context,
                     adData.getDspCreativeId(),
-                    PlacementType.INTERSTITIAL,
-                    adData.getAllowCustomClose());
+                    PlacementType.INTERSTITIAL);
 
             baseWebView.enableJavascriptCaching();
         } else if (HTML.equals(adData.getAdType())) {

@@ -12,9 +12,10 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import android.text.TextUtils;
 
 import com.mopub.common.Constants;
 import com.mopub.common.MoPubBrowser;
@@ -302,16 +303,19 @@ public class Intents {
         Preconditions.checkNotNull(context);
         Preconditions.checkNotNull(intent);
 
-        if (deviceCanHandleIntent(context, intent)) {
+        // For Android 11+, the package manager does not have all the available packages, so we go
+        // ahead and try to launch the intent and fallback when the intent doesn't resolve.
+        try {
             final String errorMessage = "Unable to open intent: " + intent;
             if (!(context instanceof Activity)) {
                 intent.addFlags(FLAG_ACTIVITY_NEW_TASK);
             }
             launchIntentForUserClick(context, intent, errorMessage);
-        } else {
+        } catch (IntentNotResolvableException e) {
             final String fallbackUrl = intent.getStringExtra("browser_fallback_url");
             if (TextUtils.isEmpty(fallbackUrl)) {
-                if (!STORE_SCHEME_TO_URL_MAP.containsKey(intent.getScheme())) {
+                if (!STORE_SCHEME_TO_URL_MAP.containsKey(intent.getScheme())
+                        && !TextUtils.isEmpty(intent.getPackage())) {
                     launchApplicationUrl(context, getPlayStoreUri(intent));
                 } else {
                     throw new IntentNotResolvableException("Device could not handle neither " +

@@ -5,6 +5,7 @@
 package com.mopub.common.util;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -24,6 +25,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.Shadows;
+import org.robolectric.shadows.ShadowActivity;
 import org.robolectric.shadows.ShadowApplication;
 
 import java.util.ArrayList;
@@ -33,7 +36,9 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static com.mopub.common.BrowserAgentManager.BrowserAgent.NATIVE;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -367,6 +372,85 @@ public class IntentsTest {
 
         assertThat(Intents.getPlayStoreUri(intent).toString())
                 .isEqualTo("market://details?id=null");
+    }
+
+    @Test
+    public void launchApplicationIntent_shouldStartActivity() throws IntentNotResolvableException {
+        Uri uri = Uri.parse("intent://com.mopub.test");
+        final Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        intent.putExtra("browser_fallback_url", "market://com.mopub.simpleadsdemo");
+
+        Intents.launchApplicationIntent(activityContext, intent);
+
+        ShadowActivity shadowActivity = Shadows.shadowOf(activityContext);
+        Intent newActivityIntent = shadowActivity.getNextStartedActivityForResult().intent;
+        assertThat(intent).isEqualTo(newActivityIntent);
+    }
+
+    @Test
+    public void launchApplicationIntent_withInvalidIntent_withBrowserFallback_shouldStartFallbackUrl() throws IntentNotResolvableException {
+        Uri uri = Uri.parse("unresolvable_uri");
+        final Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        intent.putExtra("browser_fallback_url", "https://www.google.com");
+        final Activity spyActivityContext = spy(activityContext);
+        doThrow(new ActivityNotFoundException("exception")).when(spyActivityContext).startActivity(intent);
+
+        Intents.launchApplicationIntent(spyActivityContext, intent);
+
+        ShadowActivity shadowActivity = Shadows.shadowOf(spyActivityContext);
+        Intent newActivityIntent = shadowActivity.getNextStartedActivityForResult().intent;
+        assertThat(newActivityIntent.getStringExtra(MoPubBrowser.DESTINATION_URL_KEY)).isEqualTo("https://www.google.com");
+    }
+
+    @Test
+    public void launchApplicationIntent_withInvalidIntent_withNonHttpsBrowserFallback_shouldLaunchIntent() throws IntentNotResolvableException {
+        Uri uri = Uri.parse("unresolvable_uri");
+        final Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        intent.putExtra("browser_fallback_url", "market://details?id=com.mopub.simpleadsdemo");
+        final Activity spyActivityContext = spy(activityContext);
+        doThrow(new ActivityNotFoundException("exception")).when(spyActivityContext).startActivity(intent);
+
+        Intents.launchApplicationIntent(spyActivityContext, intent);
+
+        ShadowActivity shadowActivity = Shadows.shadowOf(spyActivityContext);
+        Intent newActivityIntent = shadowActivity.getNextStartedActivityForResult().intent;
+        assertThat(newActivityIntent.getDataString()).isEqualTo("https://play.google.com/store/apps/details?id=com.mopub.simpleadsdemo");
+    }
+
+    @Test
+    public void launchApplicationIntent_withInvalidIntent_shouldStartMarketIntent() throws IntentNotResolvableException {
+        Uri uri = Uri.parse("unresolvable_uri");
+        final Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        intent.setPackage("com.mopub.simpleadsdemo");
+        final Activity spyActivityContext = spy(activityContext);
+        doThrow(new ActivityNotFoundException("exception")).when(spyActivityContext).startActivity(intent);
+
+        Intents.launchApplicationIntent(spyActivityContext, intent);
+
+        ShadowActivity shadowActivity = Shadows.shadowOf(spyActivityContext);
+        Intent newActivityIntent = shadowActivity.getNextStartedActivityForResult().intent;
+        assertThat(newActivityIntent.getDataString()).isEqualTo("https://play.google.com/store/apps/details?id=com.mopub.simpleadsdemo");
+    }
+
+    @Test(expected = IntentNotResolvableException.class)
+    public void launchApplicationIntent_withInvalidIntent_withNoFailover_shouldThrowIntentNotResolvableException() throws IntentNotResolvableException {
+        Uri uri = Uri.parse("unresolvable_uri");
+        final Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        final Activity spyActivityContext = spy(activityContext);
+        doThrow(new ActivityNotFoundException("exception")).when(spyActivityContext).startActivity(intent);
+
+        Intents.launchApplicationIntent(spyActivityContext, intent);
+    }
+
+    @Test(expected = IntentNotResolvableException.class)
+    public void launchApplicationIntent_withInvalidIntent_withInvalidFailover_shouldThrowIntentNotResolvableException() throws IntentNotResolvableException {
+        Uri uri = Uri.parse("unresolvable_uri");
+        final Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        intent.putExtra("browser_fallback_url", "intent://com.mopub.simpleadsdemo");
+        final Activity spyActivityContext = spy(activityContext);
+        doThrow(new ActivityNotFoundException("exception")).when(spyActivityContext).startActivity(intent);
+
+        Intents.launchApplicationIntent(spyActivityContext, intent);
     }
 
     private void makeUrlResolvable(String url) {

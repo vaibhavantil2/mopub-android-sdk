@@ -38,6 +38,7 @@ public class RewardedRichMediaAdTest extends MoPubBaseTestCase {
                 .perform(click());
 
         findView(withId(R.id.load_button)).perform(click());
+        adDetailPage.selectReward("10 Coins");
 
         ViewInteraction showButtonElement = findView(withId(R.id.show_button)); //show ad on click
         adDetailPage.clickElement(showButtonElement);

@@ -10,6 +10,7 @@ import com.mopub.common.AdType;
 import com.mopub.common.DataKeys;
 import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.test.support.SdkTestRunner;
+import com.mopub.mobileads.CreativeExperienceSettings;
 import com.mopub.nativeads.test.support.TestCustomEventNativeFactory;
 import com.mopub.network.AdResponse;
 
@@ -56,6 +57,7 @@ public class CustomEventNativeAdapterTest {
                 .setClickTrackingUrls(Collections.singletonList("clicktrackingurl"))
                 .setResponseBody("body")
                 .setServerExtras(serverExtras)
+                .setCreativeExperienceSettings(CreativeExperienceSettings.getDefaultSettings(false))
                 .build();
 
         mCustomEventNativeListener = mock(CustomEventNative.CustomEventNativeListener.class);

@@ -8,10 +8,11 @@ package com.mopub.network;
     {
         "x-next-url": "fail_url",
         "adunit-format": "mock_format",
+        "rewarded": 0,
         "ad-responses": [
         {
             "content": "content_body",
-             "metadata": {
+            "metadata": {
                     "content-type": "text/html; charset=UTF-8",
                     "x-adgroupid": "some_ad_group_id",
                     "x-adtype": "html",
@@ -48,7 +49,36 @@ package com.mopub.network;
                     "x-width": 320
                 }
             }
-        ]
+        ],
+        "creative_experience_settings": {
+                "hash" : "12345",
+                "main_ad": {
+                    "min_next_action_secs" :  10,
+                    "cd_delay_secs" : 5,
+                    "show_cd" : 0
+                },
+                "end_card": {
+                    "cd_delay_secs" : 5,
+                    "show_cd" : 1
+                },
+                "max_ad_time_secs": 30,
+                "ec_durs_secs" : {
+                    "static" : 2,
+                    "interactive" : 30,
+                    "min_static" : 2,
+                    "min_interactive" : 25
+                },
+                "video_skip_thresholds_secs" : [
+                    {
+                        "min": 15,
+                        "after": 5
+                    },
+                    {
+                        "min": 30,
+                        "after": 5
+                    }
+                ]
+         }
     }
 */
 
@@ -63,6 +93,9 @@ import com.mopub.common.ViewabilityVendor;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.ResponseHeader;
+import com.mopub.mobileads.CreativeExperienceSettings;
+import com.mopub.mobileads.CreativeExperienceSettingsParser;
+import com.mopub.mobileads.CreativeExperienceSettingsParserTest;
 import com.mopub.mobileads.MoPubFullscreen;
 import com.mopub.mobileads.MoPubInline;
 import com.mopub.nativeads.MoPubCustomEventNative;
@@ -135,7 +168,9 @@ public class MultiAdResponseTest {
     private static final int HEIGHT = 50;
     private static final int WIDTH = 320;
     private static final String ADUNIT_FORMAT = "mock_format";
-
+    private static final boolean REWARDED = false;
+    private static final JSONObject CREATIVE_EXPERIENCE_SETTINGS_OBJECT =
+            CreativeExperienceSettingsParserTest.getCeSettingsJSONObject();
 
     private Activity activity;
     private String adUnitId;
@@ -576,6 +611,21 @@ public class MultiAdResponseTest {
     }
 
     @Test
+    public void constructor_withNullRewardedValue_shouldSetRewardedToFalse() throws Exception {
+        JSONObject body = createJsonBody(FAIL_URL, singleAdResponse);
+        body.remove(ResponseHeader.REWARDED.getKey());
+
+        MoPubNetworkResponse testResponse = new MoPubNetworkResponse(200, body.toString().getBytes(),
+                Collections.emptyMap());
+        MultiAdResponse subject = new MultiAdResponse(activity, testResponse, AdFormat.BANNER, adUnitId);
+
+        assertThat(subject.hasNext()).isTrue();
+        AdResponse first = subject.next();
+        assertNotNull(first);
+        assertThat(first.isRewarded()).isEqualTo(false);
+    }
+
+    @Test
     public void parseNetworkResponse_forBanner_withoutImpTrackingHeaders_shouldSucceed() throws MoPubNetworkError, JSONException {
         MoPubNetworkResponse networkResponse = new MoPubNetworkResponse(200, singleAdResponse.toString().getBytes(),
                 Collections.emptyMap());
@@ -586,7 +636,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.HTML);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -608,6 +660,7 @@ public class MultiAdResponseTest {
         assertThat(subject.getWidth()).isEqualTo(WIDTH);
         assertThat(subject.getStringBody()).isEqualTo("content_text");
         assertThat(subject.getBaseAdClassName()).isEqualTo(MoPubInline.class.getName());
+        assertThat(subject.isRewarded()).isEqualTo(REWARDED);
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras.get(DataKeys.HTML_RESPONSE_BODY_KEY)).isEqualToIgnoringCase("content_text");
@@ -629,7 +682,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.HTML);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -652,6 +707,7 @@ public class MultiAdResponseTest {
         assertThat(subject.getWidth()).isEqualTo(WIDTH);
         assertThat(subject.getStringBody()).isEqualTo("content_text");
         assertThat(subject.getCustomEventClassName()).isEqualTo(MoPubInline.class.getName());
+        assertThat(subject.isRewarded()).isEqualTo(REWARDED);
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras).isNotEmpty();
@@ -675,7 +731,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.HTML);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -714,7 +772,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                FAIL_URL);
+                FAIL_URL,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.HTML);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -734,6 +794,7 @@ public class MultiAdResponseTest {
         assertThat(subject.getWidth()).isEqualTo(WIDTH);
         assertThat(subject.getStringBody()).isEqualTo("content_text");
         assertThat(subject.getCustomEventClassName()).isEqualTo(MoPubInline.class.getName());
+        assertThat(subject.isRewarded()).isEqualTo(REWARDED);
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras).isNotEmpty();
@@ -755,7 +816,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
     }
 
     @Test
@@ -774,7 +837,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.STATIC_NATIVE);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -792,6 +857,7 @@ public class MultiAdResponseTest {
         assertThat(subject.getRefreshTimeMillis()).isEqualTo(REFRESH_TIME * 1000);
         assertThat(subject.getStringBody()).isEqualTo("{}");
         assertThat(subject.getCustomEventClassName()).isEqualTo(MoPubCustomEventNative.class.getName());
+        assertThat(subject.isRewarded()).isEqualTo(REWARDED);
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras).isNotEmpty();
@@ -814,7 +880,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.STATIC_NATIVE);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -832,6 +900,7 @@ public class MultiAdResponseTest {
         assertThat(subject.getRefreshTimeMillis()).isEqualTo(REFRESH_TIME * 1000);
         assertThat(subject.getStringBody()).isEqualTo("{}");
         assertThat(subject.getCustomEventClassName()).isEqualTo(MoPubCustomEventNative.class.getName());
+        assertThat(subject.isRewarded()).isEqualTo(REWARDED);
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras).isNotEmpty();
@@ -857,7 +926,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdUnitId()).isEqualTo(adUnitId);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -884,7 +955,6 @@ public class MultiAdResponseTest {
 
         metadata.put(ResponseHeader.REWARDED_VIDEO_COMPLETION_URL.getKey(),
                 "https://completionUrl");
-        metadata.put(ResponseHeader.REWARDED_DURATION.getKey(), "15000");
 
         MoPubNetworkResponse networkResponse = new MoPubNetworkResponse(200, singleAdResponse.toString().getBytes(),
                 Collections.emptyMap());
@@ -895,7 +965,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                true,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.REWARDED_VIDEO);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -918,7 +990,7 @@ public class MultiAdResponseTest {
         assertThat(subject.getRewardedCurrencies()).isEqualTo(rewardedCurrenciesJson);
         assertThat(subject.getRewardedAdCompletionUrl()).isEqualTo(
                 "https://completionUrl");
-        assertThat(subject.getRewardedDuration()).isEqualTo(15000);
+        assertThat(subject.isRewarded()).isEqualTo(true);
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras).isNotEmpty();
@@ -940,7 +1012,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdUnitId()).isEqualTo(adUnitId);
         assertThat(subject.getBrowserAgent()).isEqualTo(IN_APP);
@@ -959,7 +1033,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdUnitId()).isEqualTo(adUnitId);
         assertThat(subject.getBrowserAgent()).isEqualTo(NATIVE);
@@ -978,7 +1054,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdUnitId()).isEqualTo(adUnitId);
         assertThat(subject.getBrowserAgent()).isEqualTo(IN_APP);
@@ -995,7 +1073,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdUnitId()).isEqualTo(adUnitId);
         assertThat(subject.getBrowserAgent()).isEqualTo(IN_APP);
@@ -1014,7 +1094,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdUnitId()).isEqualTo(adUnitId);
         assertNull(subject.getRefreshTimeMillis());
@@ -1037,7 +1119,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.STATIC_NATIVE);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -1055,6 +1139,7 @@ public class MultiAdResponseTest {
         assertThat(subject.getRefreshTimeMillis()).isEqualTo(REFRESH_TIME * 1000);
         assertThat(subject.getStringBody()).isEqualTo("{}");
         assertThat(subject.getCustomEventClassName()).isEqualTo(MoPubCustomEventNative.class.getName());
+        assertThat(subject.isRewarded()).isEqualTo(REWARDED);
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras).isNotEmpty();
@@ -1077,7 +1162,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.STATIC_NATIVE);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -1095,6 +1182,7 @@ public class MultiAdResponseTest {
         assertThat(subject.getRefreshTimeMillis()).isEqualTo(REFRESH_TIME * 1000);
         assertThat(subject.getStringBody()).isEqualTo("{}");
         assertThat(subject.getCustomEventClassName()).isEqualTo(MoPubCustomEventNative.class.getName());
+        assertThat(subject.isRewarded()).isEqualTo(REWARDED);
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras).isNotEmpty();
@@ -1117,7 +1205,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.STATIC_NATIVE);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -1135,6 +1225,7 @@ public class MultiAdResponseTest {
         assertThat(subject.getRefreshTimeMillis()).isEqualTo(REFRESH_TIME * 1000);
         assertThat(subject.getStringBody()).isEqualTo("{}");
         assertThat(subject.getCustomEventClassName()).isEqualTo(MoPubCustomEventNative.class.getName());
+        assertThat(subject.isRewarded()).isEqualTo(REWARDED);
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras).isNotEmpty();
@@ -1157,7 +1248,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertThat(subject.getAdType()).isEqualTo(AdType.STATIC_NATIVE);
         assertThat(subject.getAdGroupId()).isEqualTo(AD_GROUP_ID);
@@ -1175,63 +1268,11 @@ public class MultiAdResponseTest {
         assertThat(subject.getRefreshTimeMillis()).isEqualTo(REFRESH_TIME * 1000);
         assertThat(subject.getStringBody()).isEqualTo("{}");
         assertThat(subject.getCustomEventClassName()).isEqualTo(MoPubCustomEventNative.class.getName());
+        assertThat(subject.isRewarded()).isEqualTo(REWARDED);
         final Map<String, String> serverExtras = subject.getServerExtras();
         assertNotNull(serverExtras);
         assertThat(serverExtras).isNotEmpty();
         assertThat(serverExtras.get(DataKeys.ADM_KEY)).isEqualTo(ADM_VALUE);
-    }
-
-    @Test
-    public void parseNetworkResponse_withAllowCustomCloseTrue_shouldSucceed() throws MoPubNetworkError, JSONException {
-        JSONObject metadata = (JSONObject) singleAdResponse.get(ResponseHeader.METADATA.getKey());
-        metadata.put(ResponseHeader.ALLOW_CUSTOM_CLOSE.getKey(), "1");
-        MoPubNetworkResponse networkResponse = new MoPubNetworkResponse(200, singleAdResponse.toString().getBytes(),
-                Collections.emptyMap());
-
-        AdResponse subject = MultiAdResponse.parseSingleAdResponse(activity.getApplicationContext(),
-                networkResponse,
-                singleAdResponse,
-                adUnitId,
-                AdFormat.BANNER,
-                ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
-
-        assertThat(subject.allowCustomClose()).isEqualTo(true);
-    }
-
-    @Test
-    public void parseNetworkResponse_withAllowCustomCloseFalse_shouldSucceed() throws MoPubNetworkError, JSONException {
-        JSONObject metadata = (JSONObject) singleAdResponse.get(ResponseHeader.METADATA.getKey());
-        metadata.put(ResponseHeader.ALLOW_CUSTOM_CLOSE.getKey(), "0");
-        MoPubNetworkResponse networkResponse = new MoPubNetworkResponse(200, singleAdResponse.toString().getBytes(),
-                Collections.emptyMap());
-
-        AdResponse subject = MultiAdResponse.parseSingleAdResponse(activity.getApplicationContext(),
-                networkResponse,
-                singleAdResponse,
-                adUnitId,
-                AdFormat.BANNER,
-                ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
-
-        assertThat(subject.allowCustomClose()).isEqualTo(false);
-    }
-
-    @Test
-    public void parseNetworkResponse_withMissingAllowCustomClose_shouldSucceed() throws MoPubNetworkError, JSONException {
-        JSONObject metadata = (JSONObject) singleAdResponse.get(ResponseHeader.METADATA.getKey());
-        MoPubNetworkResponse networkResponse = new MoPubNetworkResponse(200, singleAdResponse.toString().getBytes(),
-                Collections.emptyMap());
-
-        AdResponse subject = MultiAdResponse.parseSingleAdResponse(activity.getApplicationContext(),
-                networkResponse,
-                singleAdResponse,
-                adUnitId,
-                AdFormat.BANNER,
-                ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
-
-        assertThat(subject.allowCustomClose()).isEqualTo(false);
     }
 
     @Test
@@ -1248,7 +1289,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertFalse(ViewabilityManager.isViewabilityEnabled());
     }
@@ -1267,7 +1310,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertTrue(ViewabilityManager.isViewabilityEnabled());
     }
@@ -1284,7 +1329,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         assertTrue(ViewabilityManager.isViewabilityEnabled());
     }
@@ -1302,7 +1349,9 @@ public class MultiAdResponseTest {
                 adUnitId,
                 AdFormat.BANNER,
                 ADUNIT_FORMAT,
-                REQUEST_ID_VALUE);
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
 
         final Set<ViewabilityVendor> set =  subject.getViewabilityVendors();
         assertNotNull(set);
@@ -1313,6 +1362,80 @@ public class MultiAdResponseTest {
         assertEquals("https://abc.com/verification.js", viewabilityVendor.getJavascriptResourceUrl().toString());
     }
 
+    @Test
+    public void parseNetworkResponse_withRewardedTrue_shouldSucceed() throws MoPubNetworkError, JSONException {
+        MoPubNetworkResponse networkResponse = new MoPubNetworkResponse(200,
+                singleAdResponse.toString().getBytes(), Collections.emptyMap());
+
+        AdResponse subject = MultiAdResponse.parseSingleAdResponse(activity.getApplicationContext(),
+                networkResponse,
+                singleAdResponse,
+                adUnitId,
+                AdFormat.BANNER,
+                ADUNIT_FORMAT,
+                REQUEST_ID_VALUE,
+                true,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
+
+        assertTrue(subject.isRewarded());
+    }
+
+    @Test
+    public void parseNetworkResponse_withRewardedFalse_shouldSucceed() throws MoPubNetworkError, JSONException {
+        MoPubNetworkResponse networkResponse = new MoPubNetworkResponse(200,
+                singleAdResponse.toString().getBytes(), Collections.emptyMap());
+
+        AdResponse subject = MultiAdResponse.parseSingleAdResponse(activity.getApplicationContext(),
+                networkResponse,
+                singleAdResponse,
+                adUnitId,
+                AdFormat.BANNER,
+                ADUNIT_FORMAT,
+                REQUEST_ID_VALUE,
+                false,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
+
+        assertFalse(subject.isRewarded());
+    }
+
+    @Test
+    public void parseNetworkResponse_withCreativeExperienceSettings_shouldSucceed() throws MoPubNetworkError, JSONException {
+        MoPubNetworkResponse networkResponse = new MoPubNetworkResponse(200,
+                singleAdResponse.toString().getBytes(), Collections.emptyMap());
+
+        AdResponse subject = MultiAdResponse.parseSingleAdResponse(activity.getApplicationContext(),
+                networkResponse,
+                singleAdResponse,
+                adUnitId,
+                AdFormat.BANNER,
+                ADUNIT_FORMAT,
+                REQUEST_ID_VALUE,
+                REWARDED,
+                CREATIVE_EXPERIENCE_SETTINGS_OBJECT);
+
+        CreativeExperienceSettings expectedSettings = CreativeExperienceSettingsParser
+                .parse(CREATIVE_EXPERIENCE_SETTINGS_OBJECT, REWARDED);
+        assertEquals(expectedSettings, subject.getCreativeExperienceSettings());
+    }
+
+    @Test
+    public void parseNetworkResponse_withNullCreativeExperienceSettings_shouldSucceed() throws MoPubNetworkError, JSONException {
+        MoPubNetworkResponse networkResponse = new MoPubNetworkResponse(200,
+                singleAdResponse.toString().getBytes(), Collections.emptyMap());
+
+        AdResponse subject = MultiAdResponse.parseSingleAdResponse(activity.getApplicationContext(),
+                networkResponse,
+                singleAdResponse,
+                adUnitId,
+                AdFormat.BANNER,
+                ADUNIT_FORMAT,
+                REQUEST_ID_VALUE,
+                REWARDED,
+                null);
+
+        assertThat(subject.getCreativeExperienceSettings())
+                .isEqualTo(CreativeExperienceSettings.getDefaultSettings(REWARDED));
+    }
 
     // Utility functions
     private static byte[] createResponseBody(String failURL, JSONObject adResponse) throws JSONException {
@@ -1335,6 +1458,7 @@ public class MultiAdResponseTest {
         JSONObject jsonBody = new JSONObject();
         jsonBody.put(ResponseHeader.FAIL_URL.getKey(), failURL);
         jsonBody.put(ResponseHeader.AD_RESPONSES.getKey(), adResponses);
+        jsonBody.put(ResponseHeader.REWARDED.getKey(), "0");
         return jsonBody;
     }
 

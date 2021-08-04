@@ -45,7 +45,7 @@ abstract class BaseInterstitialActivity extends Activity {
 
         View adView = getAdView();
 
-        mCloseableLayout = new CloseableLayout(this);
+        mCloseableLayout = new CloseableLayout(this, null);
         mCloseableLayout.setOnCloseListener(new OnCloseListener() {
             @Override
             public void onClose() {

@@ -16,10 +16,12 @@ import android.os.Looper;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
 import androidx.annotation.NonNull;
@@ -38,6 +40,7 @@ import com.mopub.common.util.DeviceUtils;
 import com.mopub.common.util.Dips;
 import com.mopub.common.util.Intents;
 import com.mopub.mobileads.factories.HtmlControllerFactory;
+import com.mopub.mobileads.base.R;
 import com.mopub.mobileads.resource.DrawableConstants;
 import com.mopub.mraid.MraidController;
 import com.mopub.mraid.PlacementType;
@@ -52,7 +55,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.EnumSet;
-import java.util.Set;
 
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_CLICK;
 import static com.mopub.common.IntentActions.ACTION_FULLSCREEN_DISMISS;
@@ -62,13 +64,10 @@ import static com.mopub.common.MoPubBrowser.MOPUB_BROWSER_REQUEST_CODE;
 import static com.mopub.common.logging.MoPubLog.SdkLogEvent.CUSTOM;
 import static com.mopub.common.util.JavaScriptWebViewCallbacks.WEB_VIEW_DID_APPEAR;
 import static com.mopub.common.util.JavaScriptWebViewCallbacks.WEB_VIEW_DID_CLOSE;
-import static com.mopub.mobileads.AdData.DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS;
-import static com.mopub.mobileads.AdData.DEFAULT_DURATION_FOR_REWARDED_IMAGE_CLOSE_BUTTON_MILLIS;
 import static com.mopub.mobileads.AdData.MILLIS_IN_SECOND;
 import static com.mopub.mobileads.BaseBroadcastReceiver.broadcastAction;
 
-public class FullscreenAdController implements BaseVideoViewController.BaseVideoViewControllerListener,
-        MraidController.UseCustomCloseListener {
+public class FullscreenAdController implements BaseVideoViewController.BaseVideoViewControllerListener {
 
     static final String IMAGE_KEY = "image";
     @VisibleForTesting
@@ -116,12 +115,15 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     @Nullable
     private String mImageClickDestinationUrl;
     private int mCurrentElapsedTimeMillis;
-    private int mShowCloseButtonDelayMillis;
+    private int mCountdownTimeMillis;
     private boolean mShowCloseButtonEventFired;
     private boolean mIsCalibrationDone;
     private boolean mRewardedCompletionFired;
     private int mVideoTimeElapsed;
     private boolean mOnVideoFinishCalled;
+    private int mVideoDurationMillis;
+    private int mShowCountdownTimerDelayMillis = 0;
+    private boolean mShowCountdownTimer = true;
 
     @VisibleForTesting
     enum ControllerState {
@@ -148,8 +150,7 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             // If we hit this, then we assume this is MRAID since it isn't HTML
             mMoPubWebViewController = new MraidController(activity,
                     adData.getDspCreativeId(),
-                    PlacementType.INTERSTITIAL,
-                    mAdData.getAllowCustomClose());
+                    PlacementType.INTERSTITIAL);
         }
 
         final String htmlData = adData.getAdPayload();
@@ -159,9 +160,6 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             return;
         }
 
-        if (mMoPubWebViewController instanceof MraidController) {
-            ((MraidController) mMoPubWebViewController).setUseCustomCloseListener(this);
-        }
         mMoPubWebViewController.setDebugListener(mDebugListener);
         mMoPubWebViewController.setMoPubWebViewListener(new BaseHtmlWebView.BaseWebViewListener() {
             @Override
@@ -212,7 +210,10 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             }
         });
 
-        mCloseableLayout = new CloseableLayout(mActivity);
+        mCloseableLayout = new CloseableLayout(activity, null);
+
+        mShowCountdownTimer = mAdData.getCreativeExperienceSettings().getMainAdConfig()
+                .getShowCountdownTimer();
 
         if (FullAdType.VAST.equals(mAdData.getFullAdType())) {
             mVideoViewController = createVideoViewController(activity, savedInstanceState, intent, adData.getBroadcastIdentifier());
@@ -267,11 +268,12 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
                 destroy();
                 mActivity.finish();
             });
-            if (mAdData.isRewarded()) {
-                mCloseableLayout.setCloseAlwaysInteractable(false);
-                mCloseableLayout.setCloseVisible(false);
-            }
             mActivity.setContentView(mCloseableLayout);
+
+            // Images should be clickable immediately
+            if (mImageView != null) {
+                mImageView.setOnClickListener(view -> onAdClicked(mActivity, mAdData));
+            }
         } else {
             if (config == null || config.getController() == null) {
                 mMoPubWebViewController.fillContent(htmlData,
@@ -291,10 +293,7 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             });
             mCloseableLayout.addView(mMoPubWebViewController.getAdContainer(),
                     new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-            if (mAdData.isRewarded()) {
-                mCloseableLayout.setCloseAlwaysInteractable(false);
-                mCloseableLayout.setCloseVisible(false);
-            }
+
             mActivity.setContentView(mCloseableLayout);
             mMoPubWebViewController.onShow(mActivity);
         }
@@ -308,24 +307,42 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             DeviceUtils.lockOrientation(activity, requestedOrientation);
         }
 
-        if (mAdData.isRewarded()) {
-            addRadialCountdownWidget(activity, View.INVISIBLE);
-            if (ControllerState.IMAGE.equals(mState)) {
-                mShowCloseButtonDelayMillis = adData.getRewardedDurationSeconds() >= 0 ?
-                        adData.getRewardedDurationSeconds() * MILLIS_IN_SECOND :
-                        DEFAULT_DURATION_FOR_REWARDED_IMAGE_CLOSE_BUTTON_MILLIS;
-            } else {
-                mShowCloseButtonDelayMillis = adData.getRewardedDurationSeconds() >= 0 ?
-                        adData.getRewardedDurationSeconds() * MILLIS_IN_SECOND :
-                        DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS;
+        // Calculate the show close button delay for all non-VAST ads
+        mCountdownTimeMillis = CreativeExperiencesFormulae.getCountdownDuration(
+                false, // isVast
+                false, // isEndCard
+                null, // endCardType
+                0, // videoDurationSecs
+                0, // elapsedTimeInAdSecs
+                adData.getCreativeExperienceSettings()
+        ) * MILLIS_IN_SECOND;
+
+        if (mCountdownTimeMillis > 0) {
+            mShowCountdownTimerDelayMillis = adData.getCreativeExperienceSettings().getMainAdConfig()
+                    .getCountdownTimerDelaySecs() * MILLIS_IN_SECOND;
+
+            if (!mShowCountdownTimer || mShowCountdownTimerDelayMillis >= mCountdownTimeMillis) {
+                // Countdown timer is never shown
+                mShowCountdownTimerDelayMillis = mCountdownTimeMillis;
+                mShowCountdownTimer = false;
             }
-            mRadialCountdownWidget.calibrateAndMakeVisible(mShowCloseButtonDelayMillis);
-            mIsCalibrationDone = true;
-            final Handler mainHandler = new Handler(Looper.getMainLooper());
-            mCountdownRunnable = new CloseButtonCountdownRunnable(this, mainHandler);
-        } else {
-            showCloseButton();
+
+            mCloseableLayout.setCloseAlwaysInteractable(false);
+            mCloseableLayout.setCloseVisible(false);
+
+            addRadialCountdownWidget(activity);
+            if (mRadialCountdownWidget != null) {
+                mRadialCountdownWidget.calibrate(mCountdownTimeMillis);
+                mIsCalibrationDone = true;
+                final Handler mainHandler = new Handler(Looper.getMainLooper());
+                mCountdownRunnable = new CloseButtonCountdownRunnable(this, mainHandler);
+                return;
+            }
         }
+
+        // Show the close button immediately if mCountdownTimeMillis == 0 or
+        // mRadialCountdownWidget is null
+        showCloseButton();
     }
 
     @VisibleForTesting
@@ -399,8 +416,9 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
                 if (videoCtaButtonWidgetParent != null) {
                     videoCtaButtonWidgetParent.removeView(mVideoCtaButtonWidget);
                 }
-                relativeLayout.addView(mVideoCtaButtonWidget);
             }
+            addVideoCtaButtonToLayout(mActivity,
+                    !VastResource.Type.BLURRED_LAST_FRAME.equals(vastResource.getType()));
             mCloseableLayout.addView(relativeLayout);
         } else {
             mState = ControllerState.MRAID;
@@ -408,36 +426,55 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
                     new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         }
 
-        if (mAdData.isRewarded()) {
-            mCloseableLayout.setCloseAlwaysInteractable(false);
-            mCloseableLayout.setCloseVisible(false);
-        }
         mActivity.setContentView(mCloseableLayout);
         mMoPubWebViewController.onShow(mActivity);
 
-        if (mAdData.isRewarded()) {
-            mShowCloseButtonDelayMillis = mAdData.getRewardedDurationSeconds() >= 0 ?
-                    mAdData.getRewardedDurationSeconds() * MILLIS_IN_SECOND :
-                    DEFAULT_DURATION_FOR_CLOSE_BUTTON_MILLIS;
-            if (timeElapsed >= mShowCloseButtonDelayMillis ||
-                    VastResource.Type.BLURRED_LAST_FRAME.equals(
-                            mSelectedVastCompanionAdConfig.getVastResource().getType())) {
-                mCloseableLayout.setCloseAlwaysInteractable(true);
-                showCloseButton();
-            } else {
-                addRadialCountdownWidget(mActivity, View.INVISIBLE);
-                mRadialCountdownWidget.calibrateAndMakeVisible(mShowCloseButtonDelayMillis);
-                mRadialCountdownWidget.updateCountdownProgress(mShowCloseButtonDelayMillis, timeElapsed);
+        // End card timer
+        mCountdownTimeMillis = CreativeExperiencesFormulae.getCountdownDuration(
+                false, // isVast
+                true, // isEndCard
+                EndCardType.fromVastResourceType(vastResource.getType()), // endCardType
+                mVideoDurationMillis / MILLIS_IN_SECOND, // videoDurationSecs
+                timeElapsed / MILLIS_IN_SECOND, // elapsedTimeInAdSecs
+                mAdData.getCreativeExperienceSettings()
+        ) * MILLIS_IN_SECOND;
+
+        CreativeExperienceAdConfig endCardAdConfig = mAdData.getCreativeExperienceSettings()
+                .getEndCardConfig();
+        mShowCountdownTimer = endCardAdConfig.getShowCountdownTimer();
+
+        if (mCountdownTimeMillis > 0) {
+            mShowCountdownTimerDelayMillis = endCardAdConfig.getCountdownTimerDelaySecs() * MILLIS_IN_SECOND;
+
+            if (!mShowCountdownTimer || mShowCountdownTimerDelayMillis >= mCountdownTimeMillis) {
+                // Countdown timer is never shown
+                mShowCountdownTimerDelayMillis = mCountdownTimeMillis;
+                mShowCountdownTimer = false;
+            }
+
+            mCloseableLayout.setCloseAlwaysInteractable(false);
+            mCloseableLayout.setCloseVisible(false);
+
+            addRadialCountdownWidget(mActivity);
+            if (mRadialCountdownWidget != null) {
+                // start a new timer for the end card
+                mRadialCountdownWidget.calibrate(mCountdownTimeMillis);
+                mRadialCountdownWidget.updateCountdownProgress(mCountdownTimeMillis, 0);
                 mIsCalibrationDone = true;
                 final Handler mainHandler = new Handler(Looper.getMainLooper());
                 mCountdownRunnable = new CloseButtonCountdownRunnable(this, mainHandler);
-                mCountdownRunnable.mCurrentElapsedTimeMillis = timeElapsed;
+                mCountdownRunnable.mCurrentElapsedTimeMillis = 0;
                 startRunnables();
+
+                mSelectedVastCompanionAdConfig.handleImpression(mActivity, timeElapsed);
+                return;
             }
-        } else {
-            mCloseableLayout.setCloseAlwaysInteractable(true);
-            showCloseButton();
         }
+
+        // Show the close button immediately if mCountdownTimeMillis == 0 or
+        // mRadialCountdownWidget is null
+        mCloseableLayout.setCloseAlwaysInteractable(true);
+        showCloseButton();
 
         mSelectedVastCompanionAdConfig.handleImpression(mActivity, timeElapsed);
     }
@@ -458,31 +495,15 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     }
 
     @Override
-    public void onCompanionAdsReady(@NonNull final Set<VastCompanionAdConfig> vastCompanionAdConfigs,
+    public void onCompanionAdReady(@Nullable final VastCompanionAdConfig selectedVastCompanionAdConfig,
                                    final int videoDurationMs) {
-        Preconditions.checkNotNull(vastCompanionAdConfigs);
-
         if (mCloseableLayout == null) {
             MoPubLog.log(CUSTOM, "CloseableLayout is null. This should not happen.");
         }
 
-        final DisplayMetrics displayMetrics = mActivity.getResources().getDisplayMetrics();
-        final int widthPixels = displayMetrics.widthPixels;
-        final int heightPixels = displayMetrics.heightPixels;
-        final int widthDp = (int) (widthPixels / displayMetrics.density);
-        final int heightDp = (int) (heightPixels / displayMetrics.density);
-        VastCompanionAdConfig bestCompanionAdConfig = null;
-        for (final VastCompanionAdConfig vastCompanionAdConfig : vastCompanionAdConfigs) {
-            if (vastCompanionAdConfig == null) {
-                continue;
-            }
-            if (bestCompanionAdConfig == null ||
-                    vastCompanionAdConfig.calculateScore(widthDp, heightDp) >
-                            bestCompanionAdConfig.calculateScore(widthDp, heightDp)) {
-                bestCompanionAdConfig = vastCompanionAdConfig;
-            }
-        }
-        mSelectedVastCompanionAdConfig = bestCompanionAdConfig;
+        mVideoDurationMillis = videoDurationMs;
+
+        mSelectedVastCompanionAdConfig = selectedVastCompanionAdConfig;
         if (mSelectedVastCompanionAdConfig == null) {
             return;
         }
@@ -524,39 +545,12 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
                     mImageView,
                     videoDurationMs);
             AsyncTasks.safeExecuteOnExecutor(mBlurLastVideoFrameTask, vastResource.getResource());
-            if (!TextUtils.isEmpty(mSelectedVastCompanionAdConfig.getClickThroughUrl())) {
-                mVideoCtaButtonWidget = new VideoCtaButtonWidget(mActivity, false, true);
-                final String customCtaText = mSelectedVastCompanionAdConfig.getCustomCtaText();
-                if (!TextUtils.isEmpty(customCtaText)) {
-                    mVideoCtaButtonWidget.updateCtaText(customCtaText);
-                }
-                mVideoCtaButtonWidget.notifyVideoComplete();
-                mVideoCtaButtonWidget.setOnClickListener(view -> onAdClicked(mActivity, mAdData));
-            }
         } else {
             mMoPubWebViewController.fillContent(htmlResourceValue, null, null);
         }
-
     }
 
     // End BaseVideoViewControllerListener implementation
-
-    // MraidController.UseCustomCloseListener
-    @Override
-    public void useCustomCloseChanged(final boolean useCustomClose) {
-        if (mCloseableLayout == null) {
-            return;
-        }
-        if (useCustomClose && !mAdData.isRewarded()) {
-            mCloseableLayout.setCloseVisible(false);
-            return;
-        }
-        if (mShowCloseButtonEventFired) {
-            mCloseableLayout.setCloseVisible(true);
-        }
-
-    }
-    // End MraidController.UseCustomCloseListener implementation
 
     public void pause() {
         if (mVideoViewController != null) {
@@ -607,7 +601,8 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     }
 
     private boolean isCloseable() {
-        return !mShowCloseButtonEventFired && mCurrentElapsedTimeMillis >= mShowCloseButtonDelayMillis;
+        return !mShowCloseButtonEventFired
+                && mCurrentElapsedTimeMillis >= mCountdownTimeMillis;
     }
 
     @VisibleForTesting
@@ -625,19 +620,20 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
             broadcastAction(mActivity, mAdData.getBroadcastIdentifier(), ACTION_REWARDED_AD_COMPLETE);
             mRewardedCompletionFired = true;
         }
-
-        if (mImageView != null) {
-            mImageView.setOnClickListener(view -> {
-                onAdClicked(mActivity, mAdData);
-            });
-        }
     }
 
     private void updateCountdown(int currentElapsedTimeMillis) {
         mCurrentElapsedTimeMillis = currentElapsedTimeMillis;
         if (mIsCalibrationDone && mRadialCountdownWidget != null) {
-            mRadialCountdownWidget.updateCountdownProgress(mShowCloseButtonDelayMillis,
+            mRadialCountdownWidget.updateCountdownProgress(mCountdownTimeMillis,
                     mCurrentElapsedTimeMillis);
+
+            // Make the countdown timer visible if the show countdown timer delay has passed
+            if (!mShowCloseButtonEventFired && mShowCountdownTimer
+                    && mRadialCountdownWidget.getVisibility() != View.VISIBLE
+                    && currentElapsedTimeMillis >= mShowCountdownTimerDelayMillis) {
+                mRadialCountdownWidget.setVisibility(View.VISIBLE);
+            }
         }
     }
 
@@ -653,23 +649,39 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
         }
     }
 
-    private void addRadialCountdownWidget(@NonNull final Context context, int initialVisibility) {
-        mRadialCountdownWidget = new RadialCountdownWidget(context);
-        mRadialCountdownWidget.setVisibility(initialVisibility);
+    private void addRadialCountdownWidget(@NonNull final Context context) {
+        Preconditions.checkNotNull(context);
+        
+        if (mCloseableLayout == null) {
+            return;
+        }
 
-        ViewGroup.MarginLayoutParams lp =
-                (ViewGroup.MarginLayoutParams) mRadialCountdownWidget.getLayoutParams();
-        final int widgetWidth = lp.width;
-        final int widgetHeight = lp.height;
+        mRadialCountdownWidget = LayoutInflater.from(context)
+                .inflate(R.layout.radial_countdown_layout, mCloseableLayout, true)
+                .findViewById(R.id.mopub_fullscreen_radial_countdown);
+    }
 
-        FrameLayout.LayoutParams widgetLayoutParams =
-                new FrameLayout.LayoutParams(widgetWidth, widgetHeight);
-        widgetLayoutParams.rightMargin =
-                Dips.dipsToIntPixels(DrawableConstants.CloseButton.EDGE_MARGIN, context);
-        widgetLayoutParams.topMargin =
-                Dips.dipsToIntPixels(DrawableConstants.CloseButton.EDGE_MARGIN, context);
-        widgetLayoutParams.gravity = Gravity.TOP | Gravity.RIGHT;
-        mCloseableLayout.addView(mRadialCountdownWidget, widgetLayoutParams);
+    private void addVideoCtaButtonToLayout(@NonNull final Context context,
+                                           final boolean hasCompanionAd) {
+        Preconditions.checkNotNull(context);
+
+        if (TextUtils.isEmpty(mSelectedVastCompanionAdConfig.getClickThroughUrl())
+                || mCloseableLayout == null) {
+            return;
+        }
+
+        mVideoCtaButtonWidget = LayoutInflater.from(context)
+                .inflate(R.layout.video_cta_button_layout, mCloseableLayout, true)
+                .findViewById(R.id.mopub_fullscreen_video_cta_button);
+
+        mVideoCtaButtonWidget.setHasCompanionAd(hasCompanionAd);
+        mVideoCtaButtonWidget.setHasClickthroughUrl(true);
+        final String customCtaText = mSelectedVastCompanionAdConfig.getCustomCtaText();
+        if (!TextUtils.isEmpty(customCtaText)) {
+            mVideoCtaButtonWidget.updateCtaText(customCtaText);
+        }
+        mVideoCtaButtonWidget.notifyVideoComplete();
+        mVideoCtaButtonWidget.setOnClickListener(view -> onAdClicked(mActivity, mAdData));
     }
 
     void onAdClicked(@NonNull final Activity activity, @NonNull final AdData adData) {
@@ -785,8 +797,8 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
 
     @Deprecated
     @VisibleForTesting
-    int getShowCloseButtonDelayMillis() {
-        return mShowCloseButtonDelayMillis;
+    int getCountdownTimeMillis() {
+        return mCountdownTimeMillis;
     }
 
     @Deprecated
@@ -905,5 +917,23 @@ public class FullscreenAdController implements BaseVideoViewController.BaseVideo
     @NonNull
     ControllerState getState() {
         return mState;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    boolean getShowCountdownTimer() {
+        return mShowCountdownTimer;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    int getShowCountdownTimerDelaysMillis() {
+        return mShowCountdownTimerDelayMillis;
+    }
+
+    @Deprecated
+    @VisibleForTesting
+    int getCurrentTimeElapsedMillis() {
+        return mCurrentElapsedTimeMillis;
     }
 }

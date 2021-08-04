@@ -22,15 +22,13 @@ public class MraidControllerFactory {
 
     public static MraidController create(@NonNull final Context context,
                                          @NonNull final String dspCreativeId,
-                                         @NonNull final PlacementType placementType,
-                                         final boolean allowCustomClose) {
-        return instance.internalCreate(context, dspCreativeId, placementType, allowCustomClose);
+                                         @NonNull final PlacementType placementType) {
+        return instance.internalCreate(context, dspCreativeId, placementType);
     }
 
     protected MraidController internalCreate(@NonNull final Context context,
                                              @NonNull final String dspCreativeId,
-                                             @NonNull final PlacementType placementType,
-                                             final boolean allowCustomClose) {
-        return new MraidController(context, dspCreativeId, placementType, allowCustomClose);
+                                             @NonNull final PlacementType placementType) {
+        return new MraidController(context, dspCreativeId, placementType);
     }
 }

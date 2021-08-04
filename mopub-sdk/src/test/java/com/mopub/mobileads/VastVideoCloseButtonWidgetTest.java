@@ -57,11 +57,16 @@ public class VastVideoCloseButtonWidgetTest {
         Networking.setRequestQueueForTesting(mockRequestQueue);
         Networking.setImageLoaderForTesting(mockImageLoader);
         context = Robolectric.buildActivity(Activity.class).create().get();
-        subject = new VastVideoCloseButtonWidget(context);
+        subject = new VastVideoCloseButtonWidget(context, null);
     }
 
     @Test
     public void updateCloseButtonIcon_imageListenerOnResponse_shouldUseImageBitmap() {
+        final ImageView imageView = new ImageView(context, null);
+        imageView.setImageDrawable(context.getDrawable(R.drawable.ic_mopub_skip_button));
+        final ImageView imageViewSpy = spy(imageView);
+        subject.setImageView(imageViewSpy);
+
         when(mockImageContainer.getBitmap()).thenReturn(mockBitmap);
 
         subject.updateCloseButtonIcon(ICON_IMAGE_URL, context);
@@ -75,7 +80,9 @@ public class VastVideoCloseButtonWidgetTest {
 
     @Test
     public void updateImage_imageListenerOnResponseWhenReturnedBitMapIsNull_shouldUseDefaultCloseButtonDrawable() {
-        final ImageView imageViewSpy = spy(subject.getImageView());
+        final ImageView imageView = new ImageView(context, null);
+        imageView.setImageDrawable(context.getDrawable(R.drawable.ic_mopub_skip_button));
+        final ImageView imageViewSpy = spy(imageView);
         subject.setImageView(imageViewSpy);
 
         when(mockImageContainer.getBitmap()).thenReturn(null);
@@ -92,7 +99,9 @@ public class VastVideoCloseButtonWidgetTest {
 
     @Test
     public void updateImage_imageListenerOnErrorResponse_shouldUseDefaultCloseButtonDrawable() {
-        final ImageView imageViewSpy = spy(subject.getImageView());
+        final ImageView imageView = new ImageView(context, null);
+        imageView.setImageDrawable(context.getDrawable(R.drawable.ic_mopub_skip_button));
+        final ImageView imageViewSpy = spy(imageView);
         subject.setImageView(imageViewSpy);
 
         subject.updateCloseButtonIcon(ICON_IMAGE_URL, context);

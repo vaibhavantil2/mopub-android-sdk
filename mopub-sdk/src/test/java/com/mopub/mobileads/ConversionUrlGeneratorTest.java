@@ -6,6 +6,7 @@ package com.mopub.mobileads;
 
 import android.app.Activity;
 import android.content.Context;
+import android.os.Build;
 
 import com.mopub.common.ClientMetadata;
 import com.mopub.common.Constants;
@@ -48,6 +49,11 @@ public class ConversionUrlGeneratorTest {
 
         ClientMetadata clientMetadata = mock(ClientMetadata.class);
         when(clientMetadata.getAppVersion()).thenReturn(APP_VERSION);
+        when(clientMetadata.getDeviceOsVersion()).thenReturn(Build.VERSION.RELEASE);
+        when(clientMetadata.getDeviceManufacturer()).thenReturn(Build.MANUFACTURER);
+        when(clientMetadata.getDeviceModel()).thenReturn(Build.MODEL);
+        when(clientMetadata.getDeviceProduct()).thenReturn(Build.PRODUCT);
+        when(clientMetadata.getDeviceHardware()).thenReturn(Build.HARDWARE);
 
         PowerMockito.mockStatic(ClientMetadata.class);
         when(ClientMetadata.getInstance(context)).thenReturn(clientMetadata);
@@ -81,8 +87,13 @@ public class ConversionUrlGeneratorTest {
         assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "id")).isEqualTo("com.mopub.mobileads.test");
         assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "adunit")).isEqualTo(AD_UNIT);
         assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "bundle")).isEqualTo("com.mopub.mobileads.test");
-        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "dn")).isEqualTo("null,null,null");
         assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "os")).isEqualTo("android");
+        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "dn"))
+                .isEqualTo("unknown,robolectric,robolectric");
+        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "osv")).isEqualTo(Build.VERSION.RELEASE);
+        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "make")).isEqualTo(Build.MANUFACTURER);
+        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "model")).isEqualTo(Build.MODEL);
+        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "hwv")).isEqualTo(Build.HARDWARE);
     }
 
     @Test
@@ -112,7 +123,12 @@ public class ConversionUrlGeneratorTest {
         assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "id")).isEqualTo("com.mopub.mobileads.test");
         assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "adunit")).isEqualTo(AD_UNIT);
         assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "bundle")).isEqualTo("com.mopub.mobileads.test");
-        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "dn")).isEqualTo("null,null,null");
         assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "os")).isEqualTo("android");
+        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "dn"))
+                .isEqualTo("unknown,robolectric,robolectric");
+        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "osv")).isEqualTo(Build.VERSION.RELEASE);
+        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "make")).isEqualTo(Build.MANUFACTURER);
+        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "model")).isEqualTo(Build.MODEL);
+        assertThat(NativeUrlGeneratorTest.getParameterFromRequestUrl(url, "hwv")).isEqualTo(Build.HARDWARE);
     }
 }

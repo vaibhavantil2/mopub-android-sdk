@@ -10,7 +10,6 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
-import android.text.TextUtils;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
@@ -25,7 +24,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
-import com.mopub.common.CloseableLayout.ClosePosition;
 import com.mopub.common.Constants;
 import com.mopub.common.Preconditions;
 import com.mopub.common.VisibilityTracker;
@@ -64,15 +62,12 @@ public class MraidBridge {
 
         boolean onConsoleMessage(@NonNull ConsoleMessage consoleMessage);
 
-        void onResize(int width, int height, int offsetX,
-                int offsetY, @NonNull ClosePosition closePosition, boolean allowOffscreen)
+        void onResize(int width, int height, int offsetX, int offsetY, boolean allowOffscreen)
                 throws MraidCommandException;
 
-        void onExpand(URI uri, boolean shouldUseCustomClose) throws MraidCommandException;
+        void onExpand(URI uri) throws MraidCommandException;
 
         void onClose();
-
-        void onUseCustomClose(boolean shouldUseCustomClose);
 
         void onSetOrientationProperties(boolean allowOrientationChange, MraidOrientation
                 forceOrientation) throws MraidCommandException;
@@ -94,19 +89,15 @@ public class MraidBridge {
 
     private boolean mHasLoaded;
 
-    private boolean mAllowCustomClose;
-
-    MraidBridge(@NonNull final PlacementType placementType, final boolean allowCustomClose) {
-        this(placementType, new MraidNativeCommandHandler(), allowCustomClose);
+    MraidBridge(@NonNull final PlacementType placementType) {
+        this(placementType, new MraidNativeCommandHandler());
     }
 
     @VisibleForTesting
     MraidBridge(@NonNull final PlacementType placementType,
-                @NonNull final MraidNativeCommandHandler mraidNativeCommandHandler,
-                final boolean allowCustomClose) {
+                @NonNull final MraidNativeCommandHandler mraidNativeCommandHandler) {
         mPlacementType = placementType;
         mMraidNativeCommandHandler = mraidNativeCommandHandler;
-        mAllowCustomClose = allowCustomClose;
     }
 
     void setMraidBridgeListener(@Nullable MraidBridgeListener listener) {
@@ -449,19 +440,12 @@ public class MraidBridge {
                 int height = checkRange(parseSize(params.get("height")), 0, 100000);
                 int offsetX = checkRange(parseSize(params.get("offsetX")), -100000, 100000);
                 int offsetY = checkRange(parseSize(params.get("offsetY")), -100000, 100000);
-                ClosePosition closePosition = parseClosePosition(
-                        params.get("customClosePosition"), ClosePosition.TOP_RIGHT);
                 boolean allowOffscreen = parseBoolean(params.get("allowOffscreen"), true);
-                mMraidBridgeListener.onResize(
-                        width, height, offsetX, offsetY, closePosition, allowOffscreen);
-                mMraidBridgeListener.onUseCustomClose(mAllowCustomClose);
+                mMraidBridgeListener.onResize(width, height, offsetX, offsetY, allowOffscreen);
                 break;
             case EXPAND:
                 URI uri = parseURI(params.get("url"), null);
-                mMraidBridgeListener.onExpand(uri, parseAllowCustomClose(params, mAllowCustomClose));
-                break;
-            case USE_CUSTOM_CLOSE:
-                mMraidBridgeListener.onUseCustomClose(parseAllowCustomClose(params, mAllowCustomClose));
+                mMraidBridgeListener.onExpand(uri);
                 break;
             case OPEN:
                 uri = parseURI(params.get("url"));
@@ -481,32 +465,6 @@ public class MraidBridge {
                 throw new MraidCommandException("Unsupported MRAID Javascript command");
             case UNSPECIFIED:
                 throw new MraidCommandException("Unspecified MRAID Javascript command");
-        }
-    }
-
-    private ClosePosition parseClosePosition(@NonNull String text,
-            @NonNull ClosePosition defaultValue)
-            throws MraidCommandException {
-        if (TextUtils.isEmpty(text)) {
-            return defaultValue;
-        }
-
-        if (text.equals("top-left")) {
-            return ClosePosition.TOP_LEFT;
-        } else if (text.equals("top-right")) {
-            return ClosePosition.TOP_RIGHT;
-        } else if (text.equals("center")) {
-            return ClosePosition.CENTER;
-        } else if (text.equals("bottom-left")) {
-            return ClosePosition.BOTTOM_LEFT;
-        } else if (text.equals("bottom-right")) {
-            return ClosePosition.BOTTOM_RIGHT;
-        } else if (text.equals("top-center")) {
-            return ClosePosition.TOP_CENTER;
-        } else if (text.equals("bottom-center")) {
-            return ClosePosition.BOTTOM_CENTER;
-        } else {
-            throw new MraidCommandException("Invalid close position: " + text);
         }
     }
 
@@ -530,13 +488,6 @@ public class MraidBridge {
         } else {
             throw new MraidCommandException("Invalid orientation: " + text);
         }
-    }
-
-    private static boolean parseAllowCustomClose(@NonNull final Map<String, String> params,
-                                                 final boolean allowCustomClose) throws MraidCommandException {
-        boolean useCustomClose = parseBoolean(params.get("shouldUseCustomClose"), false);
-        useCustomClose &= allowCustomClose;
-        return useCustomClose;
     }
 
     private int checkRange(int value, int min, int max) throws MraidCommandException {

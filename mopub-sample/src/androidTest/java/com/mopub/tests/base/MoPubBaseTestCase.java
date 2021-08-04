@@ -45,7 +45,7 @@ import static org.junit.Assert.assertTrue;
 
 public class MoPubBaseTestCase {
 
-    protected static final String WEB_PAGE_LINK = "https://www.mopub.com/en/click-test";
+    protected static final String WEB_PAGE_LINK = "https://www.mopub.com/en";
     private static final String RELEASE_WEB_PAGE_LINK = "https://www.mopub.com/en";
     private static final String CHROME_BROWSER_PACKAGE_NAME = "com.android.chrome";
     private static final String MRAID_CLICKTHROUGH_BUTTON = "//div[@id=\"expanded\"]/img[2]";

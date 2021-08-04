@@ -5,6 +5,7 @@
 package com.mopub.nativeads;
 
 import android.content.Context;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -60,6 +61,10 @@ public class PositioningRequest extends MoPubRequest<MoPubClientPositioning> {
 
     @Override
     protected MoPubResponse<MoPubClientPositioning> parseNetworkResponse(final MoPubNetworkResponse response) {
+        if (response == null) {
+            return MoPubResponse.error(new MoPubNetworkError.Builder("Empty network response").build());
+        }
+
         if (response.getStatusCode() != HttpURLConnection.HTTP_OK) {
             return MoPubResponse.error(new MoPubNetworkError.Builder().networkResponse(response).build());
         }
@@ -91,8 +96,8 @@ public class PositioningRequest extends MoPubRequest<MoPubClientPositioning> {
         JSONObject jsonObject = new JSONObject(jsonString);
 
         // If the server returns an error explicitly, throw an exception with the message.
-        String error = jsonObject.optString("error", null);
-        if (error != null) {
+        final String error = jsonObject.optString("error");
+        if (!TextUtils.isEmpty(error)) {
             if (error.equalsIgnoreCase("WARMING_UP")) {
                 throw new MoPubNetworkError.Builder().reason(MoPubNetworkError.Reason.WARMING_UP).build();
             }
@@ -145,13 +150,14 @@ public class PositioningRequest extends MoPubRequest<MoPubClientPositioning> {
         positioning.enableRepeatingPositions(interval);
     }
 
+    @Nullable
     @Override
     protected Map<String, String> getParams() {
-        if (!MoPubRequestUtils.isMoPubRequest(getUrl())) {
+        MoPubUrlRewriter rewriter = Networking.getUrlRewriter();
+        if (!MoPubRequestUtils.isMoPubRequest(getUrl()) || rewriter == null) {
             return null;
         }
 
-        MoPubUrlRewriter rewriter = Networking.getUrlRewriter();
         return MoPubNetworkUtils.convertQueryToMap(rewriter.rewriteUrl(getOriginalUrl()));
     }
 

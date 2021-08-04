@@ -122,12 +122,37 @@ class NativeListViewFragment : Fragment() {
                 .build()
         )
 
+        // Set up a renderer for Reference adapters.
+        val referenceRenderer = ReferenceNativeAdRenderer(
+            ReferenceNativeAdRenderer.ReferenceViewBinder.Builder(R.layout.native_ad_list_item)
+                .titleId(R.id.native_title)
+                .textId(R.id.native_text)
+                .mainImageId(R.id.native_main_image)
+                .iconImageId(R.id.native_icon_image)
+                .callToActionId(R.id.native_cta)
+                .adChoicesRelativeLayoutId(R.id.native_privacy_information_icon_layout)
+                .build()
+        )
+
+        // Set up a renderer for Mintegral ads
+        val mintegralAdRenderer = MintegralAdRenderer(
+            MintegralAdRenderer.ViewBinder.Builder(R.layout.native_ad_list_item)
+                .titleId(R.id.native_title)
+                .textId(R.id.native_text)
+                .mainImageId(R.id.native_main_image)
+                .iconImageId(R.id.native_icon_image)
+                .callToActionId(R.id.native_cta)
+                .build()
+        )
+
         // Create an ad adapter that gets its positioning information from the MoPub Ad Server.
         // This adapter will be used in place of the original adapter for the ListView.
         adAdapter = MoPubAdAdapter(activity!!, adapter, MoPubServerPositioning()).apply {
             // Register the renderers with the MoPubAdAdapter and then set the adapter on the ListView.
             // The first renderer that can handle a particular native ad gets used.
             // We are prioritizing network renderers.
+            registerAdRenderer(mintegralAdRenderer)
+            registerAdRenderer(referenceRenderer)
             registerAdRenderer(pangleAdRenderer)
             registerAdRenderer(verizonNativeAdRenderer)
             registerAdRenderer(googlePlayServicesAdRenderer)

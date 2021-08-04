@@ -429,11 +429,6 @@ public class VastXmlManagerAggregator extends AsyncTask<String, Void, VastVideoC
         vastVideoConfig.addSkipTrackers(linearXmlManager.getVideoSkipTrackers());
         vastVideoConfig.addClickTrackers(linearXmlManager.getClickTrackers());
 
-        // Only set the skip offset if we haven't set it already in one of the redirects
-        if (vastVideoConfig.getSkipOffset() == null) {
-            vastVideoConfig.setSkipOffset(linearXmlManager.getSkipOffset());
-        }
-
         // Only set the icon if we haven't set it already in one of the redirects
         if (vastVideoConfig.getVastIconConfig() == null) {
             vastVideoConfig.setVastIconConfig(getBestIcon(linearXmlManager.getIconXmlManagers()));

@@ -19,6 +19,7 @@ import org.junit.runner.RunWith;
 import static androidx.test.espresso.Espresso.onData;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static com.mopub.framework.base.BasePage.pressBack;
 import static com.mopub.framework.util.Actions.loopMainThreadUntilIdle;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.startsWith;
@@ -75,5 +76,6 @@ public class RecyclerViewAdTest extends MoPubBaseTestCase {
         clickElement(withId(R.id.native_main_image));
 
         assertWebViewUrl(WEB_PAGE_LINK);
+        pressBack();
     }
 }

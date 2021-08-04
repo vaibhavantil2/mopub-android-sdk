@@ -7,7 +7,7 @@ package com.mopub.mobileads;
 import android.app.Activity;
 import android.content.Context;
 
-import com.mopub.common.CacheService;
+import com.mopub.common.VideoCacheService;
 import com.mopub.common.test.support.SdkTestRunner;
 import com.mopub.common.util.test.support.ShadowAsyncTasks;
 import com.mopub.common.util.test.support.ShadowMoPubHttpUrlConnection;
@@ -41,13 +41,13 @@ public class VideoDownloaderTest {
     @Before
     public void setUp() {
         Context context = Robolectric.buildActivity(Activity.class).create().get();
-        CacheService.initialize(context);
+        VideoCacheService.initializeCache(context);
     }
 
     @After
     public void tearDown() {
         VideoDownloader.clearDownloaderTasks();
-        CacheService.clearAndNullCaches();
+        VideoCacheService.clearAndNullVideoCache();
     }
 
     @Test
@@ -143,8 +143,9 @@ public class VideoDownloaderTest {
         final Boolean result = videoDownloaderTask.doInBackground(expectedUrl1);
 
         assertThat(result).isTrue();
-        assertThat(CacheService.getDiskLruCache().size()).isEqualTo(expectedResponse.length());
-        assertThat(CacheService.getFromDiskCache(expectedUrl1)).isEqualTo(expectedResponse.getBytes());
+        assertThat(VideoCacheService.getVideoCache().size()).isEqualTo(expectedResponse.length());
+        assertThat(VideoCacheService.get(expectedUrl1))
+                .isEqualTo(expectedResponse.getBytes());
     }
 
     @Test
@@ -155,7 +156,7 @@ public class VideoDownloaderTest {
         final Boolean result = videoDownloaderTask.doInBackground((String) null);
 
         assertThat(result).isFalse();
-        assertThat(CacheService.getDiskLruCache().size()).isEqualTo(0);
+        assertThat(VideoCacheService.getVideoCache().size()).isEqualTo(0);
     }
 
     @Test
@@ -166,7 +167,7 @@ public class VideoDownloaderTest {
         final Boolean result = videoDownloaderTask.doInBackground(Arrays.<String>array());
 
         assertThat(result).isFalse();
-        assertThat(CacheService.getDiskLruCache().size()).isEqualTo(0);
+        assertThat(VideoCacheService.getVideoCache().size()).isEqualTo(0);
     }
 
     @Test
@@ -178,7 +179,7 @@ public class VideoDownloaderTest {
         final Boolean result = videoDownloaderTask.doInBackground(parameters);
 
         assertThat(result).isFalse();
-        assertThat(CacheService.getDiskLruCache().size()).isEqualTo(0);
+        assertThat(VideoCacheService.getVideoCache().size()).isEqualTo(0);
     }
 
     @Test
@@ -189,7 +190,7 @@ public class VideoDownloaderTest {
         final Boolean result = videoDownloaderTask.doInBackground(expectedUrl1);
 
         assertThat(result).isFalse();
-        assertThat(CacheService.getDiskLruCache().size()).isEqualTo(0);
+        assertThat(VideoCacheService.getVideoCache().size()).isEqualTo(0);
     }
 
     @Test
@@ -200,7 +201,7 @@ public class VideoDownloaderTest {
         final Boolean result = videoDownloaderTask.doInBackground(expectedUrl1);
 
         assertThat(result).isFalse();
-        assertThat(CacheService.getDiskLruCache().size()).isEqualTo(0);
+        assertThat(VideoCacheService.getVideoCache().size()).isEqualTo(0);
     }
 
     @Test
@@ -212,7 +213,7 @@ public class VideoDownloaderTest {
         final Boolean result = videoDownloaderTask.doInBackground(expectedUrl1);
 
         assertThat(result).isFalse();
-        assertThat(CacheService.getDiskLruCache().size()).isEqualTo(0);
+        assertThat(VideoCacheService.getVideoCache().size()).isEqualTo(0);
     }
 
     @Test

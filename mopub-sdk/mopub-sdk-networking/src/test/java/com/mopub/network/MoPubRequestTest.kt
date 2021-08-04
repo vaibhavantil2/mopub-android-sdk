@@ -67,6 +67,7 @@ class MoPubRequestTest {
             .thenReturn("ISO-8859-1")
         `when`(MoPubNetworkUtils.convertQueryToMap(url))
             .thenReturn(mapOf("query1" to "abc", "query2" to "def", "query3" to "ghi"))
+        Networking.urlRewriter = object : MoPubUrlRewriter {}
     }
 
     @Test
@@ -208,7 +209,7 @@ class MoPubRequestTest {
     }
 
     @Test
-    fun getParams_withParams_shouldReturnParamMap() {
+    fun getParams_whenUrlHasParams_whenUrlRewriterIsNotNull_shouldReturnParamMap() {
         val result = subject.getParamsFromRequest()
 
         verifyStatic(MoPubNetworkUtils::class.java)
@@ -220,14 +221,18 @@ class MoPubRequestTest {
     }
 
     @Test
-    fun getParams_withEmptyParams_shouldReturnEmptyParamMap() {
-        `when`(MoPubNetworkUtils.convertQueryToMap(""))
-            .thenReturn(emptyMap())
-        val request = TestMoPubRequest(context, listener, "https://ads.mopub.com/m/ad")
+    fun getParams_whenUrlDoesNotHaveParams_whenUrlRewriterIsNotNull_shouldReturnEmptyMap() {
+        assertNotNull(Networking.urlRewriter)
+        subject = TestMoPubRequest(context, listener, "https://ads.mopub.com/m/ad")
 
-        val result = request.getParamsFromRequest()
+        assertTrue(subject.getParamsFromRequest()!!.isEmpty())
+    }
 
-        assertEquals(emptyMap<String, String>(), result)
+    @Test
+    fun getParams_whenUrlRewriterIsNull_shouldReturnNull() {
+        Networking.urlRewriter = null
+
+        assertNull(subject.getParamsFromRequest())
     }
 
     @Test

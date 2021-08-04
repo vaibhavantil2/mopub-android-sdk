@@ -29,8 +29,7 @@ public class TestMraidControllerFactory extends MraidControllerFactory {
     @Override
     protected MraidController internalCreate(@NonNull final Context context,
                                              @Nullable final String dspCreativeId,
-                                             @NonNull final PlacementType placementType,
-                                             final boolean allowCustomClose) {
+                                             @NonNull final PlacementType placementType) {
         return mockMraidController;
     }
 }

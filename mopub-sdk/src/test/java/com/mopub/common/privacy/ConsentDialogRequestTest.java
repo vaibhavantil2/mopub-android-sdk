@@ -12,6 +12,8 @@ import com.mopub.network.MoPubNetworkError;
 import com.mopub.network.MoPubNetworkResponse;
 import com.mopub.network.MoPubResponse;
 import com.mopub.network.MoPubRetryPolicy;
+import com.mopub.network.Networking;
+import com.mopub.network.PlayServicesUrlRewriter;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -26,6 +28,8 @@ import static com.mopub.network.MoPubRequest.DEFAULT_CONTENT_TYPE;
 import static com.mopub.network.MoPubRequest.JSON_CONTENT_TYPE;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -46,6 +50,8 @@ public class ConsentDialogRequestTest {
     public void setup() {
         activity = Robolectric.buildActivity(Activity.class).create().get();
         subject = new ConsentDialogRequest(activity, URL, listener);
+
+        Networking.setUrlRewriter(new PlayServicesUrlRewriter());
     }
 
     @Test
@@ -56,6 +62,19 @@ public class ConsentDialogRequestTest {
         assertThat(retryPolicy).isNotNull();
         assertThat(retryPolicy.getInitialTimeoutMs()).isEqualTo(MoPubRetryPolicy.DEFAULT_TIMEOUT_MS);
         assertThat(subject.getShouldCache()).isFalse();
+    }
+
+    @Test
+    public void getParams_withMoPubRequest_shouldReturnParamMap() {
+        assertNotNull(subject.getParams());
+    }
+
+    @Test
+    public void getParams_withNonMoPubRequest_shouldReturnNull() {
+        String nonMoPubUrl = "https://www.abcdefg.com/xyz";
+        subject = new ConsentDialogRequest(activity, nonMoPubUrl, listener);
+
+        assertNull(subject.getParams());
     }
 
     @Test

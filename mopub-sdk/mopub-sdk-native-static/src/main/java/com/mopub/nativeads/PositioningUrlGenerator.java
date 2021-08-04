@@ -43,9 +43,12 @@ class PositioningUrlGenerator extends BaseUrlGenerator {
 
         appendWrapperVersion();
 
-        setDeviceInfo(clientMetadata.getDeviceManufacturer(),
+        addParam(PLATFORM_KEY, Constants.ANDROID_PLATFORM);
+        setDeviceInfo(clientMetadata.getDeviceOsVersion(),
+                clientMetadata.getDeviceManufacturer(),
                 clientMetadata.getDeviceModel(),
-                clientMetadata.getDeviceProduct());
+                clientMetadata.getDeviceProduct(),
+                clientMetadata.getDeviceHardware());
 
         setAppVersion(clientMetadata.getAppVersion());
 

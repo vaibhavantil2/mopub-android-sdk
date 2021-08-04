@@ -9,9 +9,9 @@ import android.os.AsyncTask;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.mopub.common.CacheService;
 import com.mopub.common.MoPubHttpUrlConnection;
 import com.mopub.common.Preconditions;
+import com.mopub.common.VideoCacheService;
 import com.mopub.common.VisibleForTesting;
 import com.mopub.common.logging.MoPubLog;
 import com.mopub.common.util.AsyncTasks;
@@ -140,8 +140,7 @@ public class VideoDownloader {
                     return false;
                 }
 
-                boolean diskPutResult = CacheService.putToDiskCache(videoUrl, inputStream);
-                return diskPutResult;
+                return VideoCacheService.put(videoUrl, inputStream);
             } catch (Exception e) {
                 MoPubLog.log(ERROR_WITH_THROWABLE, "VideoDownloader task threw an internal exception.", e);
                 return false;

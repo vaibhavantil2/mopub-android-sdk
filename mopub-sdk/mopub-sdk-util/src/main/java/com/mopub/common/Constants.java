@@ -77,15 +77,12 @@ public class Constants {
     public static final String VAST_URL_CLICKTHROUGH = "clickthrough_url";
     public static final String VAST_URL_NETWORK_MEDIA_FILE = "network_media_file_url";
     public static final String VAST_URL_DISK_MEDIA_FILE = "disk_media_file_url";
-    public static final String VAST_SKIP_OFFSET = "skip_offset";
     public static final String VAST_SKIP_OFFSET_MS = "skip_offset_ms";
     public static final String VAST_DURATION_MS = "duration_ms";
     public static final String VAST_COMPANION_ADS = "companion_ads";
     public static final String VAST_ICON_CONFIG = "icon_config";
-    public static final String VAST_IS_SKIPPABLE = "is_skippable";
     public static final String VAST_IS_REWARDED = "is_rewarded";
     public static final String VAST_ENABLE_CLICK_EXP = "enable_click_exp";
-    public static final String VAST_COUNTDOWN_TIMER_DURATION = "countdown_timer_duration";
 
     public static final String VAST_CUSTOM_TEXT_CTA = "custom_cta_text";
     public static final String VAST_CUSTOM_TEXT_SKIP = "custom_skip_text";
@@ -98,4 +95,23 @@ public class Constants {
     public static final String VAST_PRIVACY_ICON_IMAGE_URL = "privacy_icon_image_url";
     public static final String VAST_PRIVACY_ICON_CLICK_URL = "privacy_icon_click_url";
 
+    // Creative Experience JSON Field Names
+    public static final String CE_SETTINGS_HASH = "hash";
+    public static final String CE_MAX_AD_TIME = "max_ad_time_secs";
+
+    public static final String CE_MAIN_AD = "main_ad";
+    public static final String CE_END_CARD = "end_card";
+    public static final String CE_MIN_TIME_UNTIL_NEXT_ACTION = "min_next_action_secs";
+    public static final String CE_COUNTDOWN_TIMER_DELAY = "cd_delay_secs";
+    public static final String CE_SHOW_COUNTDOWN_TIMER = "show_cd";
+
+    public static final String CE_END_CARD_DURS = "ec_durs_secs";
+    public static final String CE_STATIC = "static";
+    public static final String CE_INTERACTIVE = "interactive";
+    public static final String CE_MIN_STATIC = "min_static";
+    public static final String CE_MIN_INTERACTIVE = "min_interactive";
+
+    public static final String CE_VIDEO_SKIP_THRESHOLDS = "video_skip_thresholds_secs";
+    public static final String CE_SKIP_MIN = "min";
+    public static final String CE_SKIP_AFTER ="after";
 }

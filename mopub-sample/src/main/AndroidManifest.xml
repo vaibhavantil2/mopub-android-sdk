@@ -33,6 +33,7 @@
         android:theme="@style/AppTheme">
         <activity
             android:name="com.mopub.simpleadsdemo.MoPubSampleActivity"
+            android:exported="true"
             android:windowSoftInputMode="stateAlwaysHidden"
             android:configChanges="orientation|screenSize"
             android:label="@string/app_name"

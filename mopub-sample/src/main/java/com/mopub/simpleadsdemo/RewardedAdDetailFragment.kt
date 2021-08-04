@@ -144,8 +144,8 @@ class RewardedAdDetailFragment : Fragment(),
 
         val availableRewards = getAvailableRewards(adUnitId)
 
-        // If there are more than one reward available, pop up alert dialog for reward selection
-        if (availableRewards.size > 1) {
+        // Pop up alert dialog for reward selection
+        if (availableRewards.size > 0) {
             val selectRewardDialogFragment = SelectRewardDialogFragment.newInstance()
 
             // The user must select a reward from the dialog

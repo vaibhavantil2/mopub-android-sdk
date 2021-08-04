@@ -29,198 +29,130 @@ public class VideoCtaButtonWidgetTest {
     }
 
     @Test
-    public void constructor_withCompanionAd_shouldBeInvisibleAndNotSetLayoutParams() throws Exception {
-        subject = new VideoCtaButtonWidget(context, true, true);
+    public void constructor_withCompanionAd_shouldBeVisible() {
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(true);
+        subject.setHasClickthroughUrl(true);
 
-        assertThat(subject.getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(subject.getLayoutParams()).isNull();
+        assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
     }
 
     @Test
-    public void constructor_withoutCompanionAd_shouldBeInvisibleAndNotSetLayoutParams() throws Exception {
-        subject = new VideoCtaButtonWidget(context, false, true);
+    public void constructor_withoutCompanionAd_shouldBeVisible() {
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(true);
+        subject.setHasClickthroughUrl(true);
 
-        assertThat(subject.getVisibility()).isEqualTo(View.INVISIBLE);
-        assertThat(subject.getLayoutParams()).isNull();
+        assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
     }
 
     @Test
-    public void constructor_withCompanionAd_withNoClickthroughUrl_shouldBeGoneAndNotSetLayoutParams() throws Exception {
-        subject = new VideoCtaButtonWidget(context, true, false);
+    public void constructor_withCompanionAd_withNoClickthroughUrl_shouldBeGone() {
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(true);
+        subject.setHasClickthroughUrl(false);
 
         assertThat(subject.getVisibility()).isEqualTo(View.GONE);
-        assertThat(subject.getLayoutParams()).isNull();
     }
 
     @Test
-    public void constructor_withoutCompanionAd_withNoClickthroughUrl_shouldBeGoneAndNotSetLayoutParams() throws Exception {
-        subject = new VideoCtaButtonWidget(context, false, false);
+    public void constructor_withoutCompanionAd_withNoClickthroughUrl_shouldBeGone() {
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(false);
+        subject.setHasClickthroughUrl(false);
 
         assertThat(subject.getVisibility()).isEqualTo(View.GONE);
-        assertThat(subject.getLayoutParams()).isNull();
-    }
-
-    // Video is skippable, has companion ad, has clickthrough url, CTA button initially invisible
-
-    @Test
-    public void notifyVideoSkippable_withCompanionAdAndInPortrait_shouldBeVisibleAndSetLayoutParams() throws Exception {
-        context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_PORTRAIT;
-        subject = new VideoCtaButtonWidget(context, true, true);
-
-        subject.notifyVideoSkippable();
-
-        assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(subject.getLayoutParams()).isNotNull();
-    }
-
-    @Test
-    public void notifyVideoSkippable_withCompanionAdAndInLandscape_shouldBeVisibleAndSetLayoutParams() throws Exception {
-        context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
-        subject = new VideoCtaButtonWidget(context, true, true);
-
-        subject.notifyVideoSkippable();
-
-        assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(subject.getLayoutParams()).isNotNull();
-    }
-
-    @Test
-    public void notifyVideoSkippable_withCompanionAdAndOrientationUndefined_shouldBeVisibleAndSetLayoutParams() throws Exception {
-        context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_UNDEFINED;
-        subject = new VideoCtaButtonWidget(context, true, true);
-
-        subject.notifyVideoSkippable();
-
-        assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(subject.getLayoutParams()).isNotNull();
-    }
-
-    // Video is skippable, no companion ad, has clickthrough url, CTA button initially invisible
-
-    @Test
-    public void notifyVideoSkippable_withoutCompanionAdAndInPortrait_shouldBeVisibleAndSetLayoutParams() throws Exception {
-        context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_PORTRAIT;
-        subject = new VideoCtaButtonWidget(context, false, true);
-
-        subject.notifyVideoSkippable();
-
-        assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(subject.getLayoutParams()).isNotNull();
-    }
-
-    @Test
-    public void notifyVideoSkippable_withoutCompanionAdAndInLandscape_shouldBeVisibleAndSetLayoutParams() throws Exception {
-        context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
-        subject = new VideoCtaButtonWidget(context, false, true);
-
-        subject.notifyVideoSkippable();
-
-        assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(subject.getLayoutParams()).isNotNull();
-    }
-
-    @Test
-    public void notifyVideoSkippable_withoutCompanionAdAndOrientationUndefined_shouldBeVisibleAndSetLayoutParams() throws Exception {
-        context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_UNDEFINED;
-        subject = new VideoCtaButtonWidget(context, false, true);
-
-        subject.notifyVideoSkippable();
-
-        assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(subject.getLayoutParams()).isNotNull();
     }
 
     // Video is complete, has companion ad, CTA button already visible
 
     @Test
-    public void notifyVideoComplete_withCompanionAdAndInPortrait_shouldBeGoneAndNotChangeLayoutParams() throws Exception {
+    public void notifyVideoComplete_withCompanionAdAndInPortrait_shouldBeGone() {
         context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_PORTRAIT;
-        subject = new VideoCtaButtonWidget(context, true, true);
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(true);
+        subject.setHasClickthroughUrl(true);
         subject.setVisibility(View.VISIBLE);
 
         subject.notifyVideoComplete();
 
         assertThat(subject.getVisibility()).isEqualTo(View.GONE);
-        assertThat(subject.getLayoutParams()).isNull();
     }
 
     @Test
-    public void notifyVideoComplete_withCompanionAdAndInLandscape_shouldBeGoneAndNotChangeLayoutParams() throws Exception {
+    public void notifyVideoComplete_withCompanionAdAndInLandscape_shouldBeGone() {
         context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
-        subject = new VideoCtaButtonWidget(context, true, true);
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(true);
+        subject.setHasClickthroughUrl(true);
         subject.setVisibility(View.VISIBLE);
 
         subject.notifyVideoComplete();
 
         assertThat(subject.getVisibility()).isEqualTo(View.GONE);
-        assertThat(subject.getLayoutParams()).isNull();
     }
 
     @Test
-    public void notifyVideoComplete_withCompanionAdAndOrientationUndefined_shouldBeGoneAndNotChangeLayoutParams() throws Exception {
+    public void notifyVideoComplete_withCompanionAdAndOrientationUndefined_shouldBeGone() {
         context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_UNDEFINED;
-        subject = new VideoCtaButtonWidget(context, true, true);
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(true);
+        subject.setHasClickthroughUrl(true);
         subject.setVisibility(View.VISIBLE);
 
         subject.notifyVideoComplete();
 
         assertThat(subject.getVisibility()).isEqualTo(View.GONE);
-        assertThat(subject.getLayoutParams()).isNull();
     }
 
     // Video is complete, no companion ad, has clickthrough url, CTA button already visible
 
     @Test
-    public void notifyVideoComplete_withoutCompanionAdAndInPortrait_shouldBeVisibleAndSetLayoutParams() throws Exception {
+    public void notifyVideoComplete_withoutCompanionAdAndInPortrait_shouldBeVisible() {
         context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_PORTRAIT;
-        subject = new VideoCtaButtonWidget(context,false, true);
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(false);
+        subject.setHasClickthroughUrl(true);
         subject.setVisibility(View.VISIBLE);
 
         subject.notifyVideoComplete();
 
         assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(subject.getLayoutParams()).isNotNull();
     }
 
     @Test
-    public void notifyVideoComplete_withoutCompanionAdAndInLandscape_shouldBeVisibleAndSetLayoutParams() throws Exception {
+    public void notifyVideoComplete_withoutCompanionAdAndInLandscape_shouldBeVisible() {
         context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
-        subject = new VideoCtaButtonWidget(context, false, true);
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(false);
+        subject.setHasClickthroughUrl(true);
         subject.setVisibility(View.VISIBLE);
 
         subject.notifyVideoComplete();
 
         assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(subject.getLayoutParams()).isNotNull();
     }
 
     @Test
-    public void notifyVideoComplete_withoutCompanionAdAndOrientationUndefined_shouldBeVisibleAndSetLayoutParams() throws Exception {
+    public void notifyVideoComplete_withoutCompanionAdAndOrientationUndefined_shouldBeVisible() {
         context.getResources().getConfiguration().orientation = Configuration.ORIENTATION_UNDEFINED;
-        subject = new VideoCtaButtonWidget(context, false, true);
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(false);
+        subject.setHasClickthroughUrl(true);
         subject.setVisibility(View.VISIBLE);
 
         subject.notifyVideoComplete();
 
         assertThat(subject.getVisibility()).isEqualTo(View.VISIBLE);
-        assertThat(subject.getLayoutParams()).isNotNull();
     }
 
     // No clickthrough url means never show cta button
 
     @Test
-    public void notifyVideoSkippable_withoutClickthroughUrl_shouldBeGone() throws Exception {
-        subject = new VideoCtaButtonWidget(context, true, false);
-        subject.setVisibility(View.VISIBLE);
-
-        subject.notifyVideoSkippable();
-
-        assertThat(subject.getVisibility()).isEqualTo(View.GONE);
-    }
-
-    @Test
-    public void notifyVideoComplete_withoutClickthroughUrl_shouldBeGone() throws Exception {
-        subject = new VideoCtaButtonWidget(context, true, false);
+    public void notifyVideoComplete_withoutClickthroughUrl_shouldBeGone() {
+        subject = new VideoCtaButtonWidget(context, null);
+        subject.setHasCompanionAd(true);
+        subject.setHasClickthroughUrl(false);
         subject.setVisibility(View.VISIBLE);
 
         subject.notifyVideoComplete();

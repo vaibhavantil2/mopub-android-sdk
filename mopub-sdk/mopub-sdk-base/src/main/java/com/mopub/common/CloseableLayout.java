@@ -5,122 +5,72 @@
 package com.mopub.common;
 
 import android.content.Context;
-import android.graphics.Canvas;
 import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
-import android.view.MotionEvent;
+import android.view.LayoutInflater;
 import android.view.SoundEffectConstants;
+import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 
-import com.mopub.common.util.Dips;
 import com.mopub.mobileads.base.R;
 
 /**
  * CloseableLayout provides a layout class that shows a close button, and allows setting a
  * {@link OnCloseListener}. Otherwise CloseableLayout behaves identically to
  * {@link FrameLayout}.
- *
+ * <p>
  * Rather than adding a button to the view tree, CloseableLayout is designed to draw the close
  * button directly on the canvas and to track MotionEvents on its close region. While
  * marginally more efficient, the main benefit to this is that CloseableLayout can function
  * exactly as a regular FrameLayout without needing to override addView, removeView,
  * removeAllViews, and a host of other methods.
  *
- * You can hide the close button using {@link #setCloseVisible} and change its position
- * using {@link #setClosePosition}.
+ * You can hide the close button using {@link #setCloseVisible}.
  */
 public class CloseableLayout extends FrameLayout {
     public interface OnCloseListener {
         void onClose();
     }
 
-    @VisibleForTesting
-    static final float CLOSE_BUTTON_SIZE_DP = 34.0f;
-    static final float CLOSE_REGION_SIZE_DP = 50.0f;
-
-    @VisibleForTesting
-    static final float CLOSE_BUTTON_PADDING_DP = 8.0f;
-
-    /**
-     * Defines a subset of supported gravity combinations for the CloseableLayout. These values
-     * include the possible values for customClosePosition as defined in the
-     * <a href="https://www.iab.net/media/file/IAB_MRAID_v2_FINAL.pdf">MRAID 2.0
-     * specification</a>.
-     */
-    public enum ClosePosition {
-        TOP_LEFT(Gravity.TOP | Gravity.LEFT),
-        TOP_CENTER(Gravity.TOP | Gravity.CENTER_HORIZONTAL),
-        TOP_RIGHT(Gravity.TOP | Gravity.RIGHT),
-        CENTER(Gravity.CENTER),
-        BOTTOM_LEFT(Gravity.BOTTOM | Gravity.LEFT),
-        BOTTOM_CENTER(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL),
-        BOTTOM_RIGHT(Gravity.BOTTOM | Gravity.RIGHT);
-
-        private final int mGravity;
-
-        ClosePosition(final int mGravity) {
-            this.mGravity = mGravity;
-        }
-
-        int getGravity() {
-            return mGravity;
-        }
-    }
-
-    // Used in onTouchEvent to be lenient about moving outside the close button bounds. This is the
-    // same pattern used in the Android framework to handle click events.
-    private final int mTouchSlop;
-
     @Nullable
     private OnCloseListener mOnCloseListener;
+  
+    private final int mCloseRegionSize;  // Size of the touchable close region.
 
     @Nullable
-    private final Drawable mCloseDrawable;
-    @NonNull
-    private ClosePosition mClosePosition;
-    private final int mCloseRegionSize;  // Size of the touchable close region.
-    private final int mCloseButtonSize;  // Size of the drawn close button.
-    private final int mCloseButtonPadding;
-
-    // Whether we need to recalculate the close bounds on the next draw pass
-    private boolean mCloseBoundChanged;
-
-    // Hang on to our bounds Rects so we don't allocate memory in the draw() method.
-    private final Rect mClosableLayoutRect = new Rect();
-    private final Rect mCloseRegionBounds = new Rect();
-    private final Rect mCloseButtonBounds = new Rect();
-    private final Rect mInsetCloseRegionBounds = new Rect();
+    private ImageButton mCloseButton;
 
     private boolean mCloseAlwaysInteractable;
-    private boolean mClosePressed;
 
     @Nullable
     private UnsetPressedState mUnsetPressedState;
 
-    public CloseableLayout(@NonNull Context context) {
-        this(context, null, 0);
-    }
     public CloseableLayout(@NonNull Context context, @Nullable AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
     public CloseableLayout(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        mCloseDrawable = ContextCompat.getDrawable(context, R.drawable.ic_mopub_close_button);
-        mClosePosition = ClosePosition.TOP_RIGHT;
+        LayoutInflater.from(context)
+                .inflate(R.layout.closeable_layout, this, true);
 
-        mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
+        mCloseButton = findViewById(R.id.mopub_closeable_layout_close_button);
+        mCloseButton.setOnClickListener(v -> onClosePressed() );
 
-        mCloseRegionSize = Dips.asIntPixels(CLOSE_REGION_SIZE_DP, context);
-        mCloseButtonSize = Dips.asIntPixels(CLOSE_BUTTON_SIZE_DP, context);
-        mCloseButtonPadding = Dips.asIntPixels(CLOSE_BUTTON_PADDING_DP, context);
+        mCloseButton.setOnLongClickListener(v -> {
+            onClosePressed();
+            return true;
+        });
+
+        mCloseRegionSize = getResources()
+                .getDimensionPixelSize(R.dimen.closeable_layout_region_size);
 
         setWillNotDraw(false);
         mCloseAlwaysInteractable = true;
@@ -128,123 +78,66 @@ public class CloseableLayout extends FrameLayout {
         setBackgroundColor(blackColor);
     }
 
-
     public void setOnCloseListener(@Nullable OnCloseListener onCloseListener) {
         mOnCloseListener = onCloseListener;
     }
 
-    public void setClosePosition(@NonNull ClosePosition closePosition) {
-        Preconditions.checkNotNull(closePosition);
-
-        mClosePosition = closePosition;
-        mCloseBoundChanged = true;
-        invalidate();
-    }
-
     public void setCloseVisible(boolean visible) {
-        if (mCloseDrawable != null && mCloseDrawable.setVisible(visible, false)) {
-            invalidate(mCloseRegionBounds);
+        if (mCloseButton == null) {
+            return;
+        } else if (!visible) {
+            mCloseButton.setVisibility(mCloseAlwaysInteractable ? INVISIBLE : GONE);
+        } else {
+            mCloseButton.setVisibility(VISIBLE);
         }
+        mCloseButton.invalidate();
+    }
+
+    // These are essential for recognizing when the close button will be drawn offscreen
+    public void applyCloseRegionBounds(Rect bounds, Rect closeBounds) {
+        applyCloseBoundsWithSize(mCloseRegionSize, bounds, closeBounds);
+    }
+
+    private void applyCloseBoundsWithSize(final int size, Rect bounds, Rect outBounds) {
+        Gravity.apply(Gravity.RIGHT|Gravity.TOP, size, size, bounds, outBounds);
     }
 
     @Override
-    protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
-        super.onSizeChanged(width, height, oldWidth, oldHeight);
-        mCloseBoundChanged = true;
+    public void addView(final View child, final int index) {
+        super.addView(child, index);
+        // Always keep the close button above everything else
+        bringChildToFront(mCloseButton);
     }
 
     @Override
-    public void draw(@NonNull final Canvas canvas) {
-        super.draw(canvas);
-
-        // Only recalculate the close bounds if they are dirty
-        if (mCloseBoundChanged) {
-            mCloseBoundChanged = false;
-
-            mClosableLayoutRect.set(0, 0, getWidth(), getHeight());
-            // Create the bounds for our close regions.
-            applyCloseRegionBounds(mClosePosition, mClosableLayoutRect, mCloseRegionBounds);
-
-            // The inset rect applies padding around the visible closeButton.
-            mInsetCloseRegionBounds.set(mCloseRegionBounds);
-            mInsetCloseRegionBounds.inset(mCloseButtonPadding, mCloseButtonPadding);
-            // The close button sits inside the close region with padding and gravity
-            // in the same way the close region sits inside the whole ClosableLayout
-            applyCloseButtonBounds(mClosePosition, mInsetCloseRegionBounds, mCloseButtonBounds);
-            if (mCloseDrawable != null) {
-                mCloseDrawable.setBounds(mCloseButtonBounds);
-            }
-        }
-
-        // Draw last so that this gets drawn as the top layer. This is also why we override
-        // draw instead of onDraw.
-        if (mCloseDrawable != null && mCloseDrawable.isVisible()) {
-            mCloseDrawable.draw(canvas);
-        }
-    }
-
-    public void applyCloseRegionBounds(ClosePosition closePosition, Rect bounds, Rect closeBounds) {
-        applyCloseBoundsWithSize(closePosition, mCloseRegionSize, bounds, closeBounds);
-    }
-
-    private void applyCloseButtonBounds(ClosePosition closePosition, Rect bounds, Rect outBounds) {
-        applyCloseBoundsWithSize(closePosition, mCloseButtonSize, bounds, outBounds);
-    }
-
-    private void applyCloseBoundsWithSize(ClosePosition closePosition, final int size, Rect bounds, Rect outBounds) {
-        Gravity.apply(closePosition.getGravity(), size, size, bounds, outBounds);
+    public void addView(final View child, final int width, final int height) {
+        super.addView(child, width, height);
+        // Always keep the close button above everything else
+        bringChildToFront(mCloseButton);
     }
 
     @Override
-    public boolean onInterceptTouchEvent(@NonNull final MotionEvent event) {
-        // See https://developer.android.com/training/gestures/viewgroup.html for details on
-        // capturing motion events
-
-        // Start intercepting touch events only when we see a down event
-        if (event.getAction() != MotionEvent.ACTION_DOWN) {
-            return false;
-        }
-
-        // Start intercepting if the down event is in the close bounds. Returning true
-        // here causes onTouchEvent to get called for all events up until ACTION_CANCEL gets called.
-        final int x = (int) event.getX();
-        final int y = (int) event.getY();
-        return pointInCloseBounds(x, y, 0);
+    public void addView(final View child, final int index, final ViewGroup.LayoutParams params) {
+        super.addView(child, index, params);
+        // Always keep the close button above everything else
+        bringChildToFront(mCloseButton);
     }
 
     @Override
-    public boolean onTouchEvent(@NonNull MotionEvent event) {
-        // Stop receiving touch events if we aren't within the bounds (including some slop)
-        // or if we aren't allowing a touch event due to an invisible button.
-        final int x = (int) event.getX();
-        final int y = (int) event.getY();
-        if (!pointInCloseBounds(x, y, mTouchSlop) || !shouldAllowPress()) {
-            setClosePressed(false);
-            super.onTouchEvent(event);
-            return false;
-        }
+    public void removeAllViews() {
+        super.removeAllViews();
 
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                setClosePressed(true);
-                break;
-            case MotionEvent.ACTION_CANCEL:
-                // Cancelled by a parent
-                setClosePressed(false);
-                break;
-            case MotionEvent.ACTION_UP:
-                if (isClosePressed()) {
-                    // Delay setting the unpressed state so that the button remains pressed
-                    // at least long enough to respond to the close event.
-                    if (mUnsetPressedState == null) {
-                        mUnsetPressedState = new UnsetPressedState();
-                    }
-                    postDelayed(mUnsetPressedState, ViewConfiguration.getPressedStateDuration());
-                    performClose();
-                }
-                break;
-        }
-        return true;
+        final Context context = getContext();
+        LayoutInflater.from(context)
+                .inflate(R.layout.closeable_layout, this, true);
+
+        mCloseButton = findViewById(R.id.mopub_closeable_layout_close_button);
+        mCloseButton.setOnClickListener(v -> {
+            mCloseButton.setEnabled(false);
+            performClose();
+            mUnsetPressedState = new UnsetPressedState();
+            postDelayed(mUnsetPressedState, ViewConfiguration.getPressedStateDuration());
+        });
     }
 
     /**
@@ -258,29 +151,21 @@ public class CloseableLayout extends FrameLayout {
 
     @VisibleForTesting
     boolean shouldAllowPress() {
-        return mCloseAlwaysInteractable || mCloseDrawable == null || mCloseDrawable.isVisible();
-    }
-
-    private void setClosePressed(boolean pressed) {
-        if (pressed == isClosePressed()) {
-            return;
-        }
-
-        mClosePressed = pressed;
-        invalidate(mCloseRegionBounds);
+        return mCloseAlwaysInteractable
+                || mCloseButton == null
+                || mCloseButton.getVisibility() == VISIBLE;
     }
 
     @VisibleForTesting
     boolean isClosePressed() {
-        return mClosePressed;
+        return mCloseButton != null && !mCloseButton.isEnabled();
     }
 
-    @VisibleForTesting
-    boolean pointInCloseBounds(int x, int y, int slop) {
-        return x >= mCloseRegionBounds.left - slop
-                && y >= mCloseRegionBounds.top - slop
-                && x < mCloseRegionBounds.right + slop
-                && y < mCloseRegionBounds.bottom + slop;
+    private void onClosePressed() {
+        mCloseButton.setEnabled(false);
+        performClose();
+        mUnsetPressedState = new UnsetPressedState();
+        postDelayed(mUnsetPressedState, ViewConfiguration.getPressedStateDuration());
     }
 
     private void performClose() {
@@ -296,27 +181,23 @@ public class CloseableLayout extends FrameLayout {
      */
     private final class UnsetPressedState implements Runnable {
         public void run() {
-            setClosePressed(false);
+            if (mCloseButton != null) {
+                mCloseButton.setEnabled(true);
+            }
         }
     }
 
     @VisibleForTesting
-    void setCloseBounds(Rect closeBounds) {
-        mCloseRegionBounds.set(closeBounds);
-    }
-
-    @VisibleForTesting
-    Rect getCloseBounds() {
-        return mCloseRegionBounds;
-    }
-
-    @VisibleForTesting
-    void setCloseBoundChanged(boolean changed) {
-        mCloseBoundChanged = changed;
-    }
-
-    @VisibleForTesting
     public boolean isCloseVisible() {
-        return mCloseDrawable != null && mCloseDrawable.isVisible();
+        int result = GONE;
+        if (mCloseButton != null) {
+            result = mCloseButton.getVisibility();
+        }
+        return result == VISIBLE;
+    }
+
+    @VisibleForTesting
+    public boolean clickCloseButton() {
+        return mCloseButton != null && mCloseButton.callOnClick();
     }
 }
